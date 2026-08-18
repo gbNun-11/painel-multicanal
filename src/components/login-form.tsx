@@ -1,3 +1,5 @@
+"use client";
+
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 
@@ -36,7 +38,7 @@ const LoginForm = () => {
               {...methods.register("email")}
             />
             {methods.formState.errors.email && (
-              <p className="text-sm text-destructive">
+              <p className="text-xs text-destructive">
                 {methods.formState.errors.email.message}
               </p>
             )}
@@ -53,7 +55,7 @@ const LoginForm = () => {
               {...methods.register("password")}
             />
             {methods.formState.errors.password && (
-              <p className="text-sm text-destructive">
+              <p className="text-xs text-destructive">
                 {methods.formState.errors.password.message}
               </p>
             )}

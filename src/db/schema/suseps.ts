@@ -11,17 +11,21 @@ import { enterpriseInsurersTable } from "./enterprise-insurers";
 import { statusEnum } from "./enums";
 
 export const susepsTable = pgTable(
-  "suseps",
+  "enterprise_insurer_suseps",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+
     enterpriseInsurerId: uuid("enterprise_insurer_id")
       .notNull()
       .references(() => enterpriseInsurersTable.id, {
         onDelete: "restrict",
         onUpdate: "cascade",
       }),
+
     code: text("code").notNull(),
+
     status: statusEnum("status").default("ativo").notNull(),
+
     createdAt: timestamp("created_at", {
       withTimezone: true,
     })
