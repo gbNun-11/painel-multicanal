@@ -22,21 +22,22 @@ export const auth = betterAuth({
   },
   user: {
     modelName: "users",
+
     additionalFields: {
       phone: {
         type: "string",
         required: true,
       },
+
       role: {
         type: ["administrativo", "comercial", "admin"],
         required: true,
-        defaultValue: "comercial",
         input: false,
       },
+
       status: {
         type: ["ativo", "inativo"],
         required: true,
-        defaultValue: "ativo",
         input: false,
       },
     },

@@ -2,13 +2,16 @@ import z from "zod";
 
 const authenticationSchema = z.object({
   email: z
-    .email({
-      error: "O e-mail é invalido.",
-    })
+    .string()
     .trim()
     .min(1, {
       error: "O e-mail é obrigatório.",
-    }),
+    })
+    .pipe(
+      z.email({
+        error: "O e-mail é inválido.",
+      }),
+    ),
   password: z
     .string()
     .trim()
