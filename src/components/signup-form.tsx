@@ -18,6 +18,8 @@ import createUserSchema, {
   type CreateUserFormData,
 } from "@/src/schemas/createUserSchema";
 
+import { authClient } from "../lib/auth-client";
+
 const SignupForm = () => {
   const {
     register,
@@ -40,13 +42,21 @@ const SignupForm = () => {
   });
 
   const onSubmit = async (data: CreateUserFormData) => {
-    const payload = {
-      ...data,
+    const { error } = await authClient.admin.createUser({
+      name: data.name,
+      email: data.email,
+      password: data.password,
+      role: data.role,
+      data: {
+        phone: data.phone,
+        status: data.status,
+      },
+    });
 
-      phone: data.phone.replace(/\D/g, ""),
-    };
-
-    console.log(payload);
+    if (error) {
+      console.error(error);
+      return;
+    }
   };
 
   return (

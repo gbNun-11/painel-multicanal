@@ -1,6 +1,8 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 
 import { Button } from "@/src/components/ui/button";
@@ -11,7 +13,10 @@ import authenticationSchema, {
   type AuthenticationFormData,
 } from "@/src/schemas/authenticationSchema";
 
+import { authClient } from "../lib/auth-client";
+
 const LoginForm = () => {
+  const router = useRouter();
   const methods = useForm<AuthenticationFormData>({
     resolver: zodResolver(authenticationSchema),
     defaultValues: {
@@ -21,12 +26,28 @@ const LoginForm = () => {
     mode: "onBlur",
   });
 
-  const handleSubmit = (data: AuthenticationFormData) => {
-    console.log(data);
+  const onSubmit = async (data: AuthenticationFormData) => {
+    const { error } = await authClient.signIn.email(
+      {
+        email: data.email,
+        password: data.password,
+      },
+      {
+        onSuccess: () => {
+          router.push("/dashboard");
+          router.refresh();
+        },
+      },
+    );
+
+    if (error) {
+      console.error(error);
+      return;
+    }
   };
 
   return (
-    <form onSubmit={methods.handleSubmit(handleSubmit)}>
+    <form onSubmit={methods.handleSubmit(onSubmit)}>
       <CardContent>
         <div className="flex flex-col gap-6">
           <div className="grid gap-2">
@@ -63,8 +84,16 @@ const LoginForm = () => {
         </div>
       </CardContent>
       <CardFooter className="flex-col pt-4">
-        <Button type="submit" className="w-full">
-          Login
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={methods.formState.isSubmitting}
+        >
+          {methods.formState.isSubmitting ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            "Login"
+          )}
         </Button>
       </CardFooter>
     </form>

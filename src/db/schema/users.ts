@@ -21,4 +21,9 @@ export const usersTable = pgTable("users", {
   })
     .defaultNow()
     .notNull(),
+  banned: boolean("banned").default(false).notNull(),
+  banReason: text("ban_reason"),
+  banExpires: timestamp("ban_expires", {
+    withTimezone: true,
+  }),
 });
