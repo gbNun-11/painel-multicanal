@@ -39,17 +39,23 @@ const SignupForm = () => {
     mode: "onBlur",
   });
 
+  const roleLabels: Record<CreateUserFormData["role"], string> = {
+    admin: "Administrador",
+    administrativo: "Administrativo",
+    comercial: "Comercial",
+  };
+  const statusLabels: Record<CreateUserFormData["status"], string> = {
+    ativo: "Ativo",
+    inativo: "Inativo",
+  };
   const roleItems = userRoles.map((role) => ({
     value: role,
-    label:
-      role === "admin"
-        ? "Administrador"
-        : role.charAt(0).toUpperCase() + role.slice(1),
+    label: roleLabels[role],
   }));
 
   const statusItems = userStatuses.map((status) => ({
     value: status,
-    label: status.charAt(0).toUpperCase() + status.slice(1),
+    label: statusLabels[status],
   }));
 
   const onSubmit = async (data: CreateUserFormData) => {
@@ -75,7 +81,20 @@ const SignupForm = () => {
           methods.reset();
         },
 
-        onError: () => {
+        onError: (ctx) => {
+          if (
+            ctx.error.code === "USER_ALREADY_EXISTS" ||
+            ctx.error.code === "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL"
+          ) {
+            toast.add({
+              type: "error",
+              title: "Erro ao criar usuário",
+              description:
+                "O e-mail informado já está em uso. Por favor, utilize outro e-mail.",
+            });
+            return;
+          }
+
           toast.add({
             type: "error",
             title: "Erro ao criar usuário",
