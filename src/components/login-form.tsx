@@ -41,7 +41,7 @@ const LoginForm = () => {
             description: "Login realizado com sucesso!",
           });
 
-          router.push("/dashboard");
+          router.push("/");
           router.refresh();
         },
         onError: () => {
