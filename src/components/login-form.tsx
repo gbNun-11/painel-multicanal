@@ -9,6 +9,7 @@ import { Button } from "@/src/components/ui/button";
 import { CardContent, CardFooter } from "@/src/components/ui/card";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
+import { toast } from "@/src/components/ui/toast";
 import authenticationSchema, {
   type AuthenticationFormData,
 } from "@/src/schemas/authenticationSchema";
@@ -27,23 +28,32 @@ const LoginForm = () => {
   });
 
   const onSubmit = async (data: AuthenticationFormData) => {
-    const { error } = await authClient.signIn.email(
+    await authClient.signIn.email(
       {
         email: data.email,
         password: data.password,
       },
       {
         onSuccess: () => {
+          toast.add({
+            type: "success",
+            title: "Login Realizado",
+            description: "Login realizado com sucesso!",
+          });
+
           router.push("/dashboard");
           router.refresh();
         },
+        onError: () => {
+          toast.add({
+            type: "error",
+            title: "Falha no Login",
+            description:
+              "Não foi possível realizar o login. Verifique suas credenciais e tente novamente.",
+          });
+        },
       },
     );
-
-    if (error) {
-      console.error(error);
-      return;
-    }
   };
 
   return (

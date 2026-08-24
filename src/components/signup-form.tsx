@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader2 } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
 
 import { Button } from "@/src/components/ui/button";
@@ -14,21 +15,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/src/components/ui/select";
+import { toast } from "@/src/components/ui/toast";
 import createUserSchema, {
   type CreateUserFormData,
+  userRoles,
+  userStatuses,
 } from "@/src/schemas/createUserSchema";
 
 import { authClient } from "../lib/auth-client";
 
 const SignupForm = () => {
-  const {
-    register,
-    control,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<CreateUserFormData>({
+  const methods = useForm<CreateUserFormData>({
     resolver: zodResolver(createUserSchema),
-
     defaultValues: {
       name: "",
       phone: "",
@@ -41,26 +39,56 @@ const SignupForm = () => {
     mode: "onBlur",
   });
 
-  const onSubmit = async (data: CreateUserFormData) => {
-    const { error } = await authClient.admin.createUser({
-      name: data.name,
-      email: data.email,
-      password: data.password,
-      role: data.role,
-      data: {
-        phone: data.phone,
-        status: data.status,
-      },
-    });
+  const roleItems = userRoles.map((role) => ({
+    value: role,
+    label:
+      role === "admin"
+        ? "Administrador"
+        : role.charAt(0).toUpperCase() + role.slice(1),
+  }));
 
-    if (error) {
-      console.error(error);
-      return;
-    }
+  const statusItems = userStatuses.map((status) => ({
+    value: status,
+    label: status.charAt(0).toUpperCase() + status.slice(1),
+  }));
+
+  const onSubmit = async (data: CreateUserFormData) => {
+    await authClient.admin.createUser(
+      {
+        name: data.name,
+        email: data.email,
+        password: data.password,
+        role: data.role,
+        data: {
+          phone: data.phone,
+          status: data.status,
+        },
+      },
+      {
+        onSuccess: () => {
+          toast.add({
+            type: "success",
+            title: "Usuário criado",
+            description: "Usuário criado com sucesso!",
+          });
+
+          methods.reset();
+        },
+
+        onError: () => {
+          toast.add({
+            type: "error",
+            title: "Erro ao criar usuário",
+            description:
+              "Não foi possível criar o usuário. Verifique os dados e tente novamente.",
+          });
+        },
+      },
+    );
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} noValidate>
+    <form onSubmit={methods.handleSubmit(onSubmit)}>
       <CardContent>
         <div className="flex flex-col gap-6">
           <div className="grid gap-2">
@@ -71,12 +99,14 @@ const SignupForm = () => {
               type="text"
               placeholder="Nome do usuário"
               autoComplete="name"
-              aria-invalid={!!errors.name}
-              {...register("name")}
+              aria-invalid={!!methods.formState.errors.name}
+              {...methods.register("name")}
             />
 
-            {errors.name && (
-              <p className="text-xs text-destructive">{errors.name.message}</p>
+            {methods.formState.errors.name && (
+              <p className="text-xs text-destructive">
+                {methods.formState.errors.name.message}
+              </p>
             )}
           </div>
 
@@ -89,12 +119,14 @@ const SignupForm = () => {
               inputMode="numeric"
               placeholder="11999999999"
               autoComplete="tel"
-              aria-invalid={!!errors.phone}
-              {...register("phone")}
+              aria-invalid={!!methods.formState.errors.phone}
+              {...methods.register("phone")}
             />
 
-            {errors.phone && (
-              <p className="text-xs text-destructive">{errors.phone.message}</p>
+            {methods.formState.errors.phone && (
+              <p className="text-xs text-destructive">
+                {methods.formState.errors.phone.message}
+              </p>
             )}
           </div>
 
@@ -106,12 +138,14 @@ const SignupForm = () => {
               type="email"
               placeholder="email@inricorretora.com.br"
               autoComplete="email"
-              aria-invalid={!!errors.email}
-              {...register("email")}
+              aria-invalid={!!methods.formState.errors.email}
+              {...methods.register("email")}
             />
 
-            {errors.email && (
-              <p className="text-xs text-destructive">{errors.email.message}</p>
+            {methods.formState.errors.email && (
+              <p className="text-xs text-destructive">
+                {methods.formState.errors.email.message}
+              </p>
             )}
           </div>
 
@@ -123,13 +157,13 @@ const SignupForm = () => {
               type="password"
               placeholder="********"
               autoComplete="new-password"
-              aria-invalid={!!errors.password}
-              {...register("password")}
+              aria-invalid={!!methods.formState.errors.password}
+              {...methods.register("password")}
             />
 
-            {errors.password && (
+            {methods.formState.errors.password && (
               <p className="text-xs text-destructive">
-                {errors.password.message}
+                {methods.formState.errors.password.message}
               </p>
             )}
           </div>
@@ -139,9 +173,10 @@ const SignupForm = () => {
 
             <Controller
               name="role"
-              control={control}
+              control={methods.control}
               render={({ field }) => (
                 <Select
+                  items={roleItems}
                   value={field.value ?? null}
                   onValueChange={(value) => {
                     if (value !== null) {
@@ -152,24 +187,26 @@ const SignupForm = () => {
                   <SelectTrigger
                     id="role"
                     className="w-full"
-                    aria-invalid={!!errors.role}
+                    aria-invalid={!!methods.formState.errors.role}
                   >
                     <SelectValue placeholder="Selecione uma função" />
                   </SelectTrigger>
 
                   <SelectContent>
-                    <SelectItem value="administrativo">
-                      administrativo
-                    </SelectItem>
-                    <SelectItem value="admin">admin</SelectItem>
-                    <SelectItem value="comercial">comercial</SelectItem>
+                    {roleItems.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               )}
             />
 
-            {errors.role && (
-              <p className="text-xs text-destructive">{errors.role.message}</p>
+            {methods.formState.errors.role && (
+              <p className="text-xs text-destructive">
+                {methods.formState.errors.role.message}
+              </p>
             )}
           </div>
 
@@ -178,29 +215,35 @@ const SignupForm = () => {
 
             <Controller
               name="status"
-              control={control}
+              control={methods.control}
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select
+                  items={statusItems}
+                  value={field.value}
+                  onValueChange={field.onChange}
+                >
                   <SelectTrigger
                     id="status"
                     className="w-full"
-                    aria-invalid={!!errors.status}
+                    aria-invalid={!!methods.formState.errors.status}
                   >
                     <SelectValue placeholder="Selecione um status" />
                   </SelectTrigger>
 
                   <SelectContent>
-                    <SelectItem value="ativo">ativo</SelectItem>
-
-                    <SelectItem value="inativo">inativo</SelectItem>
+                    {statusItems.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               )}
             />
 
-            {errors.status && (
+            {methods.formState.errors.status && (
               <p className="text-xs text-destructive">
-                {errors.status.message}
+                {methods.formState.errors.status.message}
               </p>
             )}
           </div>
@@ -208,8 +251,16 @@ const SignupForm = () => {
       </CardContent>
 
       <CardFooter className="flex-col pt-6">
-        <Button type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting ? "Criando usuário..." : "Criar usuário"}
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={methods.formState.isSubmitting}
+        >
+          {methods.formState.isSubmitting ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            "Criar usuário"
+          )}
         </Button>
       </CardFooter>
     </form>
