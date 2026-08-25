@@ -2,7 +2,7 @@ import { UserIcon } from "lucide-react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import LoginForm from "@/src/components/login-form";
+import LoginForm from "@/src/app/authentication/components/login-form";
 import { Avatar, AvatarFallback } from "@/src/components/ui/avatar";
 import { Card, CardHeader, CardTitle } from "@/src/components/ui/card";
 import { Separator } from "@/src/components/ui/separator";
@@ -14,7 +14,7 @@ const AuthenticationPage = async () => {
   });
 
   if (session?.user) {
-    redirect("/");
+    redirect("/dashboard");
   }
   return (
     <div className="h-screen w-screen items-center justify-center flex">

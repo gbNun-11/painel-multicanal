@@ -1,11 +1,11 @@
 import { UserIcon } from "lucide-react";
 
-import SignupForm from "@/src/components/signup-form";
+import SignupForm from "@/src/app/(private)/users/new/components/signup-form";
 import { Avatar, AvatarFallback } from "@/src/components/ui/avatar";
 import { Card, CardHeader, CardTitle } from "@/src/components/ui/card";
 import { Separator } from "@/src/components/ui/separator";
 
-const AuthenticationPage = () => {
+const CreateUserPage = () => {
   return (
     <div className="h-screen w-screen items-center justify-center flex">
       <Card className="w-full max-w-sm">
@@ -28,4 +28,4 @@ const AuthenticationPage = () => {
   );
 };
 
-export default AuthenticationPage;
+export default CreateUserPage;

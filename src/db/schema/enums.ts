@@ -1,12 +1,10 @@
 import { pgEnum } from "drizzle-orm/pg-core";
 
-export const statusEnum = pgEnum("status", ["ativo", "inativo"]);
+import { statuses, userRoles } from "@/src/constants/enums";
 
-export const userRoleEnum = pgEnum("user_role", [
-  "administrativo",
-  "comercial",
-  "admin",
-]);
+export const statusEnum = pgEnum("status", statuses);
+
+export const userRoleEnum = pgEnum("user_role", userRoles);
 
 export const clientStatusEnum = pgEnum("client_status", [
   "novo",

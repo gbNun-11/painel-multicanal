@@ -10,11 +10,10 @@ import { CardContent, CardFooter } from "@/src/components/ui/card";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
 import { toast } from "@/src/components/ui/toast";
+import { authClient } from "@/src/lib/auth-client";
 import authenticationSchema, {
   type AuthenticationFormData,
 } from "@/src/schemas/authenticationSchema";
-
-import { authClient } from "../lib/auth-client";
 
 const LoginForm = () => {
   const router = useRouter();
@@ -41,7 +40,7 @@ const LoginForm = () => {
             description: "Login realizado com sucesso!",
           });
 
-          router.push("/");
+          router.push("/dashboard");
           router.refresh();
         },
         onError: () => {

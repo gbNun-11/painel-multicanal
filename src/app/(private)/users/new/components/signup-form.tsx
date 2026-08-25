@@ -16,13 +16,11 @@ import {
   SelectValue,
 } from "@/src/components/ui/select";
 import { toast } from "@/src/components/ui/toast";
+import { statuses, userRoles } from "@/src/constants/enums";
+import { authClient } from "@/src/lib/auth-client";
 import createUserSchema, {
   type CreateUserFormData,
-  userRoles,
-  userStatuses,
 } from "@/src/schemas/createUserSchema";
-
-import { authClient } from "../lib/auth-client";
 
 const SignupForm = () => {
   const methods = useForm<CreateUserFormData>({
@@ -53,7 +51,7 @@ const SignupForm = () => {
     label: roleLabels[role],
   }));
 
-  const statusItems = userStatuses.map((status) => ({
+  const statusItems = statuses.map((status) => ({
     value: status,
     label: statusLabels[status],
   }));

@@ -1,8 +1,6 @@
 import { z } from "zod";
 
-export const userRoles = ["administrativo", "comercial", "admin"] as const;
-
-export const userStatuses = ["ativo", "inativo"] as const;
+import { statuses, userRoles } from "@/src/constants/enums";
 
 const createUserSchema = z.object({
   name: z
@@ -14,7 +12,6 @@ const createUserSchema = z.object({
     .max(50, {
       error: "O nome não pode ter mais de 50 caracteres.",
     }),
-
   phone: z
     .string()
     .trim()
@@ -24,7 +21,6 @@ const createUserSchema = z.object({
     .regex(/^\d{10,15}$/, {
       error: "Informe um telefone válido com 10 a 15 dígitos.",
     }),
-
   email: z
     .string()
     .trim()
@@ -36,7 +32,6 @@ const createUserSchema = z.object({
         error: "O e-mail é inválido.",
       }),
     ),
-
   password: z
     .string()
     .min(1, {
@@ -48,12 +43,10 @@ const createUserSchema = z.object({
     .max(128, {
       error: "A senha não pode ter mais de 128 caracteres.",
     }),
-
   role: z.enum(userRoles, {
     error: "Selecione uma função.",
   }),
-
-  status: z.enum(userStatuses, {
+  status: z.enum(statuses, {
     error: "Selecione um status.",
   }),
 });
