@@ -1,6 +1,3 @@
-import { PlusIcon } from "lucide-react";
-
-import { Button } from "@/src/components/ui/button";
 import {
   PageActions,
   PageContainer,
@@ -11,26 +8,25 @@ import {
   PageTitle,
 } from "@/src/components/ui/page-container";
 
-const ClientsPorto = () => {
+import AddInsurersButton from "./components/add-insurers-button";
+
+const InsurersPage = () => {
   return (
     <PageContainer>
       <PageHeader>
         <PageHeaderContent>
-          <PageTitle>Clientes</PageTitle>
+          <PageTitle>Seguradoras</PageTitle>
           <PageDescription>
-            Informações dos Leads disponibilizados pela Porto Seguro
+            Gestão de seguradoras cadastradas e vinculos de SUSEPs.
           </PageDescription>
         </PageHeaderContent>
         <PageActions>
-          <Button>
-            <PlusIcon />
-            Adicionar Cliente
-          </Button>
+          <AddInsurersButton />
         </PageActions>
       </PageHeader>
-      <PageContent>TODO: Tabela de Clientes</PageContent>
+      <PageContent>TODO: Tabela de Seguradoras</PageContent>
     </PageContainer>
   );
 };
 
-export default ClientsPorto;
+export default InsurersPage;

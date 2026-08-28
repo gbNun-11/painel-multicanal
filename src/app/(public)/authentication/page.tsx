@@ -1,10 +1,21 @@
-import { Building2 } from "lucide-react";
+import { UserIcon } from "lucide-react";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
+import LoginForm from "@/src/app/(public)/authentication/components/login-form";
 import { Avatar, AvatarFallback } from "@/src/components/ui/avatar";
 import { Card, CardHeader, CardTitle } from "@/src/components/ui/card";
 import { Separator } from "@/src/components/ui/separator";
+import { auth } from "@/src/lib/auth";
 
-const CreateEnterprisesPage = () => {
+const AuthenticationPage = async () => {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (session?.user) {
+    redirect("/dashboard");
+  }
   return (
     <div className="h-screen w-screen items-center justify-center flex">
       <Card className="w-full max-w-sm">
@@ -12,17 +23,19 @@ const CreateEnterprisesPage = () => {
           <CardTitle className="flex items-center gap-2">
             <Avatar>
               <AvatarFallback>
-                <Building2 className="h-5 w-5" />
+                <UserIcon className="h-5 w-5" />
               </AvatarFallback>
             </Avatar>
-            Cadastre a empresa.
+            Faça seu login.
           </CardTitle>
         </CardHeader>
 
         <Separator />
+
+        <LoginForm />
       </Card>
     </div>
   );
 };
 
-export default CreateEnterprisesPage;
+export default AuthenticationPage;
