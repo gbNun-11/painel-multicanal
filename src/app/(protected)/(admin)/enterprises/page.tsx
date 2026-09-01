@@ -1,3 +1,5 @@
+import { redirect } from "next/dist/client/components/navigation";
+
 import {
   PageActions,
   PageContainer,
@@ -7,10 +9,35 @@ import {
   PageHeaderContent,
   PageTitle,
 } from "@/src/components/ui/page-container";
+import { getEnterprises } from "@/src/data/enterprises/get-enterprises";
 
+import EnterprisesTable from "../enterprises/components/enterprises-table";
 import AddEnterpriseButton from "./components/add-enterprises-button";
 
-const ClientsPorto = () => {
+interface EnterprisePageProps {
+  searchParams: Promise<{
+    page?: string | string[];
+  }>;
+}
+
+const EnterprisePage = async ({ searchParams }: EnterprisePageProps) => {
+  const params = await searchParams;
+
+  const pageParam = Array.isArray(params.page) ? params.page[0] : params.page;
+
+  const parsedPage = Number(pageParam);
+
+  const requestedPage =
+    Number.isSafeInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+
+  const { enterprises, pagination } = await getEnterprises({
+    page: requestedPage,
+  });
+
+  if (requestedPage !== pagination.page) {
+    redirect(`/enterprises?page=${pagination.page}`);
+  }
+
   return (
     <PageContainer>
       <PageHeader>
@@ -22,9 +49,12 @@ const ClientsPorto = () => {
           <AddEnterpriseButton />
         </PageActions>
       </PageHeader>
-      <PageContent>TODO: Tabela de Empresas</PageContent>
+
+      <PageContent>
+        <EnterprisesTable data={enterprises} pagination={pagination} />
+      </PageContent>
     </PageContainer>
   );
 };
 
-export default ClientsPorto;
+export default EnterprisePage;

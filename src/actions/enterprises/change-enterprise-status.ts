@@ -16,7 +16,15 @@ export const changeEnterpriseStatusAction = adminActionClient
         status: parsedInput.status,
       })
       .where(eq(enterprisesTable.id, parsedInput.id))
-      .returning();
+      .returning({
+        id: enterprisesTable.id,
+      });
 
-    return enterprise;
+    if (!enterprise) {
+      throw new Error("Empresa não encontrada.");
+    }
+
+    return {
+      success: true,
+    };
   });

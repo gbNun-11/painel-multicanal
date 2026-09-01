@@ -2,11 +2,13 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
+import { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
 
 import { createEnterpriseAction } from "@/src/actions/enterprises/create-enterprise";
-import { formatCnpj } from "@/src/utils/formatters";
+import { updateEnterpriseAction } from "@/src/actions/enterprises/update-enterprise";
 import { Button } from "@/src/components/ui/button";
 import { CardContent, CardFooter } from "@/src/components/ui/card";
 import {
@@ -17,75 +19,130 @@ import {
 } from "@/src/components/ui/dialog";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/src/components/ui/select";
 import { Separator } from "@/src/components/ui/separator";
 import { toast } from "@/src/components/ui/toast";
-import { statusItems } from "@/src/constants/enums";
-import createEnterpriseSchema, {
-  type CreateEnterpriseFormData,
-} from "@/src/schemas/enterprise/createEnterprisesSchema";
+import upsertEnterpriseSchema, {
+  type UpsertEnterpriseFormData,
+} from "@/src/schemas/enterprise/upsertEnterprisesSchema";
+import { formatCnpj } from "@/src/utils/formatters";
+
+import type { EnterpriseTableRow } from "./types";
 
 type UpsertEnterpriseFormProps = {
+  enterprise?: EnterpriseTableRow;
   onSuccess: () => void;
 };
 
-const UpsertEnterpriseForm = ({ onSuccess }: UpsertEnterpriseFormProps) => {
+const getDefaultValues = (enterprise?: EnterpriseTableRow) => ({
+  name: enterprise?.name ?? "",
+  cnpj: enterprise?.cnpj ?? "",
+});
+
+const UpsertEnterpriseForm = ({
+  enterprise,
+  onSuccess,
+}: UpsertEnterpriseFormProps) => {
+  const router = useRouter();
+
+  const isEditing = Boolean(enterprise);
+
   const {
     register,
     control,
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<CreateEnterpriseFormData>({
-    resolver: zodResolver(createEnterpriseSchema),
-
-    defaultValues: {
-      name: "",
-      cnpj: "",
-      status: "ativo",
-    },
-
+  } = useForm<UpsertEnterpriseFormData>({
+    resolver: zodResolver(upsertEnterpriseSchema),
+    defaultValues: getDefaultValues(enterprise),
     mode: "onBlur",
   });
 
-  const { execute, isPending } = useAction(createEnterpriseAction, {
-    onSuccess: () => {
-      toast.add({
-        type: "success",
-        title: "Empresa criada",
-        description: "Empresa criada com sucesso!",
+  useEffect(() => {
+    reset(getDefaultValues(enterprise));
+  }, [enterprise, reset]);
+
+  const { execute: executeCreate, isPending: isCreating } = useAction(
+    createEnterpriseAction,
+    {
+      onSuccess: () => {
+        toast.add({
+          type: "success",
+          title: "Empresa criada",
+          description: "Empresa criada com sucesso!",
+        });
+
+        reset(getDefaultValues());
+
+        router.refresh();
+        onSuccess();
+      },
+
+      onError: ({ error }) => {
+        toast.add({
+          type: "error",
+          title: "Erro ao criar empresa",
+          description: error.serverError ?? "Não foi possível criar a empresa.",
+        });
+      },
+    },
+  );
+
+  const { execute: executeUpdate, isPending: isUpdating } = useAction(
+    updateEnterpriseAction,
+    {
+      onSuccess: () => {
+        toast.add({
+          type: "success",
+          title: "Empresa atualizada",
+          description: "Empresa atualizada com sucesso!",
+        });
+
+        router.refresh();
+        onSuccess();
+      },
+
+      onError: ({ error }) => {
+        toast.add({
+          type: "error",
+          title: "Erro ao atualizar empresa",
+          description:
+            error.serverError ?? "Não foi possível atualizar a empresa.",
+        });
+      },
+    },
+  );
+
+  const isPending = isCreating || isUpdating;
+
+  const onSubmit = (data: UpsertEnterpriseFormData) => {
+    if (enterprise) {
+      executeUpdate({
+        id: enterprise.id,
+        name: data.name,
+        cnpj: data.cnpj,
       });
 
-      reset();
-      onSuccess();
-    },
+      return;
+    }
 
-    onError: ({ error }) => {
-      toast.add({
-        type: "error",
-        title: "Erro ao criar empresa",
-        description: error.serverError ?? "Não foi possível criar a empresa.",
-      });
-    },
-  });
-
-  const onSubmit = (data: CreateEnterpriseFormData) => {
-    execute(data);
+    executeCreate({
+      name: data.name,
+      cnpj: data.cnpj,
+    });
   };
 
   return (
     <DialogContent>
       <DialogHeader>
-        <DialogTitle>Empresa</DialogTitle>
+        <DialogTitle>
+          {isEditing ? "Editar empresa" : "Criar nova empresa"}
+        </DialogTitle>
 
         <DialogDescription>
-          Cadastre uma nova empresa no sistema.
+          {isEditing
+            ? "Atualize os dados da empresa."
+            : "Cadastre uma nova empresa no sistema."}
         </DialogDescription>
       </DialogHeader>
 
@@ -148,45 +205,6 @@ const UpsertEnterpriseForm = ({ onSuccess }: UpsertEnterpriseFormProps) => {
                 </p>
               )}
             </div>
-
-            {/* Status */}
-            <div className="grid gap-2">
-              <Label htmlFor="status">Status</Label>
-
-              <Controller
-                name="status"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    items={statusItems}
-                    value={field.value}
-                    onValueChange={field.onChange}
-                  >
-                    <SelectTrigger
-                      id="status"
-                      className="w-full"
-                      aria-invalid={!!errors.status}
-                    >
-                      <SelectValue placeholder="Selecione um status" />
-                    </SelectTrigger>
-
-                    <SelectContent>
-                      {statusItems.map((item) => (
-                        <SelectItem key={item.value} value={item.value}>
-                          {item.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-
-              {errors.status && (
-                <p className="text-xs text-destructive">
-                  {errors.status.message}
-                </p>
-              )}
-            </div>
           </div>
         </CardContent>
 
@@ -195,8 +213,11 @@ const UpsertEnterpriseForm = ({ onSuccess }: UpsertEnterpriseFormProps) => {
             {isPending ? (
               <>
                 <Loader2 className="mr-2 size-4 animate-spin" />
-                Criando empresa...
+
+                {isEditing ? "Salvando alterações..." : "Criando empresa..."}
               </>
+            ) : isEditing ? (
+              "Salvar alterações"
             ) : (
               "Criar empresa"
             )}

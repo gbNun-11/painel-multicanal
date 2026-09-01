@@ -1,18 +1,18 @@
-import z from "zod";
-
-import { statuses } from "@/src/constants/enums";
+import { z } from "zod";
 
 const updateEnterpriseSchema = z.object({
   id: z.uuid(),
+
   name: z
     .string()
     .trim()
     .min(1, {
-      error: "O nome é obrigatório.",
+      error: "Informe o nome da empresa.",
     })
     .max(100, {
-      error: "O nome não pode ter mais que 100 caracteres.",
+      error: "O nome deve conter no máximo 100 caracteres.",
     }),
+
   cnpj: z
     .string()
     .trim()
@@ -22,11 +22,8 @@ const updateEnterpriseSchema = z.object({
     .regex(/^\d+$/, {
       error: "O CNPJ deve conter apenas números.",
     }),
-  status: z.enum(statuses, {
-    error: "Selecione um status.",
-  }),
 });
 
-export type UpdateEnterpriseFormData = z.infer<typeof updateEnterpriseSchema>;
+export type UpdateEnterpriseData = z.infer<typeof updateEnterpriseSchema>;
 
 export default updateEnterpriseSchema;
