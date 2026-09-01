@@ -1,7 +1,12 @@
+"use client";
+
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
+import { useAction } from "next-safe-action/hooks";
 import { Controller, useForm } from "react-hook-form";
 
+import { createEnterpriseAction } from "@/src/actions/enterprises/create-enterprise";
+import { formatCnpj } from "@/src/utils/formatters";
 import { Button } from "@/src/components/ui/button";
 import { CardContent, CardFooter } from "@/src/components/ui/card";
 import {
@@ -21,32 +26,13 @@ import {
 } from "@/src/components/ui/select";
 import { Separator } from "@/src/components/ui/separator";
 import { toast } from "@/src/components/ui/toast";
-import { statuses } from "@/src/constants/enums";
+import { statusItems } from "@/src/constants/enums";
 import createEnterpriseSchema, {
   type CreateEnterpriseFormData,
-} from "@/src/schemas/enterprisesSchema";
+} from "@/src/schemas/enterprise/createEnterprisesSchema";
 
 type UpsertEnterpriseFormProps = {
   onSuccess: () => void;
-};
-const statusLabels: Record<CreateEnterpriseFormData["status"], string> = {
-  ativo: "Ativo",
-  inativo: "Inativo",
-};
-
-const statusItems = statuses.map((status) => ({
-  value: status,
-  label: statusLabels[status],
-}));
-
-const formatCnpj = (value: string) => {
-  const digits = value.replace(/\D/g, "").slice(0, 14);
-
-  return digits
-    .replace(/^(\d{2})(\d)/, "$1.$2")
-    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
-    .replace(/\.(\d{3})(\d)/, ".$1/$2")
-    .replace(/(\d{4})(\d)/, "$1-$2");
 };
 
 const UpsertEnterpriseForm = ({ onSuccess }: UpsertEnterpriseFormProps) => {
@@ -55,7 +41,7 @@ const UpsertEnterpriseForm = ({ onSuccess }: UpsertEnterpriseFormProps) => {
     control,
     handleSubmit,
     reset,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<CreateEnterpriseFormData>({
     resolver: zodResolver(createEnterpriseSchema),
 
@@ -68,29 +54,8 @@ const UpsertEnterpriseForm = ({ onSuccess }: UpsertEnterpriseFormProps) => {
     mode: "onBlur",
   });
 
-  const onSubmit = async (data: CreateEnterpriseFormData) => {
-    try {
-      const response = await fetch("/api/enterprises", {
-        method: "POST",
-
-        headers: {
-          "Content-Type": "application/json",
-        },
-
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        toast.add({
-          type: "error",
-          title: "Erro ao criar empresa",
-          description:
-            "Não foi possível criar a empresa. Verifique os dados e tente novamente.",
-        });
-
-        return;
-      }
-
+  const { execute, isPending } = useAction(createEnterpriseAction, {
+    onSuccess: () => {
       toast.add({
         type: "success",
         title: "Empresa criada",
@@ -98,16 +63,20 @@ const UpsertEnterpriseForm = ({ onSuccess }: UpsertEnterpriseFormProps) => {
       });
 
       reset();
-
       onSuccess();
-    } catch {
+    },
+
+    onError: ({ error }) => {
       toast.add({
         type: "error",
-        title: "Erro de conexão",
-        description:
-          "Não foi possível se comunicar com o servidor. Tente novamente.",
+        title: "Erro ao criar empresa",
+        description: error.serverError ?? "Não foi possível criar a empresa.",
       });
-    }
+    },
+  });
+
+  const onSubmit = (data: CreateEnterpriseFormData) => {
+    execute(data);
   };
 
   return (
@@ -180,6 +149,7 @@ const UpsertEnterpriseForm = ({ onSuccess }: UpsertEnterpriseFormProps) => {
               )}
             </div>
 
+            {/* Status */}
             <div className="grid gap-2">
               <Label htmlFor="status">Status</Label>
 
@@ -221,8 +191,8 @@ const UpsertEnterpriseForm = ({ onSuccess }: UpsertEnterpriseFormProps) => {
         </CardContent>
 
         <CardFooter className="pt-6">
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? (
+          <Button type="submit" className="w-full" disabled={isPending}>
+            {isPending ? (
               <>
                 <Loader2 className="mr-2 size-4 animate-spin" />
                 Criando empresa...

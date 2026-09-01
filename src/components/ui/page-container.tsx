@@ -1,7 +1,7 @@
 import React from "react";
 
 export const PageContainer = ({ children }: { children: React.ReactNode }) => {
-  return <div className="p-6 space-y-6">{children}</div>;
+  return <div className="space-y-6 p-6">{children}</div>;
 };
 
 export const PageHeader = ({ children }: { children: React.ReactNode }) => {
@@ -17,7 +17,7 @@ export const PageHeaderContent = ({
 };
 
 export const PageTitle = ({ children }: { children: React.ReactNode }) => {
-  return <div className="text-2xl font-bold">{children}</div>;
+  return <h1 className="text-2xl font-bold">{children}</h1>;
 };
 
 export const PageDescription = ({
@@ -29,9 +29,9 @@ export const PageDescription = ({
 };
 
 export const PageActions = ({ children }: { children: React.ReactNode }) => {
-  return <p className="flex items-center gap-2">{children}</p>;
+  return <div className="flex items-center gap-2">{children}</div>;
 };
 
 export const PageContent = ({ children }: { children: React.ReactNode }) => {
-  return <p className="space-y-6">{children}</p>;
+  return <div className="space-y-6">{children}</div>;
 };

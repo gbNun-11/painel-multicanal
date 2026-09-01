@@ -7,10 +7,14 @@ import {
   PageHeaderContent,
   PageTitle,
 } from "@/src/components/ui/page-container";
+import { getUsers } from "@/src/data/users/get-users";
 
 import AddUserButton from "./components/add-user-button";
+import UsersTable from "./components/users-table";
 
-const ClientsPorto = () => {
+const UserPage = async () => {
+  const users = await getUsers();
+
   return (
     <PageContainer>
       <PageHeader>
@@ -18,13 +22,17 @@ const ClientsPorto = () => {
           <PageTitle>Usuários</PageTitle>
           <PageDescription>Gestão de usuários da empresa.</PageDescription>
         </PageHeaderContent>
+
         <PageActions>
           <AddUserButton />
         </PageActions>
       </PageHeader>
-      <PageContent>TODO: Tabela de Usuários</PageContent>
+
+      <PageContent>
+        <UsersTable data={users} />
+      </PageContent>
     </PageContainer>
   );
 };
 
-export default ClientsPorto;
+export default UserPage;
