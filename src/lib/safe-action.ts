@@ -22,6 +22,10 @@ export const actionClient = createSafeActionClient({
 export const protectedActionClient = actionClient.use(async ({ next }) => {
   const session = await auth.api.getSession({
     headers: await headers(),
+
+    query: {
+      disableCookieCache: true,
+    },
   });
 
   if (!session) {
@@ -30,6 +34,10 @@ export const protectedActionClient = actionClient.use(async ({ next }) => {
 
   if (session.user.status !== "ativo") {
     throw new ActionError("Usuário inativo.");
+  }
+
+  if (session.user.role !== "admin" && session.user.role !== "administrativo") {
+    throw new ActionError("Você não possui permissão para acessar o sistema.");
   }
 
   return next({

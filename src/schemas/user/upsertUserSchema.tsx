@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { userRoles } from "@/src/constants/enums";
+import { hasAllowedEmailDomain } from "@/src/utils/auth-policy";
 
 const upsertUserSchema = z
   .object({
@@ -31,6 +32,7 @@ const upsertUserSchema = z
     email: z
       .string()
       .trim()
+      .toLowerCase()
       .min(1, {
         error: "Informe o e-mail.",
       })
@@ -38,7 +40,10 @@ const upsertUserSchema = z
         z.email({
           error: "Informe um e-mail válido.",
         }),
-      ),
+      )
+      .refine(hasAllowedEmailDomain, {
+        error: "O e-mail deve pertencer ao domínio @inricorretora.com.br.",
+      }),
 
     password: z.string().max(128, {
       error: "A senha deve conter no máximo 128 caracteres.",
