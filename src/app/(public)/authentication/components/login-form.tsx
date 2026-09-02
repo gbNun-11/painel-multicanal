@@ -56,15 +56,16 @@ const LoginForm = () => {
   };
 
   return (
-    <form onSubmit={methods.handleSubmit(onSubmit)}>
+    <form method="post" onSubmit={methods.handleSubmit(onSubmit)} noValidate>
       <CardContent>
         <div className="flex flex-col gap-6">
           <div className="grid gap-2">
             <Label htmlFor="email">E-mail</Label>
             <Input
               id="email"
-              type="text"
+              type="email"
               placeholder="email@inricorretora.com.br"
+              autoComplete="email"
               {...methods.register("email")}
             />
             {methods.formState.errors.email && (
@@ -82,6 +83,7 @@ const LoginForm = () => {
               id="password"
               type="password"
               placeholder="******"
+              autoComplete="current-password"
               {...methods.register("password")}
             />
             {methods.formState.errors.password && (

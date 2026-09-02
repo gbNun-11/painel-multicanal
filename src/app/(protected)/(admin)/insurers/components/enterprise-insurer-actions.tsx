@@ -4,7 +4,7 @@ import {
   CircleCheckIcon,
   CircleXIcon,
   EllipsisIcon,
-  PencilIcon,
+  ListIcon,
   ShieldPlusIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -23,6 +23,7 @@ import {
 } from "@/src/components/ui/dropdown-menu";
 import { toast } from "@/src/components/ui/toast";
 
+import ManageSusepsDialog from "./suseps/manage-suseps-dialog";
 import UpsertSusepForm from "./suseps/upsert-susep-form";
 import type { EnterpriseInsurerTableRow } from "./types";
 
@@ -34,7 +35,10 @@ const EnterpriseInsurerActions = ({
   enterpriseInsurer,
 }: EnterpriseInsurerActionsProps) => {
   const router = useRouter();
+
   const [susepDialogOpen, setSusepDialogOpen] = useState(false);
+
+  const [manageSusepsDialogOpen, setManageSusepsDialogOpen] = useState(false);
 
   const { execute, isPending } = useAction(
     changeEnterpriseInsurerStatusAction,
@@ -92,11 +96,6 @@ const EnterpriseInsurerActions = ({
         />
 
         <DropdownMenuContent align="end">
-          <DropdownMenuItem disabled>
-            <PencilIcon className="size-4" />
-            Editar
-          </DropdownMenuItem>
-
           <DropdownMenuItem
             onClick={() => {
               setSusepDialogOpen(true);
@@ -104,6 +103,15 @@ const EnterpriseInsurerActions = ({
           >
             <ShieldPlusIcon className="size-4" />
             Vincular SUSEP
+          </DropdownMenuItem>
+
+          <DropdownMenuItem
+            onClick={() => {
+              setManageSusepsDialogOpen(true);
+            }}
+          >
+            <ListIcon className="size-4" />
+            Gerenciar SUSEPs
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
@@ -123,6 +131,7 @@ const EnterpriseInsurerActions = ({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
       <Dialog open={susepDialogOpen} onOpenChange={setSusepDialogOpen}>
         <UpsertSusepForm
           enterpriseInsurerId={enterpriseInsurer.id}
@@ -131,6 +140,18 @@ const EnterpriseInsurerActions = ({
           onSuccess={() => {
             setSusepDialogOpen(false);
           }}
+        />
+      </Dialog>
+
+      <Dialog
+        open={manageSusepsDialogOpen}
+        onOpenChange={setManageSusepsDialogOpen}
+      >
+        <ManageSusepsDialog
+          open={manageSusepsDialogOpen}
+          enterpriseInsurerId={enterpriseInsurer.id}
+          insurerName={enterpriseInsurer.insurerName}
+          enterpriseName={enterpriseInsurer.enterpriseName}
         />
       </Dialog>
     </>
