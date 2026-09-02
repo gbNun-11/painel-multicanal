@@ -13,8 +13,8 @@ export const createSusepAction = adminActionClient
     const codes = [
       ...new Set(
         parsedInput.codes
-          .split(",")
-          .map((code) => code.trim())
+          .split(/[,\n;]/)
+          .map((code) => code.trim().toUpperCase())
           .filter(Boolean),
       ),
     ];
@@ -55,17 +55,24 @@ export const createSusepAction = adminActionClient
       throw new Error("Todas as SUSEPs informadas já estão vinculadas.");
     }
 
-    await db.insert(susepsTable).values(
-      newCodes.map((code) => ({
-        enterpriseInsurerId: parsedInput.enterpriseInsurerId,
-
-        code,
-      })),
-    );
+    const createdSuseps = await db
+      .insert(susepsTable)
+      .values(
+        newCodes.map((code) => ({
+          enterpriseInsurerId: parsedInput.enterpriseInsurerId,
+          code,
+        })),
+      )
+      .onConflictDoNothing({
+        target: [susepsTable.enterpriseInsurerId, susepsTable.code],
+      })
+      .returning({
+        id: susepsTable.id,
+      });
 
     return {
       success: true,
-      createdCount: newCodes.length,
-      ignoredCount: codes.length - newCodes.length,
+      createdCount: createdSuseps.length,
+      ignoredCount: codes.length - createdSuseps.length,
     };
   });

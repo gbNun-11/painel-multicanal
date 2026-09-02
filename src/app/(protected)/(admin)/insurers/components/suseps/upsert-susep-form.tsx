@@ -15,9 +15,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/src/components/ui/dialog";
-import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
 import { Separator } from "@/src/components/ui/separator";
+import { Textarea } from "@/src/components/ui/textarea";
 import { toast } from "@/src/components/ui/toast";
 import createSusepSchema, {
   type CreateSusepFormData,
@@ -58,8 +58,8 @@ const UpsertSusepForm = ({
     onSuccess: () => {
       toast.add({
         type: "success",
-        title: "SUSEP vinculada",
-        description: "SUSEP vinculada com sucesso!",
+        title: "SUSEPs vinculadas",
+        description: "As SUSEPs foram vinculadas com sucesso!",
       });
 
       reset({
@@ -90,7 +90,7 @@ const UpsertSusepForm = ({
         <DialogTitle>Vincular SUSEP</DialogTitle>
 
         <DialogDescription>
-          Vincule uma SUSEP à empresa e seguradora selecionadas.
+          Vincule uma ou mais SUSEPs à empresa e seguradora selecionadas.
         </DialogDescription>
       </DialogHeader>
 
@@ -113,18 +113,20 @@ const UpsertSusepForm = ({
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <CardContent>
           <div className="grid gap-2">
-            <Label htmlFor="codes">SUSEP</Label>
+            <Label htmlFor="codes">SUSEPs</Label>
 
             <Controller
               name="codes"
               control={control}
               render={({ field }) => (
-                <Input
+                <Textarea
+                  {...field}
+                  value={field.value ?? ""}
                   id="codes"
-                  placeholder="Informe a SUSEP"
+                  placeholder={"Informe uma ou mais SUSEPs"}
                   autoComplete="off"
                   aria-invalid={!!errors.codes}
-                  {...field}
+                  className="min-h-32"
                 />
               )}
             />
@@ -132,6 +134,10 @@ const UpsertSusepForm = ({
             {errors.codes && (
               <p className="text-xs text-destructive">{errors.codes.message}</p>
             )}
+
+            <p className="text-xs text-muted-foreground">
+              Separe as SUSEPs por vírgula, ponto e vírgula ou quebra de linha.
+            </p>
           </div>
         </CardContent>
 
@@ -143,7 +149,7 @@ const UpsertSusepForm = ({
                 Vinculando...
               </>
             ) : (
-              "Vincular SUSEP"
+              "Vincular SUSEPs"
             )}
           </Button>
         </CardFooter>
