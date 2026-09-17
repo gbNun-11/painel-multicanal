@@ -12,7 +12,7 @@ export const statusItems = statuses.map((status) => ({
   label: statusLabels[status],
 }));
 
-export const userRoles = ["admin", "administrativo", "comercial"] as const;
+export const userRoles = ["administrativo", "comercial", "admin"] as const;
 
 export type UserRole = (typeof userRoles)[number];
 

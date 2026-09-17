@@ -1,0 +1,1 @@
+ALTER TYPE "client_status" ADD VALUE 'distribuindo' BEFORE 'distribuido';

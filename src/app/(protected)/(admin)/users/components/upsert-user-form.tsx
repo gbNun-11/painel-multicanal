@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, type FieldErrors, useForm } from "react-hook-form";
 
 import { Button } from "@/src/components/ui/button";
 import { CardContent, CardFooter } from "@/src/components/ui/card";
@@ -61,7 +61,9 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
     formState: { errors, isSubmitting },
   } = useForm<UpsertUserFormData>({
     resolver: zodResolver(upsertUserSchema),
+
     defaultValues: getDefaultValues(user),
+
     mode: "onBlur",
   });
 
@@ -72,12 +74,16 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
   const createUser = async (data: UpsertUserFormData) => {
     const { error } = await authClient.admin.createUser({
       name: data.name,
+
       email: data.email,
+
       password: data.password,
+
       role: data.role,
 
       data: {
         phone: data.phone,
+
         status: "ativo",
       },
     });
@@ -92,7 +98,9 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
     ) {
       toast.add({
         type: "error",
+
         title: "Erro ao criar usuário",
+
         description:
           "O e-mail informado já está em uso. Por favor, utilize outro e-mail.",
       });
@@ -102,7 +110,9 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
 
     toast.add({
       type: "error",
+
       title: "Erro ao criar usuário",
+
       description:
         "Não foi possível criar o usuário. Verifique os dados e tente novamente.",
     });
@@ -120,7 +130,9 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
 
       data: {
         name: data.name,
+
         email: data.email,
+
         phone: data.phone,
       },
     });
@@ -128,7 +140,9 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
     if (updateError) {
       toast.add({
         type: "error",
+
         title: "Erro ao atualizar usuário",
+
         description: "Não foi possível atualizar os dados do usuário.",
       });
 
@@ -138,13 +152,16 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
     if (data.role !== user.role) {
       const { error: roleError } = await authClient.admin.setRole({
         userId: user.id,
+
         role: data.role,
       });
 
       if (roleError) {
         toast.add({
           type: "error",
+
           title: "Erro ao alterar função",
+
           description: "Não foi possível alterar a função do usuário.",
         });
 
@@ -155,13 +172,16 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
     if (data.password) {
       const { error: passwordError } = await authClient.admin.setUserPassword({
         userId: user.id,
+
         newPassword: data.password,
       });
 
       if (passwordError) {
         toast.add({
           type: "error",
+
           title: "Erro ao alterar senha",
+
           description: "Não foi possível alterar a senha do usuário.",
         });
 
@@ -184,7 +204,9 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
 
       toast.add({
         type: "success",
+
         title: isEditing ? "Usuário atualizado" : "Usuário criado",
+
         description: isEditing
           ? "Usuário atualizado com sucesso!"
           : "Usuário criado com sucesso!",
@@ -193,17 +215,35 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
       reset(getDefaultValues());
 
       router.refresh();
+
       onSuccess();
     } catch {
       toast.add({
         type: "error",
+
         title: isEditing
           ? "Erro ao atualizar usuário"
           : "Erro ao criar usuário",
+
         description:
           "Não foi possível se comunicar com o servidor. Tente novamente.",
       });
     }
+  };
+
+  const onInvalid = (errors: FieldErrors<UpsertUserFormData>) => {
+    const firstError = Object.values(errors).find((error) => error?.message);
+
+    toast.add({
+      type: "error",
+
+      title: "Verifique os dados",
+
+      description:
+        typeof firstError?.message === "string"
+          ? firstError.message
+          : "Existem campos inválidos no formulário.",
+    });
   };
 
   return (
@@ -222,8 +262,8 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
 
       <Separator />
 
-      <form onSubmit={handleSubmit(onSubmit)} noValidate>
-        <input type="hidden" {...register("id")} />
+      <form onSubmit={handleSubmit(onSubmit, onInvalid)} noValidate>
+        {isEditing && <input type="hidden" {...register("id")} />}
 
         <CardContent>
           <div className="flex flex-col gap-6">

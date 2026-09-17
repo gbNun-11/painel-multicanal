@@ -1,32 +1,23 @@
-import {
-  PageActions,
-  PageContainer,
-  PageContent,
-  PageDescription,
-  PageHeader,
-  PageHeaderContent,
-  PageTitle,
-} from "@/src/components/ui/page-container";
+import { INSURER_IDS } from "@/src/constants/insurers";
 
-import AddClientButton from "../components/add-client-button";
+import ClientsPage from "../components/clients-page";
+import type { ClientsSearchParams } from "../components/types";
 
-const ClientsPorto = () => {
+interface PortoClientsPageProps {
+  searchParams: Promise<ClientsSearchParams>;
+}
+
+const PortoClientsPage = ({ searchParams }: PortoClientsPageProps) => {
   return (
-    <PageContainer>
-      <PageHeader>
-        <PageHeaderContent>
-          <PageTitle>Clientes</PageTitle>
-          <PageDescription>
-            Informações dos Leads disponibilizados pela Porto Seguro
-          </PageDescription>
-        </PageHeaderContent>
-        <PageActions>
-          <AddClientButton />
-        </PageActions>
-      </PageHeader>
-      <PageContent>TODO: Tabela de Clientes</PageContent>
-    </PageContainer>
+    <ClientsPage
+      searchParams={searchParams}
+      insurerId={INSURER_IDS.PORTO}
+      pathname="/clients/porto"
+      title="Clientes Porto"
+      description="Gestão de clientes da Porto Seguro."
+      syncLabel="Sincronizar Porto"
+    />
   );
 };
 
-export default ClientsPorto;
+export default PortoClientsPage;

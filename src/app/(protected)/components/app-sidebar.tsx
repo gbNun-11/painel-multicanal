@@ -48,7 +48,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4 flex items-center justify-center border-b">
         <Image
-          src="./logo.svg"
+          src="/logo.svg"
           alt="INRI Corretora"
           width={150}
           height={30}

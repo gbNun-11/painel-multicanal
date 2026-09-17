@@ -2,6 +2,7 @@ import {
   date,
   index,
   integer,
+  numeric,
   pgTable,
   text,
   timestamp,
@@ -10,7 +11,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { enterpriseInsurersTable } from "./enterprise-insurers";
-import { clientStatusEnum } from "./enums";
+import { clientSalesModelEnum, clientStatusEnum } from "./enums";
 import { susepsTable } from "./suseps";
 import { usersTable } from "./users";
 
@@ -19,55 +20,72 @@ export const clientsTable = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
 
-    // Origem
     enterpriseInsurerId: uuid("enterprise_insurer_id")
       .notNull()
-      .references(() => enterpriseInsurersTable.id),
-    susepId: uuid("susep_id").references(() => susepsTable.id),
+      .references(() => enterpriseInsurersTable.id, {
+        onDelete: "restrict",
+        onUpdate: "cascade",
+      }),
+    susepId: uuid("susep_id").references(() => susepsTable.id, {
+      onDelete: "restrict",
+      onUpdate: "cascade",
+    }),
+
+    externalSource: text("external_source").notNull(),
+
     externalId: text("external_id").notNull(),
 
-    // Cliente
     name: text("name").notNull(),
-    cpf: text("cpf"),
+    document: text("document"),
+    personType: text("person_type"),
+    email: text("email"),
     phone: text("phone"),
     birthDate: date("birth_date"),
 
-    // Produto
+    productCode: text("product_code"),
     product: text("product"),
+    propensityCode: text("propensity_code"),
     propensity: text("propensity"),
+    sourceProgramCode: text("source_program_code"),
+    salesModel: clientSalesModelEnum("sales_model"),
+    externalStatusReason: text("external_status_reason"),
 
-    // Veículo
     model: text("model"),
     modelYear: integer("model_year"),
     licensePlate: text("license_plate"),
+    assetValue: numeric("asset_value", {
+      precision: 15,
+      scale: 2,
+    }),
 
-    // Endereço
-    state: text("state"),
-    zipCode: text("zip_code"),
+    address: text("address"),
+    addressNumber: text("address_number"),
+    addressComplement: text("address_complement"),
     neighborhood: text("neighborhood"),
     city: text("city"),
-    observation: text("observation"),
+    state: text("state"),
+    zipCode: text("zip_code"),
 
-    // Distribuição
+    observation: text("observation"),
     salespersonId: uuid("salesperson_id").references(() => usersTable.id, {
       onDelete: "set null",
+      onUpdate: "cascade",
     }),
     status: clientStatusEnum("status").default("novo").notNull(),
     assignedAt: timestamp("assigned_at", {
       withTimezone: true,
     }),
 
-    // Data que veio da seguradora
     sourceCreatedAt: timestamp("source_created_at", {
       withTimezone: true,
     }),
 
-    // Controle interno
     createdAt: timestamp("created_at", {
       withTimezone: true,
     })
       .defaultNow()
       .notNull(),
+
     updatedAt: timestamp("updated_at", {
       withTimezone: true,
     })
@@ -76,33 +94,24 @@ export const clientsTable = pgTable(
   },
 
   (table) => [
-    // Não importar a mesma oportunidade
-    // da mesma origem duas vezes
     uniqueIndex("clients_source_external_id_uidx").on(
       table.enterpriseInsurerId,
+      table.externalSource,
       table.externalId,
     ),
-
-    // Tela: novos / atrasados / distribuídos
     index("clients_status_created_at_idx").on(table.status, table.createdAt),
-
-    // Leads de determinado vendedor
     index("clients_salesperson_status_idx").on(
       table.salespersonId,
       table.status,
     ),
-
-    // Leads Porto/Suhai/etc + status
     index("clients_source_status_created_at_idx").on(
       table.enterpriseInsurerId,
       table.status,
       table.createdAt,
     ),
-
     index("clients_susep_idx").on(table.susepId),
-
-    index("clients_cpf_idx").on(table.cpf),
-
+    index("clients_document_idx").on(table.document),
     index("clients_phone_idx").on(table.phone),
+    index("clients_product_code_idx").on(table.productCode),
   ],
 );

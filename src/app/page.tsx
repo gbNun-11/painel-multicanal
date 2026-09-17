@@ -1,5 +1,7 @@
-import { Button } from "@/src/components/ui/button";
+import { redirect } from "next/navigation";
 
-export default function Home() {
-  return <Button>HomePage!</Button>;
-}
+const HomePage = () => {
+  redirect("/authentication");
+};
+
+export default HomePage;

@@ -1,32 +1,23 @@
-import {
-  PageActions,
-  PageContainer,
-  PageContent,
-  PageDescription,
-  PageHeader,
-  PageHeaderContent,
-  PageTitle,
-} from "@/src/components/ui/page-container";
+import { INSURER_IDS } from "@/src/constants/insurers";
 
-import AddClientButton from "../components/add-client-button";
+import ClientsPage from "../components/clients-page";
+import type { ClientsSearchParams } from "../components/types";
 
-const ClientsPorto = () => {
+interface ZaionClientsPageProps {
+  searchParams: Promise<ClientsSearchParams>;
+}
+
+const ZaionClientsPage = ({ searchParams }: ZaionClientsPageProps) => {
   return (
-    <PageContainer>
-      <PageHeader>
-        <PageHeaderContent>
-          <PageTitle>Clientes</PageTitle>
-          <PageDescription>
-            Informações dos Leads disponibilizados pela Porto Seguro
-          </PageDescription>
-        </PageHeaderContent>
-        <PageActions>
-          <AddClientButton />
-        </PageActions>
-      </PageHeader>
-      <PageContent>TODO: Tabela de Clientes</PageContent>
-    </PageContainer>
+    <ClientsPage
+      searchParams={searchParams}
+      insurerId={INSURER_IDS.ZAION}
+      pathname="/clients/zaion"
+      title="Clientes Zaion Ads"
+      description="Gestão de clientes da Zaion Ads."
+      syncLabel="Sincronizar Zaion"
+    />
   );
 };
 
-export default ClientsPorto;
+export default ZaionClientsPage;

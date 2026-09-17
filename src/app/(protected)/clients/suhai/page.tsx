@@ -1,32 +1,23 @@
-import {
-  PageActions,
-  PageContainer,
-  PageContent,
-  PageDescription,
-  PageHeader,
-  PageHeaderContent,
-  PageTitle,
-} from "@/src/components/ui/page-container";
+import { INSURER_IDS } from "@/src/constants/insurers";
 
-import AddClientButton from "../components/add-client-button";
+import ClientsPage from "../components/clients-page";
+import type { ClientsSearchParams } from "../components/types";
 
-const ClientsPorto = () => {
+interface SuhaiClientsPageProps {
+  searchParams: Promise<ClientsSearchParams>;
+}
+
+const SuhaiClientsPage = ({ searchParams }: SuhaiClientsPageProps) => {
   return (
-    <PageContainer>
-      <PageHeader>
-        <PageHeaderContent>
-          <PageTitle>Clientes</PageTitle>
-          <PageDescription>
-            Informações dos Leads disponibilizados pela Porto Seguro
-          </PageDescription>
-        </PageHeaderContent>
-        <PageActions>
-          <AddClientButton />
-        </PageActions>
-      </PageHeader>
-      <PageContent>TODO: Tabela de Clientes</PageContent>
-    </PageContainer>
+    <ClientsPage
+      searchParams={searchParams}
+      insurerId={INSURER_IDS.SUHAI}
+      pathname="/clients/suhai"
+      title="Clientes Suhai"
+      description="Gestão de clientes da Suhai Seguradora."
+      syncLabel="Sincronizar Suhai"
+    />
   );
 };
 
-export default ClientsPorto;
+export default SuhaiClientsPage;

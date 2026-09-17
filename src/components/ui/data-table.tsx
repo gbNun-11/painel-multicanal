@@ -1,6 +1,12 @@
 "use client";
 
-import { type ColumnDef, type RowData, useTable } from "@tanstack/react-table";
+import {
+  type ColumnDef,
+  type OnChangeFn,
+  type RowData,
+  type RowSelectionState,
+  useTable,
+} from "@tanstack/react-table";
 
 import {
   Table,
@@ -12,6 +18,7 @@ import {
 } from "@/src/components/ui/table";
 
 import { type DataTableFeatures, features } from "./data-table-features";
+
 import {
   DataTablePagination,
   type DataTablePaginationProps,
@@ -25,19 +32,42 @@ interface DataTableProps<TData extends RowData> {
   data: TData[];
 
   pagination?: DataTablePaginationMeta;
+
+  rowSelection?: RowSelectionState;
+
+  onRowSelectionChange?: OnChangeFn<RowSelectionState>;
+
+  getRowId?: (originalRow: TData, index: number) => string;
 }
 
 export function DataTable<TData extends RowData>({
   columns,
   data,
   pagination,
+  rowSelection,
+  onRowSelectionChange,
+  getRowId,
 }: DataTableProps<TData>) {
   const table = useTable({
     features,
+
     data,
+
     columns,
 
+    getRowId,
+
+    state:
+      rowSelection === undefined
+        ? undefined
+        : {
+            rowSelection,
+          },
+
+    onRowSelectionChange,
+
     manualPagination: Boolean(pagination),
+
     rowCount: pagination?.total,
   });
 
