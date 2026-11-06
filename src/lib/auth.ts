@@ -5,12 +5,82 @@ import { eq } from "drizzle-orm";
 
 import { db } from "@/src/db";
 import { account, session, usersTable, verification } from "@/src/db/schema";
-
 import {
   hasAllowedEmailDomain,
   hasAllowedLoginRole,
-} from "../utils/auth-policy";
+} from "@/src/utils/auth-policy";
+import { isValidCpf, normalizeCpf } from "@/src/utils/documents";
+
 import { ac, roles } from "./permissions";
+
+const getTodayDateString = () => {
+  const today = new Date();
+
+  const year = today.getFullYear();
+
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+
+  const day = String(today.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
+
+const normalizeUserCpf = (value: unknown) => {
+  if (typeof value !== "string") {
+    throw new APIError("BAD_REQUEST", {
+      message: "Informe o CPF.",
+    });
+  }
+
+  const cpf = normalizeCpf(value);
+
+  if (!isValidCpf(cpf)) {
+    throw new APIError("BAD_REQUEST", {
+      message: "Informe um CPF válido.",
+    });
+  }
+
+  return cpf;
+};
+
+const normalizeUserBirthDate = (value: unknown) => {
+  if (typeof value !== "string") {
+    throw new APIError("BAD_REQUEST", {
+      message: "Informe a data de nascimento.",
+    });
+  }
+
+  const birthDate = value.trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
+    throw new APIError("BAD_REQUEST", {
+      message: "Informe uma data de nascimento válida.",
+    });
+  }
+
+  const [year, month, day] = birthDate.split("-").map(Number);
+
+  const parsedDate = new Date(Date.UTC(year, month - 1, day));
+
+  const isValidDate =
+    parsedDate.getUTCFullYear() === year &&
+    parsedDate.getUTCMonth() === month - 1 &&
+    parsedDate.getUTCDate() === day;
+
+  if (!isValidDate) {
+    throw new APIError("BAD_REQUEST", {
+      message: "Informe uma data de nascimento válida.",
+    });
+  }
+
+  if (birthDate > getTodayDateString()) {
+    throw new APIError("BAD_REQUEST", {
+      message: "A data de nascimento não pode estar no futuro.",
+    });
+  }
+
+  return birthDate;
+};
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -18,11 +88,15 @@ export const auth = betterAuth({
 
     schema: {
       users: usersTable,
+
       session,
+
       account,
+
       verification,
     },
   }),
+
   databaseHooks: {
     user: {
       create: {
@@ -34,8 +108,18 @@ export const auth = betterAuth({
             });
           }
 
+          const cpf = normalizeUserCpf(user.cpf);
+
+          const birthDate = normalizeUserBirthDate(user.birthDate);
+
           return {
-            data: user,
+            data: {
+              ...user,
+
+              cpf,
+
+              birthDate,
+            },
           };
         },
       },
@@ -49,8 +133,22 @@ export const auth = betterAuth({
             });
           }
 
+          const cpf =
+            data.cpf !== undefined ? normalizeUserCpf(data.cpf) : undefined;
+
+          const birthDate =
+            data.birthDate !== undefined
+              ? normalizeUserBirthDate(data.birthDate)
+              : undefined;
+
           return {
-            data,
+            data: {
+              ...data,
+
+              ...(cpf !== undefined ? { cpf } : {}),
+
+              ...(birthDate !== undefined ? { birthDate } : {}),
+            },
           };
         },
       },
@@ -62,8 +160,11 @@ export const auth = betterAuth({
           const [user] = await db
             .select({
               id: usersTable.id,
+
               email: usersTable.email,
+
               role: usersTable.role,
+
               status: usersTable.status,
             })
             .from(usersTable)
@@ -104,8 +205,11 @@ export const auth = betterAuth({
 
   emailAndPassword: {
     enabled: true,
+
     disableSignUp: true,
+
     minPasswordLength: 8,
+
     maxPasswordLength: 128,
   },
 
@@ -113,14 +217,37 @@ export const auth = betterAuth({
     modelName: "users",
 
     additionalFields: {
+      cpf: {
+        type: "string",
+
+        required: true,
+
+        input: true,
+
+        returned: false,
+      },
+
+      birthDate: {
+        type: "string",
+
+        required: true,
+
+        input: true,
+
+        returned: false,
+      },
+
       phone: {
         type: "string",
+
         required: true,
       },
 
       status: {
         type: ["ativo", "inativo"],
+
         required: true,
+
         input: false,
       },
     },
@@ -132,7 +259,9 @@ export const auth = betterAuth({
 
       roles: {
         admin: roles.admin,
+
         administrativo: roles.administrativo,
+
         comercial: roles.comercial,
       },
     }),
@@ -141,6 +270,7 @@ export const auth = betterAuth({
   advanced: {
     database: {
       generateId: "uuid",
+
       joins: true,
     },
   },

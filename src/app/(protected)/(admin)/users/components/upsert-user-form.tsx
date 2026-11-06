@@ -30,21 +30,31 @@ import { authClient } from "@/src/lib/auth-client";
 import upsertUserSchema, {
   type UpsertUserFormData,
 } from "@/src/schemas/user/upsertUserSchema";
-import { formatPhone } from "@/src/utils/formatters";
+import { formatCpf, formatPhone } from "@/src/utils/formatters";
 
 import type { UserTableRow } from "./types";
 
 type UpsertUserFormProps = {
   user?: UserTableRow;
+
   onSuccess: () => void;
 };
 
 const getDefaultValues = (user?: UserTableRow) => ({
   id: user?.id,
+
   name: user?.name ?? "",
+
+  cpf: user?.cpf ?? "",
+
+  birthDate: user?.birthDate ?? "",
+
   phone: user?.phone ?? "",
+
   email: user?.email ?? "",
+
   password: "",
+
   role: user?.role,
 });
 
@@ -82,6 +92,10 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
       role: data.role,
 
       data: {
+        cpf: data.cpf,
+
+        birthDate: data.birthDate,
+
         phone: data.phone,
 
         status: "ativo",
@@ -114,6 +128,7 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
       title: "Erro ao criar usuário",
 
       description:
+        error.message ||
         "Não foi possível criar o usuário. Verifique os dados e tente novamente.",
     });
 
@@ -131,6 +146,10 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
       data: {
         name: data.name,
 
+        cpf: data.cpf,
+
+        birthDate: data.birthDate,
+
         email: data.email,
 
         phone: data.phone,
@@ -143,7 +162,9 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
 
         title: "Erro ao atualizar usuário",
 
-        description: "Não foi possível atualizar os dados do usuário.",
+        description:
+          updateError.message ||
+          "Não foi possível atualizar os dados do usuário.",
       });
 
       return false;
@@ -282,6 +303,58 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
               {errors.name && (
                 <p className="text-xs text-destructive">
                   {errors.name.message}
+                </p>
+              )}
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="cpf">CPF</Label>
+
+              <Controller
+                name="cpf"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    id="cpf"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="000.000.000-00"
+                    maxLength={14}
+                    value={formatCpf(field.value ?? "")}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    ref={field.ref}
+                    aria-invalid={!!errors.cpf}
+                    onChange={(event) => {
+                      const rawValue = event.target.value
+                        .replace(/\D/g, "")
+                        .slice(0, 11);
+
+                      field.onChange(rawValue);
+                    }}
+                  />
+                )}
+              />
+
+              {errors.cpf && (
+                <p className="text-xs text-destructive">{errors.cpf.message}</p>
+              )}
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="birthDate">Data de nascimento</Label>
+
+              <Input
+                id="birthDate"
+                type="date"
+                autoComplete="bday"
+                aria-invalid={!!errors.birthDate}
+                {...register("birthDate")}
+              />
+
+              {errors.birthDate && (
+                <p className="text-xs text-destructive">
+                  {errors.birthDate.message}
                 </p>
               )}
             </div>

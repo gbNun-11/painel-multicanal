@@ -6,6 +6,7 @@ import {
   enterpriseInsurersTable,
   enterprisesTable,
   insurersTable,
+  opportunitiesTable,
   session,
   susepsTable,
   usersTable,
@@ -16,13 +17,21 @@ const relationalSchema = {
   users: usersTable,
 
   session,
+
   account,
+
   verification,
 
   clientsTable,
+
+  opportunitiesTable,
+
   enterprisesTable,
+
   insurersTable,
+
   enterpriseInsurersTable,
+
   susepsTable,
 };
 
@@ -38,9 +47,14 @@ export const relations = defineRelations(relationalSchema, (r) => ({
       to: r.account.userId,
     }),
 
-    clients: r.many.clientsTable({
+    opportunities: r.many.opportunitiesTable({
       from: r.users.id,
-      to: r.clientsTable.salespersonId,
+      to: r.opportunitiesTable.salespersonId,
+    }),
+
+    suseps: r.many.susepsTable({
+      from: r.users.id,
+      to: r.susepsTable.brokerUserId,
     }),
   },
 
@@ -88,9 +102,9 @@ export const relations = defineRelations(relationalSchema, (r) => ({
       to: r.susepsTable.enterpriseInsurerId,
     }),
 
-    clients: r.many.clientsTable({
+    opportunities: r.many.opportunitiesTable({
       from: r.enterpriseInsurersTable.id,
-      to: r.clientsTable.enterpriseInsurerId,
+      to: r.opportunitiesTable.enterpriseInsurerId,
     }),
   },
 
@@ -100,25 +114,42 @@ export const relations = defineRelations(relationalSchema, (r) => ({
       to: r.enterpriseInsurersTable.id,
     }),
 
-    clients: r.many.clientsTable({
+    brokerUser: r.one.users({
+      from: r.susepsTable.brokerUserId,
+      to: r.users.id,
+    }),
+
+    opportunities: r.many.opportunitiesTable({
       from: r.susepsTable.id,
-      to: r.clientsTable.susepId,
+      to: r.opportunitiesTable.susepId,
     }),
   },
 
   clientsTable: {
+    opportunities: r.many.opportunitiesTable({
+      from: r.clientsTable.id,
+      to: r.opportunitiesTable.clientId,
+    }),
+  },
+
+  opportunitiesTable: {
+    client: r.one.clientsTable({
+      from: r.opportunitiesTable.clientId,
+      to: r.clientsTable.id,
+    }),
+
     enterpriseInsurer: r.one.enterpriseInsurersTable({
-      from: r.clientsTable.enterpriseInsurerId,
+      from: r.opportunitiesTable.enterpriseInsurerId,
       to: r.enterpriseInsurersTable.id,
     }),
 
     susep: r.one.susepsTable({
-      from: r.clientsTable.susepId,
+      from: r.opportunitiesTable.susepId,
       to: r.susepsTable.id,
     }),
 
     salesperson: r.one.users({
-      from: r.clientsTable.salespersonId,
+      from: r.opportunitiesTable.salespersonId,
       to: r.users.id,
     }),
   },

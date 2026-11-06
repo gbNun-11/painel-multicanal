@@ -12,6 +12,7 @@ interface GetUsersParams {
 
 export const getUsers = async ({ page }: GetUsersParams) => {
   const pageSize = DEFAULT_PAGE_SIZE;
+
   const [countResult] = await db
     .select({
       total: count(),
@@ -30,10 +31,19 @@ export const getUsers = async ({ page }: GetUsersParams) => {
   const users = await db
     .select({
       id: usersTable.id,
+
       name: usersTable.name,
+
+      cpf: usersTable.cpf,
+
+      birthDate: usersTable.birthDate,
+
       phone: usersTable.phone,
+
       email: usersTable.email,
+
       role: usersTable.role,
+
       status: usersTable.status,
     })
     .from(usersTable)
@@ -43,10 +53,14 @@ export const getUsers = async ({ page }: GetUsersParams) => {
 
   return {
     users,
+
     pagination: {
       page: safePage,
+
       pageSize,
+
       total,
+
       totalPages,
     },
   };

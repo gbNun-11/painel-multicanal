@@ -22,21 +22,32 @@ export const formatCpf = (value: string) => {
 };
 
 export const formatCnpj = (value: string) => {
-  const digits = value.replace(/\D/g, "").slice(0, 14);
+  const normalized = value
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 14);
 
-  return digits
-    .replace(/^(\d{2})(\d)/, "$1.$2")
-    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
-    .replace(/\.(\d{3})(\d)/, ".$1/$2")
-    .replace(/(\d{4})(\d)/, "$1-$2");
+  const base = normalized.slice(0, 12);
+
+  const checkDigits = normalized.slice(12).replace(/\D/g, "").slice(0, 2);
+
+  const document = `${base}${checkDigits}`;
+
+  return document
+    .replace(/^([A-Z0-9]{2})([A-Z0-9])/, "$1.$2")
+    .replace(/^([A-Z0-9]{2})\.([A-Z0-9]{3})([A-Z0-9])/, "$1.$2.$3")
+    .replace(/\.([A-Z0-9]{3})([A-Z0-9])/, ".$1/$2")
+    .replace(/([A-Z0-9]{4})(\d)/, "$1-$2");
 };
 
 export const formatDocument = (value: string) => {
-  const digits = value.replace(/\D/g, "");
+  const normalized = value.toUpperCase().replace(/[^A-Z0-9]/g, "");
 
-  if (digits.length <= 11) {
-    return formatCpf(digits);
+  const isCnpj = normalized.length > 11 || /[A-Z]/.test(normalized);
+
+  if (isCnpj) {
+    return formatCnpj(normalized);
   }
 
-  return formatCnpj(digits);
+  return formatCpf(normalized);
 };

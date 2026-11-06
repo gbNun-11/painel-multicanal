@@ -9,6 +9,7 @@ import {
 
 import { enterpriseInsurersTable } from "./enterprise-insurers";
 import { statusEnum } from "./enums";
+import { usersTable } from "./users";
 
 export const susepsTable = pgTable(
   "enterprise_insurer_suseps",
@@ -22,7 +23,18 @@ export const susepsTable = pgTable(
         onUpdate: "cascade",
       }),
 
+    brokerUserId: uuid("broker_user_id")
+      .notNull()
+      .references(() => usersTable.id, {
+        onDelete: "restrict",
+        onUpdate: "cascade",
+      }),
+
     code: text("code").notNull(),
+
+    productCode: text("product_code").notNull(),
+
+    product: text("product").notNull(),
 
     status: statusEnum("status").default("ativo").notNull(),
 
@@ -48,5 +60,9 @@ export const susepsTable = pgTable(
     index("suseps_enterprise_insurer_idx").on(table.enterpriseInsurerId),
 
     index("suseps_code_idx").on(table.code),
+
+    index("suseps_broker_user_idx").on(table.brokerUserId),
+
+    index("suseps_product_code_idx").on(table.productCode),
   ],
 );

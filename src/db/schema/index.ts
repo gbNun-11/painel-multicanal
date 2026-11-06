@@ -6,3 +6,4 @@ export * from "./enums";
 export * from "./insurers";
 export * from "./suseps";
 export * from "./users";
+export * from "./opportunities";

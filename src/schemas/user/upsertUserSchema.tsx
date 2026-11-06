@@ -2,6 +2,19 @@ import { z } from "zod";
 
 import { userRoles } from "@/src/constants/enums";
 import { hasAllowedEmailDomain } from "@/src/utils/auth-policy";
+import { isValidCpf } from "@/src/utils/documents";
+
+const getTodayDateString = () => {
+  const today = new Date();
+
+  const year = today.getFullYear();
+
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+
+  const day = String(today.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
 
 const upsertUserSchema = z
   .object({
@@ -15,6 +28,46 @@ const upsertUserSchema = z
       })
       .max(50, {
         error: "O nome deve conter no máximo 50 caracteres.",
+      }),
+
+    cpf: z
+      .string()
+      .length(11, {
+        error: "O CPF deve conter 11 números.",
+      })
+      .regex(/^\d+$/, {
+        error: "O CPF deve conter apenas números.",
+      })
+      .refine(isValidCpf, {
+        error: "Informe um CPF válido.",
+      }),
+
+    birthDate: z
+      .string()
+      .min(1, {
+        error: "Informe a data de nascimento.",
+      })
+      .regex(/^\d{4}-\d{2}-\d{2}$/, {
+        error: "Informe uma data de nascimento válida.",
+      })
+      .refine(
+        (value) => {
+          const [year, month, day] = value.split("-").map(Number);
+
+          const date = new Date(Date.UTC(year, month - 1, day));
+
+          return (
+            date.getUTCFullYear() === year &&
+            date.getUTCMonth() === month - 1 &&
+            date.getUTCDate() === day
+          );
+        },
+        {
+          error: "Informe uma data de nascimento válida.",
+        },
+      )
+      .refine((value) => value <= getTodayDateString(), {
+        error: "A data de nascimento não pode estar no futuro.",
       }),
 
     phone: z
@@ -55,7 +108,9 @@ const upsertUserSchema = z
     if (!data.id && data.password.length < 8) {
       ctx.addIssue({
         code: "custom",
+
         path: ["password"],
+
         message: "A senha deve conter pelo menos 8 caracteres.",
       });
 
@@ -65,7 +120,9 @@ const upsertUserSchema = z
     if (data.id && data.password.length > 0 && data.password.length < 8) {
       ctx.addIssue({
         code: "custom",
+
         path: ["password"],
+
         message: "A nova senha deve conter pelo menos 8 caracteres.",
       });
     }
