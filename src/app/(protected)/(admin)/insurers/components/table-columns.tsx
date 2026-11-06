@@ -2,9 +2,8 @@
 
 import { createColumnHelper } from "@tanstack/react-table";
 
-import { Badge } from "@/src/components/ui/badge";
 import type { DataTableFeatures } from "@/src/components/ui/data-table-features";
-import { statusLabels } from "@/src/constants/enums";
+import { StatusBadge } from "@/src/components/ui/status-badge";
 
 import EnterpriseInsurerActions from "./enterprise-insurer-actions";
 import type { EnterpriseInsurerTableRow } from "./types";
@@ -47,28 +46,17 @@ export const enterpriseInsurersTableColumns = columnHelper.columns([
   columnHelper.accessor("status", {
     id: "status",
     header: "Status",
-
-    cell: ({ getValue }) => {
-      const status = getValue();
-
-      return (
-        <Badge variant={status === "ativo" ? "default" : "secondary"}>
-          {statusLabels[status]}
-        </Badge>
-      );
-    },
+    cell: ({ getValue }) => <StatusBadge status={getValue()} />,
   }),
+
   columnHelper.display({
     id: "actions",
-
     header: "",
-
     cell: ({ row }) => (
       <div className="flex justify-end">
         <EnterpriseInsurerActions enterpriseInsurer={row.original} />
       </div>
     ),
-
     enableSorting: false,
   }),
 ]);

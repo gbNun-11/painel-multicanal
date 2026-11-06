@@ -2,9 +2,8 @@
 
 import { createColumnHelper } from "@tanstack/react-table";
 
-import { Badge } from "@/src/components/ui/badge";
 import type { DataTableFeatures } from "@/src/components/ui/data-table-features";
-import { statusLabels } from "@/src/constants/enums";
+import { StatusBadge } from "@/src/components/ui/status-badge";
 import { formatCnpj } from "@/src/utils/formatters";
 
 import EnterpriseActions from "./enterprise-actions";
@@ -30,15 +29,7 @@ export const enterprisesTableColumns = columnHelper.columns([
   columnHelper.accessor("status", {
     id: "status",
     header: "Status",
-    cell: ({ getValue }) => {
-      const status = getValue();
-
-      return (
-        <Badge variant={status === "ativo" ? "default" : "secondary"}>
-          {statusLabels[status]}
-        </Badge>
-      );
-    },
+    cell: ({ getValue }) => <StatusBadge status={getValue()} />,
   }),
 
   columnHelper.display({
