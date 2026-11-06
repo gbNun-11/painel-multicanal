@@ -1,11 +1,13 @@
 "use client";
 
-import { Loader2Icon } from "lucide-react";
+import type { ColumnDef } from "@tanstack/react-table";
 import { useAction } from "next-safe-action/hooks";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { getSusepsAction } from "@/src/actions/suseps/get-suseps";
 import { Badge } from "@/src/components/ui/badge";
+import { DataTable } from "@/src/components/ui/data-table";
+import type { DataTableFeatures } from "@/src/components/ui/data-table-features";
 import {
   DialogContent,
   DialogDescription,
@@ -13,16 +15,8 @@ import {
   DialogTitle,
 } from "@/src/components/ui/dialog";
 import { Separator } from "@/src/components/ui/separator";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/src/components/ui/table";
+import { StatusBadge } from "@/src/components/ui/status-badge";
 import { toast } from "@/src/components/ui/toast";
-import { statusLabels } from "@/src/constants/enums";
 
 import ConfigureMultichannelButton from "./configure-multichannel-button";
 import SusepActions from "./susep-actions";
@@ -30,7 +24,6 @@ import type { SusepContext, SusepTableRow } from "./types";
 
 interface ManageSusepsDialogProps {
   open: boolean;
-
   context: SusepContext;
 }
 
@@ -45,9 +38,7 @@ const ManageSusepsDialog = ({ open, context }: ManageSusepsDialogProps) => {
     onError: ({ error }) => {
       toast.add({
         type: "error",
-
         title: "Erro ao carregar SUSEPs",
-
         description:
           error.serverError ?? "Não foi possível carregar as SUSEPs.",
       });
@@ -68,13 +59,73 @@ const ManageSusepsDialog = ({ open, context }: ManageSusepsDialogProps) => {
     loadSuseps();
   }, [open, loadSuseps]);
 
-  const getMasterCode = (masterSusepId: string | null) => {
-    if (!masterSusepId) {
-      return "—";
-    }
+  const susepCodes = useMemo(
+    () => new Map(suseps.map((susep) => [susep.id, susep.code])),
+    [suseps],
+  );
 
-    return suseps.find((susep) => susep.id === masterSusepId)?.code ?? "—";
-  };
+  const columns = useMemo<ColumnDef<DataTableFeatures, SusepTableRow>[]>(
+    () => [
+      {
+        accessorKey: "code",
+        header: "SUSEP",
+        cell: ({ row }) => (
+          <span className="font-medium">{row.original.code}</span>
+        ),
+      },
+      {
+        id: "master",
+        header: "Master",
+        cell: ({ row }) => {
+          const masterId = row.original.masterSusepId;
+
+          return masterId ? (susepCodes.get(masterId) ?? "—") : "—";
+        },
+      },
+      {
+        accessorKey: "multichannel",
+        header: "Multicanal",
+        cell: ({ row }) => (
+          <Badge variant={row.original.multichannel ? "default" : "secondary"}>
+            {row.original.multichannel ? "Sim" : "Não"}
+          </Badge>
+        ),
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => <StatusBadge status={row.original.status} />,
+      },
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        cell: ({ row }) => {
+          const susep = row.original;
+
+          return (
+            <div className="flex items-center justify-end gap-1">
+              {susep.multichannel && (
+                <ConfigureMultichannelButton
+                  susepId={susep.id}
+                  susepCode={susep.code}
+                  enterpriseName={context.enterpriseName}
+                  insurerName={context.insurerName}
+                />
+              )}
+
+              <SusepActions
+                susep={susep}
+                context={context}
+                onSuccess={loadSuseps}
+              />
+            </div>
+          );
+        },
+      },
+    ],
+    [context, loadSuseps, susepCodes],
+  );
 
   return (
     <DialogContent className="sm:max-w-4xl">
@@ -103,90 +154,14 @@ const ManageSusepsDialog = ({ open, context }: ManageSusepsDialogProps) => {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-md border">
-        <Table>
-          <TableHeader className="bg-muted/60 dark:bg-muted/30">
-            <TableRow>
-              <TableHead className="font-semibold">SUSEP</TableHead>
-
-              <TableHead className="font-semibold">Master</TableHead>
-
-              <TableHead className="font-semibold">Multicanal</TableHead>
-
-              <TableHead className="font-semibold">Status</TableHead>
-
-              <TableHead className="w-24" />
-            </TableRow>
-          </TableHeader>
-
-          <TableBody>
-            {isPending ? (
-              <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center">
-                  <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                    <Loader2Icon className="size-4 animate-spin" />
-                    Carregando SUSEPs...
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : suseps.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={5}
-                  className="h-24 text-center text-muted-foreground"
-                >
-                  Nenhuma SUSEP vinculada.
-                </TableCell>
-              </TableRow>
-            ) : (
-              suseps.map((susep) => (
-                <TableRow key={susep.id}>
-                  <TableCell className="font-medium">{susep.code}</TableCell>
-
-                  <TableCell>{getMasterCode(susep.masterSusepId)}</TableCell>
-
-                  <TableCell>
-                    <Badge
-                      variant={susep.multichannel ? "default" : "secondary"}
-                    >
-                      {susep.multichannel ? "Sim" : "Não"}
-                    </Badge>
-                  </TableCell>
-
-                  <TableCell>
-                    <Badge
-                      variant={
-                        susep.status === "ativo" ? "default" : "secondary"
-                      }
-                    >
-                      {statusLabels[susep.status]}
-                    </Badge>
-                  </TableCell>
-
-                  <TableCell>
-                    <div className="flex items-center justify-end gap-1">
-                      {susep.multichannel && (
-                        <ConfigureMultichannelButton
-                          susepId={susep.id}
-                          susepCode={susep.code}
-                          enterpriseName={context.enterpriseName}
-                          insurerName={context.insurerName}
-                        />
-                      )}
-
-                      <SusepActions
-                        susep={susep}
-                        context={context}
-                        onSuccess={loadSuseps}
-                      />
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={suseps}
+        getRowId={(susep) => susep.id}
+        isLoading={isPending}
+        loadingMessage="Carregando SUSEPs..."
+        emptyMessage="Nenhuma SUSEP vinculada."
+      />
     </DialogContent>
   );
 };

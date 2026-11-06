@@ -6,7 +6,6 @@ import { useAction } from "next-safe-action/hooks";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { getMultichannelConfigurationAction } from "@/src/actions/multichannel/get-multichannel-configuration";
-import { Badge } from "@/src/components/ui/badge";
 import { Button } from "@/src/components/ui/button";
 import { DataTable } from "@/src/components/ui/data-table";
 import type { DataTableFeatures } from "@/src/components/ui/data-table-features";
@@ -18,8 +17,8 @@ import {
   DialogTitle,
 } from "@/src/components/ui/dialog";
 import { Separator } from "@/src/components/ui/separator";
+import { StatusBadge } from "@/src/components/ui/status-badge";
 import { toast } from "@/src/components/ui/toast";
-import { statusLabels } from "@/src/constants/enums";
 
 import MultichannelAssignmentActions from "./multichannel-assignment-actions";
 import type {
@@ -145,15 +144,7 @@ const ManageMultichannelDialog = ({
       {
         accessorKey: "status",
         header: "Status",
-        cell: ({ row }) => {
-          const status = row.original.status;
-
-          return (
-            <Badge variant={status === "ativo" ? "default" : "secondary"}>
-              {statusLabels[status]}
-            </Badge>
-          );
-        },
+        cell: ({ row }) => <StatusBadge status={row.original.status} />,
       },
       {
         id: "actions",
