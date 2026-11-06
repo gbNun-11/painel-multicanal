@@ -1,11 +1,11 @@
 import "server-only";
 
-import { and, count, desc, eq, inArray } from "drizzle-orm";
-import { headers } from "next/headers";
-import { notFound, redirect } from "next/navigation";
+import { count, desc, eq } from "drizzle-orm";
+import { notFound } from "next/navigation";
 import { z } from "zod";
 
 import { db } from "@/src/db";
+
 import {
   clientsTable,
   enterpriseInsurersTable,
@@ -16,7 +16,8 @@ import {
   susepsTable,
   usersTable,
 } from "@/src/db/schema";
-import { auth } from "@/src/lib/auth";
+
+import { PAGE_ACCESS, requirePageAccess } from "@/src/lib/require-page-access";
 
 const PAGE_SIZE = 20;
 
@@ -25,38 +26,11 @@ interface GetClient360Params {
   page?: number;
 }
 
-/**
- * Consulta protegida do Cliente 360 (INRI, primeira versão).
- * A autorização por organização/empresa deverá ser acrescentada
- * antes de abrir acesso a outras corretoras ou a outros setores.
- */
 export const getClient360 = async ({
   clientId,
   page = 1,
 }: GetClient360Params) => {
-  const session = await auth.api.getSession({ headers: await headers() });
-
-  if (!session?.user?.id) {
-    redirect("/authentication");
-  }
-
-  // Não confiar apenas no grupo de rotas (protected) ou na visibilidade do menu.
-  const [authorizedUser] = await db
-    .select({ id: usersTable.id })
-    .from(usersTable)
-    .where(
-      and(
-        eq(usersTable.id, session.user.id),
-        eq(usersTable.status, "ativo"),
-        eq(usersTable.banned, false),
-        inArray(usersTable.role, ["admin", "administrativo"]),
-      ),
-    )
-    .limit(1);
-
-  if (!authorizedUser) {
-    notFound();
-  }
+  await requirePageAccess(PAGE_ACCESS.administrative);
 
   if (!z.uuid().safeParse(clientId).success) {
     notFound();
@@ -97,13 +71,18 @@ export const getClient360 = async ({
   }
 
   const [countResult] = await db
-    .select({ total: count() })
+    .select({
+      total: count(),
+    })
     .from(opportunitiesTable)
     .where(eq(opportunitiesTable.clientId, client.id));
 
   const total = countResult?.total ?? 0;
+
   const totalPages = Math.ceil(total / PAGE_SIZE);
+
   const requestedPage = Number.isSafeInteger(page) && page > 0 ? page : 1;
+
   const safePage = Math.min(requestedPage, Math.max(1, totalPages));
 
   const opportunities = await db
@@ -152,6 +131,7 @@ export const getClient360 = async ({
   return {
     client,
     opportunities,
+
     pagination: {
       page: safePage,
       pageSize: PAGE_SIZE,

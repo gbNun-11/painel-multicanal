@@ -1,6 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
-import { headers } from "next/headers";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 
 import {
   PageActions,
@@ -14,12 +12,11 @@ import {
 
 import SearchQueryInput from "@/src/components/ui/search-query-input";
 
-import { db } from "@/src/db";
-import { usersTable } from "@/src/db/schema";
-
 import { getRegisteredClients } from "@/src/data/clients/get-registered-clients";
 
-import { auth } from "@/src/lib/auth";
+import { PAGE_ACCESS, requirePageAccess } from "@/src/lib/require-page-access";
+
+import { getFirstSearchParam } from "@/src/utils/search-params";
 
 import RegisteredClientsTable from "./components/registered-clients-table";
 
@@ -30,45 +27,16 @@ interface RegisteredClientsPageProps {
   }>;
 }
 
-const firstParam = (value: string | string[] | undefined) => {
-  return Array.isArray(value) ? value[0] : value;
-};
-
 export default async function RegisteredClientsPage({
   searchParams,
 }: RegisteredClientsPageProps) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
-
-  if (!session?.user?.id) {
-    redirect("/authentication");
-  }
-
-  const [authorizedUser] = await db
-    .select({
-      id: usersTable.id,
-    })
-    .from(usersTable)
-    .where(
-      and(
-        eq(usersTable.id, session.user.id),
-        eq(usersTable.status, "ativo"),
-        eq(usersTable.banned, false),
-        inArray(usersTable.role, ["admin", "administrativo"]),
-      ),
-    )
-    .limit(1);
-
-  if (!authorizedUser) {
-    notFound();
-  }
+  await requirePageAccess(PAGE_ACCESS.administrative);
 
   const params = await searchParams;
 
-  const search = firstParam(params.q)?.trim().slice(0, 120) ?? "";
+  const search = getFirstSearchParam(params.q)?.trim().slice(0, 120) ?? "";
 
-  const requestedPage = Number(firstParam(params.page) ?? "1");
+  const requestedPage = Number(getFirstSearchParam(params.page) ?? "1");
 
   const page =
     Number.isSafeInteger(requestedPage) && requestedPage > 0
@@ -105,9 +73,7 @@ export default async function RegisteredClientsPage({
         </PageHeaderContent>
 
         <PageActions>
-          <div className="flex flex-wrap items-center gap-2">
-            <SearchQueryInput placeholder="Pesquisar nome ou CPF/CNPJ..." />
-          </div>
+          <SearchQueryInput placeholder="Pesquisar nome ou CPF/CNPJ..." />
         </PageActions>
       </PageHeader>
 

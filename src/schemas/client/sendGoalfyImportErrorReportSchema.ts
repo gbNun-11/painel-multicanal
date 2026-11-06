@@ -15,7 +15,7 @@ const importFailureSchema = z.object({
 
   details: z.string().max(10_000).nullable(),
 
-  attempts: z.number().int().positive().nullable(),
+  attempts: z.number().int().nonnegative().nullable(),
 
   statusCode: z.number().int().min(100).max(599).nullable(),
 

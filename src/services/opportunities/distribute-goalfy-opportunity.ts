@@ -54,6 +54,22 @@ const REPORT_VISIBILITY_DELAY_MS = 5_000;
 const sleep = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+// Evita expor tokens do relatório nos logs de diagnóstico.
+const redactSecrets = (value: string) =>
+  value
+    .replace(/(apiKey=)[^&\s"'`]+/gi, "$1[REDACTED]")
+    .replace(/(Bearer\s+)[a-zA-Z0-9._-]+/gi, "$1[REDACTED]");
+
+const errorDetails = (error: unknown) => {
+  const message = error instanceof Error ? error.message : "Erro desconhecido";
+  const cause =
+    error instanceof Error && error.cause instanceof Error
+      ? ` | Causa: ${error.cause.message}`
+      : "";
+
+  return redactSecrets(`${message}${cause}`).slice(0, 2_000);
+};
+
 const failureResult = (input: {
   reason: string;
   stage: "database" | "goalfy";
@@ -122,8 +138,20 @@ export const distributeGoalfyOpportunity = async (
     details: string | null = null,
     attempts: number | null = null,
     statusCode: number | null = null,
-  ) =>
-    failureResult({
+  ) => {
+    console.error("[GOALFY DISTRIBUTION] Falha:", {
+      reason,
+      stage,
+      opportunityId,
+      enterpriseInsurerId,
+      salespersonId,
+      attempts,
+      statusCode,
+      message: redactSecrets(message),
+      details: details ? redactSecrets(details) : null,
+    });
+
+    return failureResult({
       reason,
       stage,
       enterpriseInsurerId,
@@ -135,6 +163,7 @@ export const distributeGoalfyOpportunity = async (
       attempts,
       statusCode,
     });
+  };
 
   const [salesperson] = await db
     .select({
@@ -533,7 +562,7 @@ export const distributeGoalfyOpportunity = async (
     return restorePending(
       "goalfy_validation_error",
       "Não foi possível preparar o card. A oportunidade voltou para Distribuição Pendente.",
-      error instanceof Error ? error.message : null,
+      errorDetails(error),
       0,
     );
   }
@@ -558,11 +587,11 @@ export const distributeGoalfyOpportunity = async (
     if (existing.status === "inconsistent") {
       return pending("goalfy_report_conflict", existing.details, 0);
     }
-  } catch {
+  } catch (error) {
     return restorePending(
       "goalfy_report_unavailable",
       "Relatório Goalfy indisponível antes da criação. Nenhum POST foi realizado.",
-      null,
+      errorDetails(error),
       0,
     );
   }
@@ -589,10 +618,10 @@ export const distributeGoalfyOpportunity = async (
 
     try {
       match = await inspectFreshReport();
-    } catch {
+    } catch (error) {
       return pending(
         "goalfy_report_unavailable",
-        `Tentativa ${attempt}/5: a criação não foi confirmada e o XLSX está indisponível.`,
+        `Tentativa ${attempt}/5: a criação não foi confirmada e o XLSX está indisponível. ${errorDetails(error)}`,
         attempt,
         lastError?.status ?? null,
       );

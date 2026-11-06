@@ -1,22 +1,15 @@
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import type { ReactNode } from "react";
 
-import { auth } from "@/src/lib/auth";
+import { PAGE_ACCESS, requirePageAccess } from "@/src/lib/require-page-access";
 
-const AdminLayout = async ({ children }: { children: React.ReactNode }) => {
-  const session = await auth.api.getSession({
-    headers: await headers(),
+interface AdminLayoutProps {
+  children: ReactNode;
+}
 
-    query: {
-      disableCookieCache: true,
-    },
+const AdminLayout = async ({ children }: AdminLayoutProps) => {
+  await requirePageAccess(PAGE_ACCESS.adminOnly, {
+    deniedRedirectTo: "/dashboard",
   });
-  if (!session) {
-    redirect("/authentication");
-  }
-  if (session.user.role !== "admin") {
-    redirect("/dashboard");
-  }
 
   return <>{children}</>;
 };
