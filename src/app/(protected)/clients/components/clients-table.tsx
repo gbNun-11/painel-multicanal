@@ -1,5 +1,7 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+
 import {
   DataTable,
   type DataTablePaginationMeta,
@@ -16,7 +18,13 @@ interface ClientsTableProps {
 }
 
 const ClientsTable = ({ data, pagination }: ClientsTableProps) => {
+  const router = useRouter();
+
   const { rowSelection, setRowSelection } = useClientsSelection();
+
+  const handleRowClick = (client: ClientTableRow) => {
+    router.push(`/clients/${client.clientId}`);
+  };
 
   return (
     <DataTable
@@ -26,6 +34,7 @@ const ClientsTable = ({ data, pagination }: ClientsTableProps) => {
       rowSelection={rowSelection}
       onRowSelectionChange={setRowSelection}
       getRowId={(client) => client.id}
+      onRowClick={handleRowClick}
     />
   );
 };

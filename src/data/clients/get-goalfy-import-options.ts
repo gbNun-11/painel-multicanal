@@ -1,16 +1,17 @@
 import "server-only";
 
-import { and, asc, count, eq, isNotNull, isNull } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNull } from "drizzle-orm";
 
 import { db } from "@/src/db";
 import {
-  clientsTable,
   enterpriseInsurersTable,
   enterprisesTable,
+  opportunitiesTable,
   usersTable,
 } from "@/src/db/schema";
 
 import type {
+  GoalfyBulkSalesModel,
   GoalfyImportAvailability,
   GoalfyImportOptions,
 } from "./goalfy-import-types";
@@ -26,19 +27,16 @@ export const getGoalfyImportOptions = async ({
     db
       .select({
         enterpriseInsurerId: enterpriseInsurersTable.id,
-
         enterpriseId: enterprisesTable.id,
-
         enterpriseName: enterprisesTable.name,
-
-        product: clientsTable.product,
-
+        product: opportunitiesTable.product,
+        salesModel: opportunitiesTable.salesModel,
         available: count(),
       })
-      .from(clientsTable)
+      .from(opportunitiesTable)
       .innerJoin(
         enterpriseInsurersTable,
-        eq(clientsTable.enterpriseInsurerId, enterpriseInsurersTable.id),
+        eq(opportunitiesTable.enterpriseInsurerId, enterpriseInsurersTable.id),
       )
       .innerJoin(
         enterprisesTable,
@@ -47,25 +45,30 @@ export const getGoalfyImportOptions = async ({
       .where(
         and(
           eq(enterpriseInsurersTable.insurerId, insurerId),
-
           eq(enterpriseInsurersTable.status, "ativo"),
-
           eq(enterprisesTable.status, "ativo"),
-
-          eq(clientsTable.status, "novo"),
-
-          isNull(clientsTable.salespersonId),
-
-          isNotNull(clientsTable.product),
+          eq(opportunitiesTable.distributionStatus, "novo"),
+          eq(opportunitiesTable.salesStatus, "aberto"),
+          isNull(opportunitiesTable.salespersonId),
+          inArray(opportunitiesTable.salesModel, [
+            "LEAD",
+            "VINCULO",
+            "CONTINGENCIA",
+          ]),
         ),
       )
       .groupBy(
         enterpriseInsurersTable.id,
         enterprisesTable.id,
         enterprisesTable.name,
-        clientsTable.product,
+        opportunitiesTable.product,
+        opportunitiesTable.salesModel,
       )
-      .orderBy(asc(enterprisesTable.name), asc(clientsTable.product)),
+      .orderBy(
+        asc(enterprisesTable.name),
+        asc(opportunitiesTable.product),
+        asc(opportunitiesTable.salesModel),
+      ),
 
     db
       .select({
@@ -74,33 +77,38 @@ export const getGoalfyImportOptions = async ({
       })
       .from(usersTable)
       .where(
-        and(
-          eq(usersTable.role, "comercial"),
-
-          eq(usersTable.status, "ativo"),
-        ),
+        and(eq(usersTable.role, "comercial"), eq(usersTable.status, "ativo")),
       )
       .orderBy(asc(usersTable.name), asc(usersTable.id)),
   ]);
 
   const availability: GoalfyImportAvailability[] = availabilityResult.flatMap(
     (item) => {
-      const product = item.product?.trim();
+      const product = item.product.trim();
 
       if (!product) {
         return [];
       }
 
+      const salesModel = item.salesModel;
+
+      if (
+        salesModel !== "LEAD" &&
+        salesModel !== "VINCULO" &&
+        salesModel !== "CONTINGENCIA"
+      ) {
+        return [];
+      }
+
+      const model: GoalfyBulkSalesModel = salesModel;
+
       return [
         {
           enterpriseInsurerId: item.enterpriseInsurerId,
-
           enterpriseId: item.enterpriseId,
-
           enterpriseName: item.enterpriseName,
-
           product,
-
+          salesModel: model,
           available: Number(item.available),
         },
       ];

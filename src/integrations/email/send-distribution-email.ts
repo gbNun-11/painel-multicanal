@@ -6,8 +6,30 @@ import {
   createDistributionEmailText,
 } from "./distribution-email-template";
 import { getSmtpConfig } from "./config";
+import { runControlledSmtpSend } from "./smtp-delivery-queue";
 import { createEmailTransporter } from "./transporter";
 import type { SendDistributionEmailInput } from "./types";
+
+export interface DistributionCopyRecipient {
+  name: string;
+  email: string;
+}
+
+/**
+ * O SMTP aceitou pelo menos parte dos destinatários.
+ * Não reenviar automaticamente: isso duplicaria a entrega para quem recebeu.
+ */
+export class DistributionPartialDeliveryError extends Error {
+  constructor(
+    message: string,
+    public readonly messageId: string,
+    public readonly accepted: string[],
+    public readonly rejected: string[],
+  ) {
+    super(message);
+    this.name = "DistributionPartialDeliveryError";
+  }
+}
 
 const sanitizeFilename = (value: string) => {
   return value
@@ -33,21 +55,22 @@ const createReportFilename = (enterpriseName: string) => {
   return `clientes-distribuidos-${enterprise}-${date}.xlsx`;
 };
 
+const normalizedEmail = (email: string) => email.trim().toLowerCase();
+
 export const sendDistributionEmail = async (
   input: SendDistributionEmailInput,
+  additionalCopies: DistributionCopyRecipient[] = [],
 ) => {
   if (input.clients.length === 0) {
     throw new Error("Nenhum cliente informado para envio por e-mail.");
   }
 
-  const recipientEmail = input.recipient.email.trim().toLowerCase();
-
+  const recipientEmail = normalizedEmail(input.recipient.email);
   if (!recipientEmail) {
     throw new Error("O usuário comercial não possui e-mail cadastrado.");
   }
 
-  const senderEmail = input.sender.email.trim().toLowerCase();
-
+  const senderEmail = normalizedEmail(input.sender.email);
   if (!senderEmail) {
     throw new Error(
       "O usuário responsável pela distribuição não possui e-mail cadastrado.",
@@ -55,64 +78,72 @@ export const sendDistributionEmail = async (
   }
 
   const smtpConfig = getSmtpConfig(input.smtpAccount);
-
-  const transporter = createEmailTransporter(input.smtpAccount);
-
   const subject = `Novos clientes distribuídos - ${input.enterpriseName}`;
-
-  /*
-   * Gera o Excel somente no momento
-   * do envio. Nenhum arquivo temporário
-   * precisa ser salvo no servidor.
-   */
   const excelBuffer = await createDistributionExcelReport(input);
-
   const reportFilename = createReportFilename(input.enterpriseName);
 
-  const info = await transporter.sendMail({
-    from: {
-      name: input.sender.name,
+  const copies = new Map<string, DistributionCopyRecipient>();
+  for (const person of [input.sender, ...additionalCopies]) {
+    const email = normalizedEmail(person.email);
+    if (!email || email === recipientEmail || copies.has(email)) continue;
+    copies.set(email, { name: person.name, email });
+  }
 
-      address: smtpConfig.auth.user,
-    },
+  const cc = [...copies.values()].map((person) => ({
+    name: person.name,
+    address: person.email,
+  }));
 
-    replyTo: {
-      name: input.sender.name,
-
-      address: senderEmail,
-    },
-
-    to: {
-      name: input.recipient.name,
-
-      address: recipientEmail,
-    },
-
-    subject,
-
-    text: createDistributionEmailText(input),
-
-    html: createDistributionEmailHtml(input),
-
-    attachments: [
-      {
-        filename: reportFilename,
-
-        content: excelBuffer,
-
-        contentType:
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  const { result: info, attempts } = await runControlledSmtpSend(async () => {
+    const transporter = createEmailTransporter(input.smtpAccount);
+    return transporter.sendMail({
+      from: {
+        name: input.sender.name,
+        address: smtpConfig.auth.user,
       },
-    ],
-  });
+      replyTo: {
+        name: input.sender.name,
+        address: senderEmail,
+      },
+      to: {
+        name: input.recipient.name,
+        address: recipientEmail,
+      },
+      ...(cc.length ? { cc } : {}),
+      subject,
+      text: createDistributionEmailText(input),
+      html: createDistributionEmailHtml(input),
+      attachments: [
+        {
+          filename: reportFilename,
+          content: excelBuffer,
+          contentType:
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        },
+      ],
+    });
+  }, "E-mail de distribuição");
+
+  const accepted = (info.accepted ?? []).map(normalizedEmail);
+  const rejected = (info.rejected ?? []).map(normalizedEmail);
+  const expected = [recipientEmail, ...copies.keys()];
+  const missing = expected.filter((email) => !accepted.includes(email));
+
+  if (missing.length > 0 || rejected.length > 0) {
+    throw new DistributionPartialDeliveryError(
+      `O SMTP aceitou ${accepted.length} de ${expected.length} destinatário(s); ` +
+        `${missing.length} destinatário(s) requer(em) conferência. Não reenviar automaticamente.`,
+      info.messageId,
+      accepted,
+      rejected,
+    );
+  }
 
   return {
     messageId: info.messageId,
-
-    accepted: info.accepted,
-
-    rejected: info.rejected,
-
+    accepted,
+    rejected,
+    attempts,
     reportFilename,
   };
 };

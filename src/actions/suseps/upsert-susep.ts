@@ -231,8 +231,6 @@ export const upsertSusepAction = adminActionClient
 
       return {
         success: true,
-        mode: "created" as const,
-        id: createdSusep.id,
       };
     } catch (error) {
       const databaseError = error as {

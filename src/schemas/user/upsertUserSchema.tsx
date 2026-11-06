@@ -102,6 +102,15 @@ const upsertUserSchema = z
       error: "A senha deve conter no máximo 128 caracteres.",
     }),
 
+    // ID externo do Goalfy, opcional; não presumir que seja um UUID.
+    goalfyUserId: z
+      .string()
+      .trim()
+      .max(120, {
+        error: "O ID Goalfy deve ter no máximo 120 caracteres.",
+      })
+      .optional(),
+
     role: z.enum(userRoles),
   })
   .superRefine((data, ctx) => {

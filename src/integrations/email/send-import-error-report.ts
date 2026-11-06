@@ -14,7 +14,6 @@ const sanitizeFilename = (value: string) => {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-zA-Z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
     .toLowerCase();
 };
 
@@ -34,7 +33,6 @@ export const sendImportErrorReport = async (
   const recipients = Array.from(
     new Set([
       input.sender.email.trim().toLowerCase(),
-
       smtpConfig.auth.user.trim().toLowerCase(),
     ]),
   );
@@ -50,13 +48,11 @@ export const sendImportErrorReport = async (
   const info = await transporter.sendMail({
     from: {
       name: "Painel Multicanal",
-
       address: smtpConfig.auth.user,
     },
 
     replyTo: {
       name: input.sender.name,
-
       address: input.sender.email,
     },
 
@@ -71,9 +67,7 @@ export const sendImportErrorReport = async (
     attachments: [
       {
         filename,
-
         content: excel,
-
         contentType:
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       },
@@ -82,9 +76,7 @@ export const sendImportErrorReport = async (
 
   return {
     messageId: info.messageId,
-
     filename,
-
     recipients,
   };
 };

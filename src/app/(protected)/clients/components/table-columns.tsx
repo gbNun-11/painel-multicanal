@@ -1,6 +1,7 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import Link from "next/link";
 
 import { Badge } from "@/src/components/ui/badge";
 import { Checkbox } from "@/src/components/ui/checkbox";
@@ -9,24 +10,44 @@ import { formatDocument, formatPhone } from "@/src/utils/formatters";
 
 import type { ClientTableRow } from "./types";
 
-const PropensityBadge = ({ propensity }: { propensity: string | null }) => {
-  if (!propensity) {
-    return <Badge variant="outline">Não informado</Badge>;
-  }
+const SalesModelBadge = ({
+  salesModel,
+}: {
+  salesModel: ClientTableRow["salesModel"];
+}) => {
+  switch (salesModel) {
+    case "LEAD":
+      return (
+        <Badge
+          variant="outline"
+          className="border-blue-600 bg-blue-600 text-white dark:border-blue-600 dark:bg-blue-600 dark:text-white"
+        >
+          LEAD
+        </Badge>
+      );
 
-  switch (propensity) {
-    case "Super Quente":
-      return <Badge>{propensity}</Badge>;
+    case "VINCULO":
+      return (
+        <Badge
+          variant="outline"
+          className="border-violet-600 bg-violet-600 text-white dark:border-violet-600 dark:bg-violet-600 dark:text-white"
+        >
+          VÍNCULO
+        </Badge>
+      );
 
-    case "Quente":
-      return <Badge variant="secondary">{propensity}</Badge>;
-
-    case "Morno":
-    case "Frio":
-      return <Badge variant="outline">{propensity}</Badge>;
+    case "CONTINGENCIA":
+      return (
+        <Badge
+          variant="outline"
+          className="border-zinc-600 bg-zinc-600 text-white dark:border-zinc-600 dark:bg-zinc-600 dark:text-white"
+        >
+          CONTINGÊNCIA
+        </Badge>
+      );
 
     default:
-      return <Badge variant="secondary">{propensity}</Badge>;
+      return <Badge variant="outline">Não informado</Badge>;
   }
 };
 
@@ -47,11 +68,13 @@ export const clientsTableColumns: ColumnDef<
     ),
 
     cell: ({ row }) => (
-      <Checkbox
-        checked={row.getIsSelected()}
-        onCheckedChange={(checked) => row.toggleSelected(checked)}
-        aria-label={`Selecionar ${row.original.name}`}
-      />
+      <span data-no-row-click className="inline-flex">
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(checked) => row.toggleSelected(checked)}
+          aria-label={`Selecionar ${row.original.name}`}
+        />
+      </span>
     ),
 
     enableSorting: false,
@@ -59,10 +82,33 @@ export const clientsTableColumns: ColumnDef<
   },
 
   {
+    accessorKey: "opportunityNumber",
+    header: "Lead",
+
+    cell: ({ row }) => {
+      const number = row.original.opportunityNumber;
+
+      return (
+        <span className="whitespace-nowrap font-medium tabular-nums text-muted-foreground">
+          {number == null ? "—" : number}
+        </span>
+      );
+    },
+  },
+
+  {
     accessorKey: "name",
     header: "Nome",
 
-    cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
+    cell: ({ row }) => (
+      <Link
+        href={`/clients/${row.original.clientId}`}
+        className="font-medium hover:underline focus-visible:underline"
+        aria-label={`Abrir cadastro 360 de ${row.original.name}`}
+      >
+        {row.original.name}
+      </Link>
+    ),
   },
 
   {
@@ -95,9 +141,18 @@ export const clientsTableColumns: ColumnDef<
   },
 
   {
-    accessorKey: "propensity",
-    header: "Propensão",
+    accessorKey: "enterpriseName",
+    header: "Empresa",
 
-    cell: ({ row }) => <PropensityBadge propensity={row.original.propensity} />,
+    cell: ({ row }) => (
+      <span className="font-medium">{row.original.enterpriseName || "-"}</span>
+    ),
+  },
+
+  {
+    accessorKey: "salesModel",
+    header: "Modelo de Venda",
+
+    cell: ({ row }) => <SalesModelBadge salesModel={row.original.salesModel} />,
   },
 ];

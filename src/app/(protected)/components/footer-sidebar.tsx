@@ -1,10 +1,6 @@
-import {
-  Building2Icon,
-  BuildingIcon,
-  LogOutIcon,
-  UserIcon,
-  UsersIcon,
-} from "lucide-react";
+"use client";
+
+import { LogOutIcon, UserIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -18,6 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/src/components/ui/dropdown-menu";
+import { formatPersonName } from "@/src/utils/formatters";
 import {
   SidebarFooter,
   SidebarMenu,
@@ -29,7 +26,6 @@ import { authClient } from "@/src/lib/auth-client";
 const FooterSidebar = () => {
   const session = authClient.useSession();
   const router = useRouter();
-  const isAdmin = session.data?.user.role === "admin";
 
   const handleSignOut = async () => {
     await authClient.signOut({
@@ -40,6 +36,8 @@ const FooterSidebar = () => {
       },
     });
   };
+
+  const userEmail = session.data?.user.email;
 
   return (
     <SidebarFooter>
@@ -57,10 +55,12 @@ const FooterSidebar = () => {
               </Avatar>
 
               <div className="min-w-0 flex-1 text-left">
-                <p className="truncate text-sm">{session?.data?.user.name}</p>
+                <p className="truncate text-sm font-medium">
+                  {formatPersonName(session.data?.user.name)}
+                </p>
 
-                <p className="truncate text-sm text-muted-foreground">
-                  {session?.data?.user.email}
+                <p className="truncate text-xs text-muted-foreground">
+                  {session.data?.user.email}
                 </p>
               </div>
             </DropdownMenuTrigger>
@@ -68,28 +68,14 @@ const FooterSidebar = () => {
             <DropdownMenuContent>
               <DropdownMenuGroup>
                 <DropdownMenuLabel>Configurações</DropdownMenuLabel>
+
                 <DropdownMenuItem render={<Link href="/dashboard" />}>
                   <UserIcon />
                   Perfil
                 </DropdownMenuItem>
-                {isAdmin && (
-                  <>
-                    <DropdownMenuItem render={<Link href="/users" />}>
-                      <UsersIcon />
-                      Usuários
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem render={<Link href="/enterprises" />}>
-                      <Building2Icon />
-                      Empresas
-                    </DropdownMenuItem>
-                    <DropdownMenuItem render={<Link href="/insurers" />}>
-                      <BuildingIcon />
-                      Seguradoras
-                    </DropdownMenuItem>
-                  </>
-                )}
+
                 <DropdownMenuSeparator />
+
                 <DropdownMenuItem onClick={handleSignOut}>
                   <LogOutIcon />
                   Sair

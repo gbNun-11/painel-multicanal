@@ -120,10 +120,6 @@ export const upsertProductAction = adminActionClient
 
       return {
         success: true,
-
-        mode: "created" as const,
-
-        id: createdProduct.id,
       };
     } catch (error) {
       if (isDatabaseErrorCode(error, "23505")) {

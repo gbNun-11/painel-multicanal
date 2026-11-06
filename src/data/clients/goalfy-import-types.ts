@@ -1,8 +1,11 @@
+export type GoalfyBulkSalesModel = "LEAD" | "VINCULO" | "CONTINGENCIA";
+
 export interface GoalfyImportAvailability {
   enterpriseInsurerId: string;
   enterpriseId: string;
   enterpriseName: string;
   product: string;
+  salesModel: GoalfyBulkSalesModel;
   available: number;
 }
 
@@ -24,13 +27,13 @@ export interface GoalfySellerAllocationPayload {
 export interface GoalfyBulkImportBlockPayload {
   enterpriseInsurerId: string;
   product: string;
+  salesModel: GoalfyBulkSalesModel;
   quantity: number;
   allocations: GoalfySellerAllocationPayload[];
 }
 
 export interface GoalfyBulkImportPayload {
   blocks: GoalfyBulkImportBlockPayload[];
-
   sendListByWhatsApp: boolean;
   sendListByEmail: boolean;
 }

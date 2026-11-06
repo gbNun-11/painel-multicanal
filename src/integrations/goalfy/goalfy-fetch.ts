@@ -24,13 +24,9 @@ export class GoalfyHttpError extends Error {
     attempt: number,
   ) {
     super(message);
-
     this.name = "GoalfyHttpError";
-
     this.status = status;
-
     this.responseBody = responseBody;
-
     this.attempt = attempt;
   }
 }
@@ -47,13 +43,9 @@ export class GoalfyRequestError extends Error {
     responseBody: unknown,
   ) {
     super(message);
-
     this.name = "GoalfyRequestError";
-
     this.attempts = attempts;
-
     this.status = status;
-
     this.responseBody = responseBody;
   }
 }
@@ -65,27 +57,21 @@ export interface GoalfyErrorDetails {
   details: string | null;
 }
 
-const sleep = async (milliseconds: number) => {
-  await new Promise<void>((resolve) => {
-    setTimeout(resolve, milliseconds);
-  });
-};
+const sleep = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-const isRetryableStatus = (status: number) => {
-  return status === 408 || status === 429 || status >= 500;
-};
+const isRetryableStatus = (status: number) =>
+  status === 408 || status === 429 || status >= 500;
 
 const parseResponseBody = async (response: Response) => {
-  const text = await response.text();
+  const body = await response.text();
 
-  if (!text) {
-    return null;
-  }
+  if (!body) return null;
 
   try {
-    return JSON.parse(text) as unknown;
+    return JSON.parse(body) as unknown;
   } catch {
-    return text;
+    return body;
   }
 };
 
@@ -109,11 +95,8 @@ export const getGoalfyErrorDetails = (error: unknown): GoalfyErrorDetails => {
   if (error instanceof GoalfyRequestError) {
     return {
       message: error.message,
-
       attempts: error.attempts,
-
       status: error.status,
-
       details: stringifyDetails(error.responseBody),
     };
   }
@@ -121,11 +104,8 @@ export const getGoalfyErrorDetails = (error: unknown): GoalfyErrorDetails => {
   if (error instanceof GoalfyHttpError) {
     return {
       message: error.message,
-
       attempts: error.attempt,
-
       status: error.status,
-
       details: stringifyDetails(error.responseBody),
     };
   }
@@ -133,22 +113,16 @@ export const getGoalfyErrorDetails = (error: unknown): GoalfyErrorDetails => {
   if (error instanceof Error) {
     return {
       message: error.message,
-
       attempts: null,
-
       status: null,
-
       details: null,
     };
   }
 
   return {
     message: "Erro desconhecido.",
-
     attempts: null,
-
     status: null,
-
     details: null,
   };
 };
@@ -158,15 +132,21 @@ export const goalfyFetch = async ({
   init,
   operation,
 }: GoalfyFetchParams) => {
+  const method = (init.method ?? "GET").toUpperCase();
+
+  // POST nunca é repetido automaticamente aqui.
+  // O serviço de distribuição controla as 5
+  // tentativas e consulta o XLSX entre elas.
+  const maxAttempts =
+    method === "GET" || method === "HEAD" ? GOALFY_MAX_ATTEMPTS : 1;
+
   let lastError: unknown;
 
-  for (let attempt = 1; attempt <= GOALFY_MAX_ATTEMPTS; attempt += 1) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
       const response = await fetch(url, {
         ...init,
-
         cache: "no-store",
-
         signal: AbortSignal.timeout(GOALFY_REQUEST_TIMEOUT_MS),
       });
 
@@ -175,9 +155,7 @@ export const goalfyFetch = async ({
       if (response.ok) {
         return {
           status: response.status,
-
           body: responseBody,
-
           attempt,
         };
       }
@@ -189,7 +167,7 @@ export const goalfyFetch = async ({
         attempt,
       );
 
-      if (!isRetryableStatus(response.status)) {
+      if (attempt === maxAttempts || !isRetryableStatus(response.status)) {
         throw new GoalfyRequestError(
           error.message,
           attempt,
@@ -207,7 +185,7 @@ export const goalfyFetch = async ({
       lastError = error;
     }
 
-    if (attempt < GOALFY_MAX_ATTEMPTS) {
+    if (attempt < maxAttempts) {
       await sleep(GOALFY_RETRY_DELAY_MS);
     }
   }
@@ -221,8 +199,8 @@ export const goalfyFetch = async ({
     lastError instanceof GoalfyHttpError ? lastError.responseBody : null;
 
   throw new GoalfyRequestError(
-    `${operation} falhou após ${GOALFY_MAX_ATTEMPTS} tentativas. Último erro: ${message}`,
-    GOALFY_MAX_ATTEMPTS,
+    `${operation} falhou após ${maxAttempts} tentativa(s). Último erro: ${message}`,
+    maxAttempts,
     status,
     responseBody,
   );

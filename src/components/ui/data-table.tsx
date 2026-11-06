@@ -38,7 +38,32 @@ interface DataTableProps<TData extends RowData> {
   onRowSelectionChange?: OnChangeFn<RowSelectionState>;
 
   getRowId?: (originalRow: TData, index: number) => string;
+
+  onRowClick?: (originalRow: TData) => void;
 }
+
+const shouldIgnoreRowClick = (target: EventTarget | null) => {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+
+  return Boolean(
+    target.closest(
+      [
+        '[data-row-select-cell="true"]',
+        '[data-no-row-click="true"]',
+        "a",
+        "button",
+        "input",
+        "select",
+        "textarea",
+        '[role="checkbox"]',
+        '[role="button"]',
+        '[role="switch"]',
+      ].join(", "),
+    ),
+  );
+};
 
 export function DataTable<TData extends RowData>({
   columns,
@@ -47,14 +72,12 @@ export function DataTable<TData extends RowData>({
   rowSelection,
   onRowSelectionChange,
   getRowId,
+  onRowClick,
 }: DataTableProps<TData>) {
   const table = useTable({
     features,
-
     data,
-
     columns,
-
     getRowId,
 
     state:
@@ -94,11 +117,42 @@ export function DataTable<TData extends RowData>({
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                  className="hover:bg-muted/40"
+                  data-state={row.getIsSelected() ? "selected" : undefined}
+                  className={
+                    onRowClick
+                      ? "cursor-pointer hover:bg-muted/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+                      : "hover:bg-muted/40"
+                  }
+                  tabIndex={onRowClick ? 0 : undefined}
+                  onClick={(event) => {
+                    if (!onRowClick || shouldIgnoreRowClick(event.target)) {
+                      return;
+                    }
+
+                    onRowClick(row.original);
+                  }}
+                  onKeyDown={(event) => {
+                    if (
+                      !onRowClick ||
+                      event.key !== "Enter" ||
+                      event.target !== event.currentTarget
+                    ) {
+                      return;
+                    }
+
+                    event.preventDefault();
+
+                    onRowClick(row.original);
+                  }}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="text-foreground">
+                    <TableCell
+                      key={cell.id}
+                      className="text-foreground"
+                      data-row-select-cell={
+                        cell.column.id === "select" ? "true" : undefined
+                      }
+                    >
                       <table.FlexRender cell={cell} />
                     </TableCell>
                   ))}

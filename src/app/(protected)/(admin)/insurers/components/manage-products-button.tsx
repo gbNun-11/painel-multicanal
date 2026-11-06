@@ -3,8 +3,8 @@
 import { PackageIcon } from "lucide-react";
 import { useState } from "react";
 
-import ManageProductsDialog from "./products/manage-products-dialog";
-import type { ProductInsurerOption } from "./products/types";
+import ManageProductsDialog from "../../components/products/manage-products-dialog";
+import type { ProductInsurerOption } from "../../components/products/types";
 import { Button } from "@/src/components/ui/button";
 import { Dialog, DialogTrigger } from "@/src/components/ui/dialog";
 

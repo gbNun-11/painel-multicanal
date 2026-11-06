@@ -7,26 +7,38 @@ import {
   eq,
   ilike,
   inArray,
+  isNull,
   or,
   sql,
   type SQL,
 } from "drizzle-orm";
 
+import { INSURER_IDS } from "@/src/constants/insurers";
 import { DEFAULT_PAGE_SIZE } from "@/src/constants/pagination";
 import { db } from "@/src/db";
 import {
   clientsTable,
-  clientSalesModelEnum,
   enterpriseInsurersTable,
+  enterprisesTable,
+  opportunitiesTable,
+  opportunitySalesModelEnum,
 } from "@/src/db/schema";
+
+import {
+  escapeLikePattern,
+  normalizeNumericSearch,
+  normalizeSearchTerm,
+} from "@/src/utils/search";
 
 const MAX_SEARCH_LENGTH = 120;
 const MAX_FILTER_VALUES = 50;
 
-type ClientSalesModel = (typeof clientSalesModelEnum.enumValues)[number];
+type OpportunitySalesModel =
+  (typeof opportunitySalesModelEnum.enumValues)[number];
 
 interface GetClientsParams {
   page: number;
+
   insurerId: string;
 
   search?: string;
@@ -36,21 +48,8 @@ interface GetClientsParams {
 
   products?: string[];
   salesModels?: string[];
+  enterpriseIds?: string[];
 }
-
-const normalizeSearch = (value: string | undefined) => {
-  const normalized = value?.trim();
-
-  if (!normalized) {
-    return null;
-  }
-
-  return normalized.slice(0, MAX_SEARCH_LENGTH);
-};
-
-const escapeLikePattern = (value: string) => {
-  return value.replace(/[\\%_]/g, "\\$&");
-};
 
 const normalizeFilterValues = (values: string[] | undefined) => {
   if (!values?.length) {
@@ -64,21 +63,29 @@ const normalizeFilterValues = (values: string[] | undefined) => {
 
 const normalizeSalesModels = (
   values: string[] | undefined,
-): ClientSalesModel[] => {
+): OpportunitySalesModel[] => {
   if (!values?.length) {
     return [];
   }
 
-  const allowedValues = new Set<string>(clientSalesModelEnum.enumValues);
+  const allowedValues = new Set<string>(opportunitySalesModelEnum.enumValues);
 
   return [
     ...new Set(
       values
         .map((value) => value.trim().toUpperCase())
-        .filter((value): value is ClientSalesModel => allowedValues.has(value)),
+        .filter((value): value is OpportunitySalesModel =>
+          allowedValues.has(value),
+        ),
     ),
   ];
 };
+
+// Não envia strings arbitrárias para comparações UUID.
+const UUID_PATTERN = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
+
+const normalizeEnterpriseIds = (values: string[] | undefined) =>
+  normalizeFilterValues(values).filter((value) => UUID_PATTERN.test(value));
 
 const normalizeDate = (value: string | undefined) => {
   if (!value) {
@@ -94,9 +101,7 @@ const normalizeDate = (value: string | undefined) => {
   }
 
   const year = Number(match[1]);
-
   const month = Number(match[2]);
-
   const day = Number(match[3]);
 
   const date = new Date(Date.UTC(year, month - 1, day));
@@ -111,7 +116,6 @@ const normalizeDate = (value: string | undefined) => {
 
 const getDateRange = (from: string | undefined, to: string | undefined) => {
   let normalizedFrom = normalizeDate(from);
-
   let normalizedTo = normalizeDate(to);
 
   if (normalizedFrom && normalizedTo && normalizedFrom > normalizedTo) {
@@ -132,29 +136,45 @@ export const getClients = async ({
   arrivalDateTo,
   products,
   salesModels,
+  enterpriseIds,
 }: GetClientsParams) => {
   const pageSize = DEFAULT_PAGE_SIZE;
 
   const requestedPage = Number.isSafeInteger(page) && page > 0 ? page : 1;
 
-  const normalizedSearch = normalizeSearch(search);
+  const normalizedSearch =
+    normalizeSearchTerm(search)?.slice(0, MAX_SEARCH_LENGTH) ?? null;
 
   const normalizedProducts = normalizeFilterValues(products);
 
   const normalizedSalesModels = normalizeSalesModels(salesModels);
 
+  const normalizedEnterpriseIds = normalizeEnterpriseIds(enterpriseIds);
+
   const dateRange = getDateRange(arrivalDateFrom, arrivalDateTo);
 
-  const conditions: SQL[] = [
-    eq(enterpriseInsurersTable.insurerId, insurerId),
+  // A aba Porto reúne oportunidades de ambas as empresas
+  // pela origem. Nas demais abas, permanece o filtro
+  // pela seguradora selecionada.
+  const insurerCondition =
+    insurerId === INSURER_IDS.PORTO
+      ? eq(opportunitiesTable.externalSource, "PORTO")
+      : eq(enterpriseInsurersTable.insurerId, insurerId);
 
-    eq(clientsTable.status, "novo"),
+  const conditions: SQL[] = [
+    insurerCondition,
+
+    eq(opportunitiesTable.distributionStatus, "novo"),
+
+    eq(opportunitiesTable.salesStatus, "aberto"),
+
+    isNull(opportunitiesTable.salespersonId),
   ];
 
   if (normalizedSearch) {
     const escapedSearch = escapeLikePattern(normalizedSearch);
 
-    const documentSearch = normalizedSearch.replace(/\D/g, "");
+    const documentSearch = normalizeNumericSearch(normalizedSearch);
 
     const nameCondition = ilike(clientsTable.name, `%${escapedSearch}%`);
 
@@ -180,7 +200,7 @@ export const getClients = async ({
   if (dateRange.from) {
     conditions.push(
       sql`
-        ${clientsTable.sourceCreatedAt}
+        ${opportunitiesTable.sourceCreatedAt}
         >= (
           ${dateRange.from}::date
           AT TIME ZONE 'America/Sao_Paulo'
@@ -192,7 +212,7 @@ export const getClients = async ({
   if (dateRange.to) {
     conditions.push(
       sql`
-        ${clientsTable.sourceCreatedAt}
+        ${opportunitiesTable.sourceCreatedAt}
         < (
           (
             ${dateRange.to}::date
@@ -205,11 +225,19 @@ export const getClients = async ({
   }
 
   if (normalizedProducts.length > 0) {
-    conditions.push(inArray(clientsTable.product, normalizedProducts));
+    conditions.push(inArray(opportunitiesTable.product, normalizedProducts));
   }
 
   if (normalizedSalesModels.length > 0) {
-    conditions.push(inArray(clientsTable.salesModel, normalizedSalesModels));
+    conditions.push(
+      inArray(opportunitiesTable.salesModel, normalizedSalesModels),
+    );
+  }
+
+  if (normalizedEnterpriseIds.length > 0) {
+    conditions.push(
+      inArray(enterpriseInsurersTable.enterpriseId, normalizedEnterpriseIds),
+    );
   }
 
   const whereClause = and(...conditions);
@@ -218,10 +246,11 @@ export const getClients = async ({
     .select({
       total: count(),
     })
-    .from(clientsTable)
+    .from(opportunitiesTable)
+    .innerJoin(clientsTable, eq(opportunitiesTable.clientId, clientsTable.id))
     .innerJoin(
       enterpriseInsurersTable,
-      eq(clientsTable.enterpriseInsurerId, enterpriseInsurersTable.id),
+      eq(opportunitiesTable.enterpriseInsurerId, enterpriseInsurersTable.id),
     )
     .where(whereClause);
 
@@ -235,7 +264,14 @@ export const getClients = async ({
 
   const clients = await db
     .select({
-      id: clientsTable.id,
+      // ID da oportunidade para seleção/distribuição.
+      id: opportunitiesTable.id,
+
+      // ID do cliente para abrir o Cliente 360.
+      clientId: opportunitiesTable.clientId,
+
+      // Numeração real do lead.
+      opportunityNumber: opportunitiesTable.opportunityNumber,
 
       name: clientsTable.name,
 
@@ -243,23 +279,35 @@ export const getClients = async ({
 
       phone: clientsTable.phone,
 
-      product: clientsTable.product,
+      product: opportunitiesTable.product,
 
-      propensity: clientsTable.propensity,
+      // Empresa associada à oportunidade.
+      enterpriseName: enterprisesTable.name,
+
+      propensity: opportunitiesTable.propensity,
+
+      salesModel: opportunitiesTable.salesModel,
     })
-    .from(clientsTable)
+    .from(opportunitiesTable)
+    .innerJoin(clientsTable, eq(opportunitiesTable.clientId, clientsTable.id))
     .innerJoin(
       enterpriseInsurersTable,
-      eq(clientsTable.enterpriseInsurerId, enterpriseInsurersTable.id),
+      eq(opportunitiesTable.enterpriseInsurerId, enterpriseInsurersTable.id),
+    )
+    .innerJoin(
+      enterprisesTable,
+      eq(enterpriseInsurersTable.enterpriseId, enterprisesTable.id),
     )
     .where(whereClause)
     .orderBy(
       sql`
-          ${clientsTable.sourceCreatedAt}
-          DESC NULLS LAST
-        `,
+        ${opportunitiesTable.sourceCreatedAt}
+        DESC NULLS LAST
+      `,
+
       asc(clientsTable.name),
-      asc(clientsTable.id),
+
+      asc(opportunitiesTable.id),
     )
     .limit(pageSize)
     .offset(offset);
@@ -269,8 +317,11 @@ export const getClients = async ({
 
     pagination: {
       page: safePage,
+
       pageSize,
+
       total,
+
       totalPages,
     },
   };

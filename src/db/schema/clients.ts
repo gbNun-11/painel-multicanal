@@ -1,6 +1,7 @@
 import {
   date,
   index,
+  numeric,
   pgTable,
   text,
   timestamp,
@@ -26,6 +27,26 @@ export const clientsTable = pgTable(
     email: text("email"),
 
     birthDate: date("birth_date"),
+
+    sex: text("sex"),
+
+    profession: text("profession"),
+
+    monthlyIncomeRange: text("monthly_income_range"),
+
+    economicActivity: text("economic_activity"),
+
+    companyType: text("company_type"),
+
+    netWorth: numeric("net_worth", {
+      precision: 18,
+      scale: 2,
+    }),
+
+    annualGrossOperatingRevenue: numeric("annual_gross_operating_revenue", {
+      precision: 18,
+      scale: 2,
+    }),
 
     address: text("address"),
 

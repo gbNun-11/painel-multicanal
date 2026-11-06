@@ -24,6 +24,7 @@ import ClientsSyncMenu from "./clients-sync-menu";
 
 interface ClientsPageActionsProps {
   products: string[];
+  companies: { id: string; name: string }[];
   syncLabel: string;
   goalfyOptions: GoalfyImportOptions;
 }
@@ -64,6 +65,7 @@ const getSaoPauloDate = (offsetDays = 0) => {
 
 const ClientsPageActions = ({
   products,
+  companies,
   syncLabel,
   goalfyOptions,
 }: ClientsPageActionsProps) => {
@@ -85,6 +87,10 @@ const ClientsPageActions = ({
 
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
 
+  const [selectedEnterpriseIds, setSelectedEnterpriseIds] = useState<string[]>(
+    [],
+  );
+
   const [selectedSalesModels, setSelectedSalesModels] = useState<string[]>([]);
 
   const navigate = (params: URLSearchParams) => {
@@ -98,7 +104,8 @@ const ClientsPageActions = ({
   const activeFilterCount =
     Number(Boolean(searchParams.get("from") || searchParams.get("to"))) +
     Number(searchParams.getAll("product").length > 0) +
-    Number(searchParams.getAll("salesModel").length > 0);
+    Number(searchParams.getAll("salesModel").length > 0) +
+    Number(searchParams.getAll("enterpriseId").length > 0);
 
   const filteredProducts = useMemo(() => {
     const query = productSearch.trim().toLocaleLowerCase("pt-BR");
@@ -125,6 +132,8 @@ const ClientsPageActions = ({
 
     setSelectedProducts(searchParams.getAll("product"));
 
+    setSelectedEnterpriseIds(searchParams.getAll("enterpriseId"));
+
     setSelectedSalesModels(searchParams.getAll("salesModel"));
 
     setProductSearch("");
@@ -138,6 +147,14 @@ const ClientsPageActions = ({
 
       return current.filter((value) => value !== product);
     });
+  };
+
+  const toggleEnterpriseId = (enterpriseId: string, checked: boolean) => {
+    setSelectedEnterpriseIds((current) =>
+      checked
+        ? [...new Set([...current, enterpriseId])]
+        : current.filter((value) => value !== enterpriseId),
+    );
   };
 
   const toggleSalesModel = (salesModel: string, checked: boolean) => {
@@ -160,6 +177,7 @@ const ClientsPageActions = ({
     params.delete("product");
 
     params.delete("salesModel");
+    params.delete("enterpriseId");
 
     params.delete("page");
 
@@ -179,6 +197,10 @@ const ClientsPageActions = ({
       params.append("salesModel", salesModel);
     }
 
+    for (const enterpriseId of selectedEnterpriseIds) {
+      params.append("enterpriseId", enterpriseId);
+    }
+
     navigate(params);
 
     setFiltersOpen(false);
@@ -194,6 +216,7 @@ const ClientsPageActions = ({
     params.delete("product");
 
     params.delete("salesModel");
+    params.delete("enterpriseId");
 
     params.delete("page");
 
@@ -202,6 +225,8 @@ const ClientsPageActions = ({
     setDateTo("");
 
     setSelectedProducts([]);
+
+    setSelectedEnterpriseIds([]);
 
     setSelectedSalesModels([]);
 
@@ -243,8 +268,8 @@ const ClientsPageActions = ({
           }
         />
 
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[88dvh] flex-col gap-0 overflow-hidden sm:max-w-2xl">
+          <DialogHeader className="shrink-0 border-b pb-4">
             <DialogTitle>Filtros de clientes</DialogTitle>
 
             <DialogDescription>
@@ -252,7 +277,7 @@ const ClientsPageActions = ({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6">
+          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-1 py-5">
             <div className="space-y-3">
               <div>
                 <DialogTitle>Data de chegada</DialogTitle>
@@ -343,12 +368,12 @@ const ClientsPageActions = ({
                 />
               ) : null}
 
-              <div className="max-h-52 space-y-1 overflow-y-auto rounded-md border p-2">
+              <div className="max-h-52 overflow-y-auto rounded-lg border bg-muted/10 p-1">
                 {filteredProducts.length > 0 ? (
                   filteredProducts.map((product) => (
                     <label
                       key={product}
-                      className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 hover:bg-muted"
+                      className="flex min-h-11 cursor-pointer items-center gap-3 border-b px-3 py-2.5 transition-colors last:border-b-0 hover:rounded-md hover:bg-muted/60"
                     >
                       <Checkbox
                         checked={selectedProducts.includes(product)}
@@ -356,13 +381,50 @@ const ClientsPageActions = ({
                           toggleProduct(product, checked)
                         }
                       />
-
-                      <span className="text-sm">{product}</span>
+                      <span className="min-w-0 break-words text-sm font-medium">
+                        {product}
+                      </span>
                     </label>
                   ))
                 ) : (
-                  <p className="px-2 py-4 text-center text-sm text-muted-foreground">
+                  <p className="px-3 py-4 text-center text-sm text-muted-foreground">
                     Nenhum produto encontrado.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <DialogTitle>Empresa</DialogTitle>
+
+                <DialogDescription>
+                  Selecione uma ou mais empresas para mostrar somente suas
+                  oportunidades.
+                </DialogDescription>
+              </div>
+
+              <div className="max-h-44 overflow-y-auto rounded-lg border bg-muted/10 p-1">
+                {companies.length > 0 ? (
+                  companies.map((company) => (
+                    <label
+                      key={company.id}
+                      className="flex min-h-11 cursor-pointer items-center gap-3 border-b px-3 py-2.5 transition-colors last:border-b-0 hover:rounded-md hover:bg-muted/60"
+                    >
+                      <Checkbox
+                        checked={selectedEnterpriseIds.includes(company.id)}
+                        onCheckedChange={(checked) =>
+                          toggleEnterpriseId(company.id, checked)
+                        }
+                      />
+                      <span className="min-w-0 break-words text-sm font-medium">
+                        {company.name}
+                      </span>
+                    </label>
+                  ))
+                ) : (
+                  <p className="px-3 py-4 text-center text-sm text-muted-foreground">
+                    Nenhuma empresa com oportunidades disponíveis.
                   </p>
                 )}
               </div>
@@ -377,11 +439,11 @@ const ClientsPageActions = ({
                 </DialogDescription>
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-3">
+              <div className="overflow-hidden rounded-lg border bg-muted/10 p-1">
                 {SALES_MODEL_OPTIONS.map((option) => (
                   <label
                     key={option.value}
-                    className="flex cursor-pointer items-center gap-3 rounded-md border px-3 py-3 hover:bg-muted"
+                    className="flex min-h-11 cursor-pointer items-center gap-3 border-b px-3 py-2.5 transition-colors last:border-b-0 hover:rounded-md hover:bg-muted/60"
                   >
                     <Checkbox
                       checked={selectedSalesModels.includes(option.value)}
@@ -389,7 +451,6 @@ const ClientsPageActions = ({
                         toggleSalesModel(option.value, checked)
                       }
                     />
-
                     <span className="text-sm font-medium">{option.label}</span>
                   </label>
                 ))}
@@ -397,15 +458,17 @@ const ClientsPageActions = ({
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="shrink-0 border-t px-1 pt-4">
+            <Button type="button" variant="ghost" onClick={handleClearFilters}>
+              Limpar filtros
+            </Button>
             <Button
               type="button"
               variant="outline"
-              onClick={handleClearFilters}
+              onClick={() => setFiltersOpen(false)}
             >
-              Limpar filtros
+              Cancelar
             </Button>
-
             <Button type="button" onClick={handleApplyFilters}>
               Aplicar filtros
             </Button>

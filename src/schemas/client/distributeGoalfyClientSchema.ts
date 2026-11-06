@@ -5,6 +5,8 @@ const distributeGoalfyClientSchema = z.object({
 
   product: z.string().trim().min(1).max(255),
 
+  salesModel: z.enum(["LEAD", "VINCULO", "CONTINGENCIA"]),
+
   salespersonId: z.uuid(),
 });
 

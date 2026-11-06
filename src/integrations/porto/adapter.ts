@@ -4,12 +4,11 @@ import type { PortoOpportunity } from "./schema";
 
 export interface AdaptPortoOpportunityOptions {
   enterpriseInsurerId: string;
-
   susepId: string;
-
-  productCode: string;
-
+  externalId: string;
+  productCodeId: string;
   product: string;
+  salesModelOverride?: "CONTINGENCIA";
 }
 
 const normalizeOptionalText = (value: string | null | undefined) => {
@@ -20,6 +19,46 @@ const normalizeOptionalText = (value: string | null | undefined) => {
   }
 
   return normalized;
+};
+
+const normalizeSourceProgramCode = (value: unknown): string | null => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value !== "string" && typeof value !== "number") {
+    throw new Error("Código de programa Porto com tipo inválido.");
+  }
+
+  const normalized = String(value).trim();
+
+  return normalized && normalized !== "-" ? normalized : null;
+};
+
+const resolveSourceProgramCode = (opportunity: PortoOpportunity) => {
+  const raw = opportunity as PortoOpportunity & {
+    codigoPrograma?: unknown;
+  };
+
+  return (
+    normalizeSourceProgramCode(raw.codigoPrograma) ??
+    normalizeSourceProgramCode(opportunity.programa)
+  );
+};
+
+const resolveSalesModel = (
+  programCode: string | null,
+  override?: "CONTINGENCIA",
+): "LEAD" | "VINCULO" | "CONTINGENCIA" => {
+  if (override === "CONTINGENCIA") {
+    return "CONTINGENCIA";
+  }
+
+  if (programCode === "390260001") {
+    return "VINCULO";
+  }
+
+  return "LEAD";
 };
 
 const selectPhone = (opportunity: PortoOpportunity) => {
@@ -41,11 +80,7 @@ const resolveBirthDate = (opportunity: PortoOpportunity) => {
 
   const birthDate = normalizeOptionalText(opportunity.dataNascimento);
 
-  if (!birthDate) {
-    return null;
-  }
-
-  if (birthDate.startsWith("1900-01-01")) {
+  if (!birthDate || birthDate.startsWith("1900-01-01")) {
     return null;
   }
 
@@ -61,11 +96,7 @@ const parseSourceCreatedAt = (value: string | null | undefined) => {
 
   const date = new Date(normalized);
 
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  return date;
+  return Number.isNaN(date.getTime()) ? null : date;
 };
 
 const parseModelYear = (value: string | number | null | undefined) => {
@@ -75,11 +106,7 @@ const parseModelYear = (value: string | number | null | undefined) => {
 
   const parsed = Number(value);
 
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    return null;
-  }
-
-  return parsed;
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 };
 
 const parseAssetValue = (value: string | number | null | undefined) => {
@@ -87,73 +114,58 @@ const parseAssetValue = (value: string | number | null | undefined) => {
     return null;
   }
 
-  const normalized = String(value).trim();
-
-  return normalized || null;
+  return String(value).trim() || null;
 };
 
 export const adaptPortoOpportunity = (
   opportunity: PortoOpportunity,
   options: AdaptPortoOpportunityOptions,
 ): IngestOpportunityInput => {
+  const sourceProgramCode = resolveSourceProgramCode(opportunity);
+
+  const salesModel = resolveSalesModel(
+    sourceProgramCode,
+    options.salesModelOverride,
+  );
+
   return {
     client: {
       name: opportunity.nomeCliente,
-
       document: opportunity.cpfCnpjCliente,
-
       phone: selectPhone(opportunity),
-
       email: normalizeOptionalText(opportunity.emailCliente),
-
       birthDate: resolveBirthDate(opportunity),
-
       address: normalizeOptionalText(opportunity.contatoEndereco),
-
       addressNumber: normalizeOptionalText(opportunity.contatoNumero),
-
       addressComplement: normalizeOptionalText(opportunity.contatoComplemento),
-
       neighborhood: normalizeOptionalText(opportunity.contatoBairro),
-
       city: normalizeOptionalText(opportunity.contatoCidade),
-
       state: normalizeOptionalText(opportunity.contatoEstado),
-
       zipCode: normalizeOptionalText(opportunity.contatoCep),
     },
 
     opportunity: {
       enterpriseInsurerId: options.enterpriseInsurerId,
-
       susepId: options.susepId,
-
       externalSource: "PORTO",
+      externalId: options.externalId,
 
-      externalId: opportunity.idOportunidadeSql,
-
-      productCode: options.productCode,
-
+      productCodeId: options.productCodeId,
       product: options.product,
 
       propensityCode: normalizeOptionalText(opportunity.codigoPropensao),
-
       propensity: normalizeOptionalText(opportunity.propensao),
 
-      salesModel: null,
+      sourceProgramCode,
+      salesModel,
 
       externalStatusReason: normalizeOptionalText(opportunity.razaoStatus),
 
       model: normalizeOptionalText(opportunity.modelo),
-
       modelYear: parseModelYear(opportunity.modeloAno),
-
       licensePlate: normalizeOptionalText(opportunity.placa),
-
       assetValue: parseAssetValue(opportunity.valorBem),
-
       observation: normalizeOptionalText(opportunity.observacoes),
-
       sourceCreatedAt: parseSourceCreatedAt(opportunity.dataCriacao),
 
       sourcePayload: opportunity as Record<string, unknown>,

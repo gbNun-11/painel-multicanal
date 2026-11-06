@@ -37,6 +37,10 @@
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0.92 0.004 286.32);
   --sidebar-ring: oklch(0.705 0.015 286.067);
+
+  /* Scrollbar global - tema claro */
+  --scrollbar-thumb: oklch(0.55 0.012 286 / 55%);
+  --scrollbar-thumb-hover: oklch(0.43 0.012 286 / 75%);
 }
 
 @theme inline {
@@ -121,6 +125,10 @@ body {
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.552 0.016 285.938);
+
+  /* Scrollbar global - tema escuro */
+  --scrollbar-thumb: oklch(0.55 0.012 286 / 70%);
+  --scrollbar-thumb-hover: oklch(0.7 0.012 286 / 85%);
 }
 
 @layer base {
@@ -136,8 +144,40 @@ body {
 }
 
 /* ========================================
+   SCROLLBAR GLOBAL
+   ======================================== */
+
+/* Firefox e navegadores com a API padronizada */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+/* Chrome, Edge, Safari e navegadores WebKit compatíveis */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover);
+}
+
+/* ========================================
    FOGUETE
-======================================== */
+   ======================================== */
 
 @keyframes rocket-flight {
   0% {
@@ -295,7 +335,6 @@ body {
 
   100% {
     transform: translate(-40px, var(--particle-y)) scale(0);
-
     opacity: 0;
   }
 }

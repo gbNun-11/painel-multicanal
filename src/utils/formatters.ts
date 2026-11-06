@@ -51,3 +51,24 @@ export const formatDocument = (value: string) => {
 
   return formatCpf(normalized);
 };
+
+export const formatPersonName = (name?: string | null): string => {
+  if (!name?.trim()) {
+    return "";
+  }
+
+  const lowercaseWords = new Set(["da", "de", "di", "do", "das", "dos", "e"]);
+
+  return name
+    .trim()
+    .toLocaleLowerCase("pt-BR")
+    .split(/\s+/)
+    .map((word, index) => {
+      if (index > 0 && lowercaseWords.has(word)) {
+        return word;
+      }
+
+      return word.charAt(0).toLocaleUpperCase("pt-BR") + word.slice(1);
+    })
+    .join(" ");
+};

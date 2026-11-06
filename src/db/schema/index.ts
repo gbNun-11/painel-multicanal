@@ -6,7 +6,15 @@ export * from "./enums";
 export * from "./insurers";
 export * from "./multichannel-assignments";
 export * from "./opportunities";
+export * from "./opportunity-counters";
 export * from "./product-codes";
 export * from "./products";
 export * from "./suseps";
 export * from "./users";
+
+export * from "./assets";
+export * from "./quotes";
+export * from "./proposals";
+export * from "./policies";
+export * from "./commissions";
+export * from "./records";

@@ -1,10 +1,14 @@
 export interface ClientTableRow {
   id: string;
+  clientId: string;
+  opportunityNumber: number | string | null;
   name: string;
   document: string | null;
   phone: string | null;
   product: string | null;
+  enterpriseName: string;
   propensity: string | null;
+  salesModel: "LEAD" | "VINCULO" | "CONTINGENCIA" | null;
 }
 
 export interface ClientsSearchParams {
@@ -16,4 +20,6 @@ export interface ClientsSearchParams {
 
   product?: string | string[];
   salesModel?: string | string[];
+
+  enterpriseId?: string | string[];
 }

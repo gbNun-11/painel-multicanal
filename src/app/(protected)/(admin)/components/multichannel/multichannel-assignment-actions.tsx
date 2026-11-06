@@ -1,0 +1,177 @@
+"use client";
+
+import {
+  CircleCheckIcon,
+  CircleXIcon,
+  EllipsisIcon,
+  PencilIcon,
+} from "lucide-react";
+import { useAction } from "next-safe-action/hooks";
+import { useState } from "react";
+
+import { changeMultichannelAssignmentStatusAction } from "@/src/actions/multichannel/change-multichannel-assignment-status";
+import { Button } from "@/src/components/ui/button";
+import { Dialog } from "@/src/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/src/components/ui/dropdown-menu";
+import { toast } from "@/src/components/ui/toast";
+
+import type {
+  MultichannelAssignmentTableRow,
+  MultichannelProductOption,
+  MultichannelUserOption,
+} from "./types";
+import UpsertMultichannelAssignmentForm from "./upsert-multichannel-assignment-form";
+
+interface MultichannelAssignmentActionsProps {
+  susepId: string;
+
+  susepCode: string;
+
+  susepStatus: "ativo" | "inativo";
+
+  assignment: MultichannelAssignmentTableRow;
+
+  products: MultichannelProductOption[];
+
+  users: MultichannelUserOption[];
+
+  onSuccess: () => void;
+}
+
+const MultichannelAssignmentActions = ({
+  susepId,
+  susepCode,
+  susepStatus,
+  assignment,
+  products,
+  users,
+  onSuccess,
+}: MultichannelAssignmentActionsProps) => {
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+
+  const canEdit =
+    susepStatus === "ativo" && assignment.productStatus === "ativo";
+
+  const canActivate =
+    susepStatus === "ativo" &&
+    assignment.productStatus === "ativo" &&
+    assignment.userStatus === "ativo";
+
+  const { execute, isPending } = useAction(
+    changeMultichannelAssignmentStatusAction,
+    {
+      onSuccess: () => {
+        const isActive = assignment.status === "ativo";
+
+        toast.add({
+          type: "success",
+
+          title: isActive ? "Configuração inativada" : "Configuração ativada",
+
+          description: isActive
+            ? "A configuração multicanal foi inativada."
+            : "A configuração multicanal foi ativada.",
+        });
+
+        onSuccess();
+      },
+
+      onError: ({ error }) => {
+        toast.add({
+          type: "error",
+
+          title: "Erro ao alterar configuração",
+
+          description:
+            error.serverError ??
+            "Não foi possível alterar a configuração multicanal.",
+        });
+      },
+    },
+  );
+
+  const handleChangeStatus = () => {
+    execute({
+      id: assignment.id,
+
+      status: assignment.status === "ativo" ? "inativo" : "ativo",
+    });
+  };
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              disabled={isPending}
+            >
+              <EllipsisIcon className="size-4" />
+
+              <span className="sr-only">Abrir ações</span>
+            </Button>
+          }
+        />
+
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            disabled={!canEdit}
+            onClick={() => {
+              setEditDialogOpen(true);
+            }}
+          >
+            <PencilIcon className="size-4" />
+            Alterar usuário
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
+          <DropdownMenuItem
+            onClick={handleChangeStatus}
+            disabled={
+              isPending || (assignment.status === "inativo" && !canActivate)
+            }
+          >
+            {assignment.status === "ativo" ? (
+              <>
+                <CircleXIcon className="size-4" />
+                Inativar
+              </>
+            ) : (
+              <>
+                <CircleCheckIcon className="size-4" />
+                Ativar
+              </>
+            )}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <UpsertMultichannelAssignmentForm
+          susepId={susepId}
+          susepCode={susepCode}
+          assignment={assignment}
+          products={products}
+          users={users}
+          onSuccess={() => {
+            setEditDialogOpen(false);
+
+            onSuccess();
+          }}
+        />
+      </Dialog>
+    </>
+  );
+};
+
+export default MultichannelAssignmentActions;

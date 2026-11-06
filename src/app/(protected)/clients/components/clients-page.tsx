@@ -58,6 +58,8 @@ const ClientsPage = async ({
 
   const salesModels = getSearchParamArray(params.salesModel);
 
+  const enterpriseIds = getSearchParamArray(params.enterpriseId);
+
   const [clientsResult, filtersResult, goalfyOptions] = await Promise.all([
     getClients({
       page: requestedPage,
@@ -67,6 +69,7 @@ const ClientsPage = async ({
       arrivalDateTo,
       products,
       salesModels,
+      enterpriseIds,
     }),
 
     getClientFilters({
@@ -103,6 +106,10 @@ const ClientsPage = async ({
       redirectParams.append("salesModel", salesModel);
     }
 
+    for (const enterpriseId of enterpriseIds) {
+      redirectParams.append("enterpriseId", enterpriseId);
+    }
+
     redirectParams.set("page", String(pagination.page));
 
     redirect(`${pathname}?${redirectParams.toString()}`);
@@ -121,6 +128,7 @@ const ClientsPage = async ({
           <PageActions>
             <ClientsPageActions
               products={filtersResult.products}
+              companies={filtersResult.companies}
               syncLabel={syncLabel}
               goalfyOptions={goalfyOptions}
             />

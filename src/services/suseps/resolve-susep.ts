@@ -22,31 +22,21 @@ export interface ResolveSusepInput {
 
 interface ResolvedSusepBase {
   id: string;
-
   code: string;
-
   masterSusepId: string | null;
+
+  productId: string;
+  productName: string;
+  productCodeId: string;
+  productCode: string;
+  productCodeName: string;
 }
 
 export type ResolvedSusep =
-  | (ResolvedSusepBase & {
-      multichannel: false;
-    })
+  | (ResolvedSusepBase & { multichannel: false })
   | (ResolvedSusepBase & {
       multichannel: true;
-
-      productId: string;
-
-      productName: string;
-
-      productCodeId: string;
-
-      productCode: string;
-
-      productCodeName: string;
-
       multichannelUserId: string;
-
       multichannelUserName: string;
     });
 
@@ -121,18 +111,6 @@ export const resolveSusep = async ({
     );
   }
 
-  if (!susep.multichannel) {
-    return {
-      id: susep.id,
-
-      code: susep.code,
-
-      masterSusepId: susep.masterSusepId,
-
-      multichannel: false,
-    };
-  }
-
   const normalizedProductCode = normalizeRequiredText(
     productCode ?? "",
     "Código do produto",
@@ -168,50 +146,63 @@ export const resolveSusep = async ({
 
   if (productMappings.length === 0) {
     throw new Error(
-      `O produto ${normalizedProductCode} não está configurado como produto ativo da seguradora para a SUSEP multicanal ${normalizedCode}.`,
+      `O código ${normalizedProductCode} não possui variação ativa cadastrada para a seguradora da SUSEP ${normalizedCode}.`,
     );
   }
 
   const normalizedProductName = normalizeComparisonText(productName);
-
-  let resolvedProduct: (typeof productMappings)[number] | undefined;
+  let candidates = productMappings;
 
   if (normalizedProductName) {
-    const nameMatches = productMappings.filter(
+    const variantMatches = productMappings.filter(
       (mapping) =>
         normalizeComparisonText(mapping.productCodeName) ===
         normalizedProductName,
     );
 
-    if (nameMatches.length > 0) {
-      const matchingProductIds = new Set(
-        nameMatches.map((mapping) => mapping.productId),
+    if (variantMatches.length > 0) {
+      candidates = variantMatches;
+    } else {
+      const logicalMatches = productMappings.filter(
+        (mapping) =>
+          normalizeComparisonText(mapping.productName) ===
+          normalizedProductName,
       );
-
-      if (matchingProductIds.size === 1) {
-        resolvedProduct = nameMatches[0];
-      } else {
-        throw new Error(
-          `O código ${normalizedProductCode} e o produto "${productName}" possuem configuração ambígua na seguradora.`,
-        );
+      if (logicalMatches.length > 0) {
+        candidates = logicalMatches;
       }
     }
   }
 
-  if (!resolvedProduct) {
-    const productIds = new Set(
-      productMappings.map((mapping) => mapping.productId),
+  if (candidates.length !== 1) {
+    throw new Error(
+      `Código ${normalizedProductCode} ambíguo para a seguradora da SUSEP ${normalizedCode}` +
+        ` (nome Porto: ${productName?.trim() || "não informado"};` +
+        ` ${candidates.length} variações possíveis).` +
+        " Revise o cadastro e a correspondência de nome antes de importar.",
     );
-
-    if (productIds.size === 1) {
-      resolvedProduct = productMappings[0];
-    }
   }
 
+  const [resolvedProduct] = candidates;
   if (!resolvedProduct) {
     throw new Error(
-      `O código ${normalizedProductCode} possui mais de um produto lógico configurado para a seguradora. Informe uma variante compatível para resolver a oportunidade.`,
+      `Nenhuma variação foi resolvida para o código ${normalizedProductCode}.`,
     );
+  }
+
+  const commonResult: ResolvedSusepBase = {
+    id: susep.id,
+    code: susep.code,
+    masterSusepId: susep.masterSusepId,
+    productId: resolvedProduct.productId,
+    productName: resolvedProduct.productName,
+    productCodeId: resolvedProduct.productCodeId,
+    productCode: resolvedProduct.productCode,
+    productCodeName: resolvedProduct.productCodeName,
+  };
+
+  if (!susep.multichannel) {
+    return { ...commonResult, multichannel: false };
   }
 
   const [assignment] = await db
@@ -245,26 +236,9 @@ export const resolveSusep = async ({
   }
 
   return {
-    id: susep.id,
-
-    code: susep.code,
-
-    masterSusepId: susep.masterSusepId,
-
+    ...commonResult,
     multichannel: true,
-
-    productId: resolvedProduct.productId,
-
-    productName: resolvedProduct.productName,
-
-    productCodeId: resolvedProduct.productCodeId,
-
-    productCode: resolvedProduct.productCode,
-
-    productCodeName: resolvedProduct.productCodeName,
-
     multichannelUserId: assignment.userId,
-
     multichannelUserName: assignment.userName,
   };
 };

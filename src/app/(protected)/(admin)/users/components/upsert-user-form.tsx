@@ -3,9 +3,13 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Controller, type FieldErrors, useForm } from "react-hook-form";
 
+import {
+  getUserGoalfyIdAction,
+  saveUserGoalfyIdAction,
+} from "@/src/actions/users/goalfy-user-id";
 import { Button } from "@/src/components/ui/button";
 import { CardContent, CardFooter } from "@/src/components/ui/card";
 import {
@@ -47,6 +51,7 @@ const getDefaultValues = (user?: UserTableRow) => ({
   phone: user?.phone ?? "",
   email: user?.email ?? "",
   password: "",
+  goalfyUserId: "",
   role: user?.role,
 });
 
@@ -54,12 +59,15 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
   const router = useRouter();
 
   const isEditing = Boolean(user);
+  const [loadingGoalfyId, setLoadingGoalfyId] = useState(Boolean(user));
+  const [goalfyLoadError, setGoalfyLoadError] = useState(false);
 
   const {
     register,
     control,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<UpsertUserFormData>({
     resolver: zodResolver(upsertUserSchema),
@@ -70,15 +78,62 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
   });
 
   useEffect(() => {
+    let active = true;
     reset(getDefaultValues(user));
-  }, [user, reset]);
+    setGoalfyLoadError(false);
+
+    if (!user) {
+      setLoadingGoalfyId(false);
+      return;
+    }
+
+    setLoadingGoalfyId(true);
+
+    void getUserGoalfyIdAction({ userId: user.id })
+      .then((result) => {
+        if (!active) return;
+        if (!result?.data) {
+          setGoalfyLoadError(true);
+          return;
+        }
+        setValue("goalfyUserId", result.data.goalfyUserId ?? "");
+      })
+      .catch(() => {
+        if (active) setGoalfyLoadError(true);
+      })
+      .finally(() => {
+        if (active) setLoadingGoalfyId(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [user, reset, setValue]);
 
   const closeDialog = () => {
     onSuccess();
   };
 
+  const saveGoalfyId = async (userId: string, value: string | undefined) => {
+    const response = await saveUserGoalfyIdAction({
+      userId,
+      goalfyUserId: value?.trim() || null,
+    });
+
+    if (response?.data?.success) return true;
+
+    toast.add({
+      type: "error",
+      title: "ID Goalfy não salvo",
+      description:
+        "O cadastro do usuário pode ter sido salvo, mas o vínculo Goalfy não foi atualizado. Confira se o ID já pertence a outro usuário.",
+    });
+
+    return false;
+  };
+
   const createUser = async (data: UpsertUserFormData) => {
-    const { error } = await authClient.admin.createUser({
+    const { data: created, error } = await authClient.admin.createUser({
       name: data.name,
 
       email: data.email,
@@ -99,7 +154,20 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
     });
 
     if (!error) {
-      return true;
+      if (!data.goalfyUserId?.trim()) return true;
+
+      const newUserId = created?.user?.id;
+      if (!newUserId) {
+        toast.add({
+          type: "error",
+          title: "Vínculo Goalfy pendente",
+          description:
+            "Usuário criado, mas não foi possível identificar o UUID retornado para salvar o ID Goalfy.",
+        });
+        return false;
+      }
+
+      return saveGoalfyId(newUserId, data.goalfyUserId);
     }
 
     if (
@@ -220,7 +288,7 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
       }
     }
 
-    return true;
+    return saveGoalfyId(user.id, data.goalfyUserId);
   };
 
   const onSubmit = async (data: UpsertUserFormData) => {
@@ -499,11 +567,51 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
                 </p>
               )}
             </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="goalfyUserId">
+                ID do usuário no Goalfy (opcional)
+              </Label>
+              <Input
+                id="goalfyUserId"
+                type="text"
+                placeholder="Cole o ID do usuário no Goalfy"
+                autoComplete="off"
+                maxLength={120}
+                disabled={loadingGoalfyId || goalfyLoadError}
+                aria-invalid={!!errors.goalfyUserId || goalfyLoadError}
+                {...register("goalfyUserId")}
+              />
+              {loadingGoalfyId && (
+                <p className="text-xs text-muted-foreground">
+                  Carregando ID Goalfy...
+                </p>
+              )}
+              {goalfyLoadError && (
+                <p className="text-xs text-destructive">
+                  Não foi possível carregar o ID atual. Feche e abra a edição
+                  novamente.
+                </p>
+              )}
+              {errors.goalfyUserId && (
+                <p className="text-xs text-destructive">
+                  {errors.goalfyUserId.message}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Preenchimento manual. Deixe vazio para não vincular este usuário
+                ao Goalfy.
+              </p>
+            </div>
           </div>
         </CardContent>
 
         <CardFooter className="pt-6">
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={isSubmitting || loadingGoalfyId || goalfyLoadError}
+          >
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 size-4 animate-spin" />

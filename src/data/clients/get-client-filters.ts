@@ -1,9 +1,14 @@
 import "server-only";
 
-import { and, asc, eq, isNotNull } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 
+import { INSURER_IDS } from "@/src/constants/insurers";
 import { db } from "@/src/db";
-import { clientsTable, enterpriseInsurersTable } from "@/src/db/schema";
+import {
+  enterpriseInsurersTable,
+  enterprisesTable,
+  opportunitiesTable,
+} from "@/src/db/schema";
 
 interface GetClientFiltersParams {
   insurerId: string;
@@ -12,40 +17,63 @@ interface GetClientFiltersParams {
 export const getClientFilters = async ({
   insurerId,
 }: GetClientFiltersParams) => {
-  const result = await db
+  const insurerCondition =
+    insurerId === INSURER_IDS.PORTO
+      ? eq(opportunitiesTable.externalSource, "PORTO")
+      : eq(enterpriseInsurersTable.insurerId, insurerId);
+
+  // Uma única busca fornece produtos e empresas de oportunidades disponíveis.
+  const rows = await db
     .selectDistinct({
-      product: clientsTable.product,
+      product: opportunitiesTable.product,
+      enterpriseId: enterprisesTable.id,
+      enterpriseName: enterprisesTable.name,
     })
-    .from(clientsTable)
+    .from(opportunitiesTable)
     .innerJoin(
       enterpriseInsurersTable,
-      eq(clientsTable.enterpriseInsurerId, enterpriseInsurersTable.id),
+      eq(opportunitiesTable.enterpriseInsurerId, enterpriseInsurersTable.id),
+    )
+    .innerJoin(
+      enterprisesTable,
+      eq(enterpriseInsurersTable.enterpriseId, enterprisesTable.id),
     )
     .where(
       and(
-        eq(enterpriseInsurersTable.insurerId, insurerId),
-        isNotNull(clientsTable.product),
+        insurerCondition,
+        eq(opportunitiesTable.distributionStatus, "novo"),
+        eq(opportunitiesTable.salesStatus, "aberto"),
+        isNull(opportunitiesTable.salespersonId),
       ),
     )
-    .orderBy(asc(clientsTable.product));
+    .orderBy(asc(enterprisesTable.name), asc(opportunitiesTable.product));
 
   const productsByKey = new Map<string, string>();
+  const companiesById = new Map<string, { id: string; name: string }>();
 
-  for (const item of result) {
-    const product = item.product?.trim();
-
-    if (!product) {
-      continue;
+  for (const row of rows) {
+    const product = row.product?.trim();
+    if (product) {
+      const key = product.toLocaleUpperCase("pt-BR");
+      if (!productsByKey.has(key)) {
+        productsByKey.set(key, product);
+      }
     }
 
-    const key = product.toLocaleUpperCase("pt-BR");
-
-    if (!productsByKey.has(key)) {
-      productsByKey.set(key, product);
+    if (!companiesById.has(row.enterpriseId)) {
+      companiesById.set(row.enterpriseId, {
+        id: row.enterpriseId,
+        name: row.enterpriseName,
+      });
     }
   }
 
   return {
-    products: [...productsByKey.values()],
+    products: [...productsByKey.values()].sort((a, b) =>
+      a.localeCompare(b, "pt-BR"),
+    ),
+    companies: [...companiesById.values()].sort((a, b) =>
+      a.name.localeCompare(b.name, "pt-BR"),
+    ),
   };
 };

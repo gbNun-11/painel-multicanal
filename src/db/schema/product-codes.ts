@@ -49,16 +49,15 @@ export const productCodesTable = pgTable(
   (table) => [
     foreignKey({
       columns: [table.productId, table.insurerId],
-
       foreignColumns: [productsTable.id, productsTable.insurerId],
-
       name: "product_codes_product_insurer_fk",
     })
       .onDelete("restrict")
       .onUpdate("cascade"),
 
-    uniqueIndex("product_codes_insurer_code_name_unique_idx").on(
+    uniqueIndex("product_codes_insurer_product_code_name_unique_idx").on(
       table.insurerId,
+      table.productId,
       table.code,
       table.name,
     ),
@@ -69,7 +68,6 @@ export const productCodesTable = pgTable(
     ),
 
     index("product_codes_product_idx").on(table.productId),
-
     index("product_codes_insurer_idx").on(table.insurerId),
   ],
 );

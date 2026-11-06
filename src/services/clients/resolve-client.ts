@@ -1,8 +1,11 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull, or, sql, type SQL } from "drizzle-orm";
 
 import { db } from "@/src/db";
 import { clientsTable } from "@/src/db/schema";
 import { resolveDocument } from "@/src/utils/documents";
+import { normalizeDate } from "@/src/utils/normalize-date";
+
+type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export interface ResolveClientInput {
   name: string;
@@ -68,6 +71,7 @@ const normalizeState = (value: string | null | undefined) => {
 
 export const resolveClient = async (
   input: ResolveClientInput,
+  transaction?: DbTransaction,
 ): Promise<ResolveClientResult> => {
   const resolvedDocument = resolveDocument(input.document);
 
@@ -77,35 +81,31 @@ export const resolveClient = async (
 
   const name = normalizeRequiredText(input.name, "Nome do cliente");
 
-  return db.transaction(async (tx) => {
+  const clientData = {
+    phone: normalizePhone(input.phone),
+    email: normalizeEmail(input.email),
+    birthDate: normalizeDate(input.birthDate, {
+      nullDates: ["1900-01-01"],
+    }),
+    address: normalizeOptionalText(input.address),
+    addressNumber: normalizeOptionalText(input.addressNumber),
+    addressComplement: normalizeOptionalText(input.addressComplement),
+    neighborhood: normalizeOptionalText(input.neighborhood),
+    city: normalizeOptionalText(input.city),
+    state: normalizeState(input.state),
+    zipCode: normalizeZipCode(input.zipCode),
+  };
+
+  const resolveInTransaction = async (
+    tx: DbTransaction,
+  ): Promise<ResolveClientResult> => {
     const [createdClient] = await tx
       .insert(clientsTable)
       .values({
         name,
-
         document: resolvedDocument.document,
-
         personType: resolvedDocument.personType,
-
-        phone: normalizePhone(input.phone),
-
-        email: normalizeEmail(input.email),
-
-        birthDate: normalizeOptionalText(input.birthDate),
-
-        address: normalizeOptionalText(input.address),
-
-        addressNumber: normalizeOptionalText(input.addressNumber),
-
-        addressComplement: normalizeOptionalText(input.addressComplement),
-
-        neighborhood: normalizeOptionalText(input.neighborhood),
-
-        city: normalizeOptionalText(input.city),
-
-        state: normalizeState(input.state),
-
-        zipCode: normalizeZipCode(input.zipCode),
+        ...clientData,
       })
       .onConflictDoNothing({
         target: clientsTable.document,
@@ -117,6 +117,80 @@ export const resolveClient = async (
         client: createdClient,
         created: true,
       };
+    }
+
+    const fillableConditions: SQL[] = [];
+
+    if (clientData.phone !== null) {
+      fillableConditions.push(isNull(clientsTable.phone));
+    }
+
+    if (clientData.email !== null) {
+      fillableConditions.push(isNull(clientsTable.email));
+    }
+
+    if (clientData.birthDate !== null) {
+      fillableConditions.push(isNull(clientsTable.birthDate));
+    }
+
+    if (clientData.address !== null) {
+      fillableConditions.push(isNull(clientsTable.address));
+    }
+
+    if (clientData.addressNumber !== null) {
+      fillableConditions.push(isNull(clientsTable.addressNumber));
+    }
+
+    if (clientData.addressComplement !== null) {
+      fillableConditions.push(isNull(clientsTable.addressComplement));
+    }
+
+    if (clientData.neighborhood !== null) {
+      fillableConditions.push(isNull(clientsTable.neighborhood));
+    }
+
+    if (clientData.city !== null) {
+      fillableConditions.push(isNull(clientsTable.city));
+    }
+
+    if (clientData.state !== null) {
+      fillableConditions.push(isNull(clientsTable.state));
+    }
+
+    if (clientData.zipCode !== null) {
+      fillableConditions.push(isNull(clientsTable.zipCode));
+    }
+
+    if (fillableConditions.length > 0) {
+      const [updatedClient] = await tx
+        .update(clientsTable)
+        .set({
+          phone: sql`COALESCE(${clientsTable.phone}, ${clientData.phone})`,
+          email: sql`COALESCE(${clientsTable.email}, ${clientData.email})`,
+          birthDate: sql`COALESCE(${clientsTable.birthDate}, ${clientData.birthDate})`,
+          address: sql`COALESCE(${clientsTable.address}, ${clientData.address})`,
+          addressNumber: sql`COALESCE(${clientsTable.addressNumber}, ${clientData.addressNumber})`,
+          addressComplement: sql`COALESCE(${clientsTable.addressComplement}, ${clientData.addressComplement})`,
+          neighborhood: sql`COALESCE(${clientsTable.neighborhood}, ${clientData.neighborhood})`,
+          city: sql`COALESCE(${clientsTable.city}, ${clientData.city})`,
+          state: sql`COALESCE(${clientsTable.state}, ${clientData.state})`,
+          zipCode: sql`COALESCE(${clientsTable.zipCode}, ${clientData.zipCode})`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(clientsTable.document, resolvedDocument.document),
+            or(...fillableConditions),
+          ),
+        )
+        .returning();
+
+      if (updatedClient) {
+        return {
+          client: updatedClient,
+          created: false,
+        };
+      }
     }
 
     const [existingClient] = await tx
@@ -135,5 +209,10 @@ export const resolveClient = async (
       client: existingClient,
       created: false,
     };
-  });
+  };
+
+  // A ingestão Porto utiliza a transação externa, garantindo atomicidade entre
+  // criação/complementação do cliente e inserção da oportunidade.
+  if (transaction) return resolveInTransaction(transaction);
+  return db.transaction(resolveInTransaction);
 };

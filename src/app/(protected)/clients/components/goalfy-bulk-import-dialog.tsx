@@ -28,16 +28,14 @@ import {
 import type {
   GoalfyBulkImportBlockPayload,
   GoalfyBulkImportRunner,
+  GoalfyBulkSalesModel,
   GoalfyImportOptions,
 } from "@/src/data/clients/goalfy-import-types";
 
 interface GoalfyBulkImportDialogProps {
   open: boolean;
-
   onOpenChange: (open: boolean) => void;
-
   options: GoalfyImportOptions;
-
   onImport?: GoalfyBulkImportRunner;
 }
 
@@ -49,31 +47,32 @@ interface SellerAllocationDraft {
 
 interface ImportBlockDraft {
   id: string;
-
   product: string;
-
   enterpriseInsurerId: string;
-
+  salesModel: GoalfyBulkSalesModel | "";
   quantity: string;
-
   allocations: SellerAllocationDraft[];
 }
 
+const SALES_MODELS: Array<{
+  value: GoalfyBulkSalesModel;
+  label: string;
+}> = [
+  { value: "LEAD", label: "Lead" },
+  { value: "VINCULO", label: "Vínculo" },
+  { value: "CONTINGENCIA", label: "Contingência" },
+];
+
 const initialBlock: ImportBlockDraft = {
   id: "block-1",
-
   product: "",
-
   enterpriseInsurerId: "",
-
+  salesModel: "",
   quantity: "",
-
   allocations: [
     {
       id: "allocation-1",
-
       userId: "",
-
       quantity: "",
     },
   ],
@@ -96,7 +95,6 @@ const GoalfyBulkImportDialog = ({
   onImport,
 }: GoalfyBulkImportDialogProps) => {
   const blockCounter = useRef(1);
-
   const allocationCounter = useRef(1);
 
   const [blocks, setBlocks] = useState<ImportBlockDraft[]>([initialBlock]);
@@ -124,7 +122,6 @@ const GoalfyBulkImportDialog = ({
       if (!result.has(item.enterpriseInsurerId)) {
         result.set(item.enterpriseInsurerId, {
           enterpriseInsurerId: item.enterpriseInsurerId,
-
           enterpriseName: item.enterpriseName,
         });
       }
@@ -147,9 +144,7 @@ const GoalfyBulkImportDialog = ({
 
     return {
       id: `allocation-${allocationCounter.current}`,
-
       userId: "",
-
       quantity: "",
     };
   };
@@ -159,26 +154,21 @@ const GoalfyBulkImportDialog = ({
 
     return {
       id: `block-${blockCounter.current}`,
-
       product: "",
-
       enterpriseInsurerId: "",
-
+      salesModel: "",
       quantity: "",
-
       allocations: [createAllocation()],
     };
   };
 
   const resetDialog = () => {
     blockCounter.current = 1;
-
     allocationCounter.current = 1;
 
     setBlocks([
       {
         ...initialBlock,
-
         allocations: [
           {
             ...initialBlock.allocations[0],
@@ -188,16 +178,63 @@ const GoalfyBulkImportDialog = ({
     ]);
 
     setSendListByWhatsApp(false);
-
     setSendListByEmail(false);
-
     setCompletedImports(0);
-
     setTotalImports(0);
   };
 
-  const getAvailability = (block: ImportBlockDraft) => {
+  /**
+   * Calcula o saldo disponível para um modelo de venda
+   * no bloco atual.
+   *
+   * A quantidade disponível no banco é compartilhada
+   * entre todos os blocos com:
+   *
+   * - mesma empresa/seguradora
+   * - mesmo produto
+   * - mesmo modelo de venda
+   *
+   * Desconta as quantidades reservadas nos OUTROS blocos.
+   * Não desconta a quantidade do próprio bloco.
+   *
+   * Assim, o Bloco 1 pode reservar 2 VÍNCULOS,
+   * enquanto o Bloco 2 mostrará 0 disponíveis.
+   */
+  const getRemainingForModel = (
+    block: ImportBlockDraft,
+    salesModel: GoalfyBulkSalesModel,
+    currentBlocks: ImportBlockDraft[] = blocks,
+  ): number => {
     if (!block.product || !block.enterpriseInsurerId) {
+      return 0;
+    }
+
+    const available =
+      options.availability.find(
+        (item) =>
+          item.product === block.product &&
+          item.enterpriseInsurerId === block.enterpriseInsurerId &&
+          item.salesModel === salesModel,
+      )?.available ?? 0;
+
+    const reservedByOtherBlocks = currentBlocks.reduce((total, other) => {
+      if (
+        other.id === block.id ||
+        other.product !== block.product ||
+        other.enterpriseInsurerId !== block.enterpriseInsurerId ||
+        other.salesModel !== salesModel
+      ) {
+        return total;
+      }
+
+      return total + parseQuantity(other.quantity);
+    }, 0);
+
+    return Math.max(0, available - reservedByOtherBlocks);
+  };
+
+  const getAvailability = (block: ImportBlockDraft) => {
+    if (!block.salesModel) {
       return null;
     }
 
@@ -205,9 +242,25 @@ const GoalfyBulkImportDialog = ({
       options.availability.find(
         (item) =>
           item.product === block.product &&
-          item.enterpriseInsurerId === block.enterpriseInsurerId,
+          item.enterpriseInsurerId === block.enterpriseInsurerId &&
+          item.salesModel === block.salesModel,
       ) ?? null
     );
+  };
+
+  /**
+   * O campo Quantidade utiliza o MESMO cálculo
+   * dos cartões de modelo de venda.
+   */
+  const getMaximumForBlock = (
+    block: ImportBlockDraft,
+    currentBlocks: ImportBlockDraft[] = blocks,
+  ) => {
+    if (!block.salesModel) {
+      return 0;
+    }
+
+    return getRemainingForModel(block, block.salesModel, currentBlocks);
   };
 
   const getProductsForBlock = (block: ImportBlockDraft) => {
@@ -264,15 +317,12 @@ const GoalfyBulkImportDialog = ({
 
       return {
         ...block,
-
         product: nextProduct,
-
         enterpriseInsurerId: enterpriseStillValid
           ? block.enterpriseInsurerId
           : "",
-
+        salesModel: "",
         quantity: "",
-
         allocations: [createAllocation()],
       };
     });
@@ -295,16 +345,25 @@ const GoalfyBulkImportDialog = ({
 
       return {
         ...block,
-
         enterpriseInsurerId: nextEnterprise,
-
         product: productStillValid ? block.product : "",
-
+        salesModel: "",
         quantity: "",
-
         allocations: [createAllocation()],
       };
     });
+  };
+
+  const handleSalesModelChange = (
+    blockId: string,
+    salesModel: GoalfyBulkSalesModel,
+  ) => {
+    updateBlock(blockId, (block) => ({
+      ...block,
+      salesModel,
+      quantity: "",
+      allocations: [createAllocation()],
+    }));
   };
 
   const handleQuantityChange = (blockId: string, value: string) => {
@@ -314,12 +373,9 @@ const GoalfyBulkImportDialog = ({
       if (!value) {
         return {
           ...block,
-
           quantity: "",
-
           allocations: block.allocations.map((allocation) => ({
             ...allocation,
-
             quantity: "",
           })),
         };
@@ -327,13 +383,12 @@ const GoalfyBulkImportDialog = ({
 
       const parsed = parseQuantity(value);
 
-      const maximum = availability?.available ?? 0;
+      const maximum = availability ? getMaximumForBlock(block) : 0;
 
       const safeValue = Math.min(parsed, maximum);
 
       return {
         ...block,
-
         quantity: safeValue > 0 ? String(safeValue) : "",
       };
     });
@@ -346,7 +401,6 @@ const GoalfyBulkImportDialog = ({
   ) => {
     updateBlock(blockId, (block) => ({
       ...block,
-
       allocations: block.allocations.map((allocation) =>
         allocation.id === allocationId ? updater(allocation) : allocation,
       ),
@@ -356,7 +410,6 @@ const GoalfyBulkImportDialog = ({
   const addAllocation = (blockId: string) => {
     updateBlock(blockId, (block) => ({
       ...block,
-
       allocations: [...block.allocations, createAllocation()],
     }));
   };
@@ -364,7 +417,6 @@ const GoalfyBulkImportDialog = ({
   const removeAllocation = (blockId: string, allocationId: string) => {
     updateBlock(blockId, (block) => ({
       ...block,
-
       allocations: block.allocations.filter(
         (allocation) => allocation.id !== allocationId,
       ),
@@ -386,20 +438,6 @@ const GoalfyBulkImportDialog = ({
     );
   };
 
-  const hasDuplicateCombination = (block: ImportBlockDraft) => {
-    if (!block.product || !block.enterpriseInsurerId) {
-      return false;
-    }
-
-    return (
-      blocks.filter(
-        (candidate) =>
-          candidate.product === block.product &&
-          candidate.enterpriseInsurerId === block.enterpriseInsurerId,
-      ).length > 1
-    );
-  };
-
   const isBlockValid = (block: ImportBlockDraft) => {
     const availability = getAvailability(block);
 
@@ -409,11 +447,7 @@ const GoalfyBulkImportDialog = ({
 
     const quantity = parseQuantity(block.quantity);
 
-    if (quantity <= 0 || quantity > availability.available) {
-      return false;
-    }
-
-    if (hasDuplicateCombination(block)) {
+    if (quantity <= 0 || quantity > getMaximumForBlock(block)) {
       return false;
     }
 
@@ -445,14 +479,11 @@ const GoalfyBulkImportDialog = ({
   const buildPayload = (): GoalfyBulkImportBlockPayload[] => {
     return blocks.map((block) => ({
       enterpriseInsurerId: block.enterpriseInsurerId,
-
       product: block.product,
-
+      salesModel: block.salesModel as GoalfyBulkSalesModel,
       quantity: parseQuantity(block.quantity),
-
       allocations: block.allocations.map((allocation) => ({
         userId: allocation.userId,
-
         quantity: parseQuantity(allocation.quantity),
       })),
     }));
@@ -464,30 +495,23 @@ const GoalfyBulkImportDialog = ({
     }
 
     setIsImporting(true);
-
     setCompletedImports(0);
-
     setTotalImports(0);
 
     try {
       await onImport(
         {
           blocks: buildPayload(),
-
           sendListByWhatsApp,
-
           sendListByEmail,
         },
-
         (completed, total) => {
           setCompletedImports(completed);
-
           setTotalImports(total);
         },
       );
 
       resetDialog();
-
       onOpenChange(false);
     } finally {
       setIsImporting(false);
@@ -513,6 +537,8 @@ const GoalfyBulkImportDialog = ({
           {blocks.map((block, blockIndex) => {
             const availability = getAvailability(block);
 
+            const maximum = getMaximumForBlock(block);
+
             const quantity = parseQuantity(block.quantity);
 
             const distributed = getDistributedQuantity(block);
@@ -523,7 +549,6 @@ const GoalfyBulkImportDialog = ({
 
             const productItems = products.map((product) => ({
               value: product,
-
               label: product,
             }));
 
@@ -531,7 +556,6 @@ const GoalfyBulkImportDialog = ({
 
             const enterpriseItems = blockEnterprises.map((enterprise) => ({
               value: enterprise.enterpriseInsurerId,
-
               label: enterprise.enterpriseName,
             }));
 
@@ -542,7 +566,7 @@ const GoalfyBulkImportDialog = ({
                     <DialogTitle>Bloco {blockIndex + 1}</DialogTitle>
 
                     <DialogDescription>
-                      Defina origem, quantidade e distribuição.
+                      Defina origem, modelo de venda, quantidade e distribuição.
                     </DialogDescription>
                   </div>
 
@@ -559,6 +583,52 @@ const GoalfyBulkImportDialog = ({
                       <span className="sr-only">Remover bloco</span>
                     </Button>
                   )}
+                </div>
+
+                {/* MODELO DE VENDA */}
+
+                <div className="space-y-2">
+                  <Label>Modelo de venda</Label>
+
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    {SALES_MODELS.map((model) => {
+                      // Agora o cartão utiliza o saldo
+                      // depois das reservas dos outros blocos.
+                      const available = getRemainingForModel(
+                        block,
+                        model.value,
+                      );
+
+                      const selected = block.salesModel === model.value;
+
+                      const ready =
+                        !!block.product && !!block.enterpriseInsurerId;
+
+                      return (
+                        <Button
+                          key={model.value}
+                          type="button"
+                          variant="outline"
+                          className={`h-auto min-h-20 w-full flex-col items-start gap-1 p-3 text-left ${
+                            selected ? "border-primary bg-primary/10" : ""
+                          }`}
+                          aria-pressed={selected}
+                          disabled={!ready || available === 0 || isImporting}
+                          onClick={() =>
+                            handleSalesModelChange(block.id, model.value)
+                          }
+                        >
+                          <span className="font-medium">{model.label}</span>
+
+                          <span className="text-muted-foreground text-xs">
+                            {ready
+                              ? `${available} disponível(is)`
+                              : "Selecione produto e empresa"}
+                          </span>
+                        </Button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-3">
@@ -618,33 +688,29 @@ const GoalfyBulkImportDialog = ({
                     <Input
                       type="number"
                       min={1}
-                      max={availability?.available}
+                      max={maximum}
                       value={block.quantity}
                       onChange={(event) =>
                         handleQuantityChange(block.id, event.target.value)
                       }
                       placeholder={
                         availability
-                          ? `Máximo ${availability.available}`
-                          : "Selecione produto e empresa"
+                          ? `Máximo ${maximum}`
+                          : "Selecione o modelo de venda"
                       }
-                      disabled={!availability || isImporting}
+                      disabled={!availability || maximum === 0 || isImporting}
                     />
-
-                    {availability && (
-                      <DialogDescription>
-                        Disponível no banco: {availability.available}
-                      </DialogDescription>
-                    )}
                   </div>
                 </div>
 
-                {hasDuplicateCombination(block) && (
+                {availability && quantity > maximum && (
                   <DialogDescription>
-                    Essa combinação de produto e empresa já está sendo usada em
-                    outro bloco.
+                    A quantidade solicitada excede o saldo disponível entre os
+                    blocos.
                   </DialogDescription>
                 )}
+
+                {/* DISTRIBUIÇÃO */}
 
                 <div className="space-y-3">
                   <DialogTitle>Distribuição</DialogTitle>
@@ -696,7 +762,6 @@ const GoalfyBulkImportDialog = ({
                                 allocation.id,
                                 (current) => ({
                                   ...current,
-
                                   userId: value ?? "",
                                 }),
                               )
@@ -744,7 +809,6 @@ const GoalfyBulkImportDialog = ({
                                 allocation.id,
                                 (current) => ({
                                   ...current,
-
                                   quantity:
                                     raw === ""
                                       ? ""
@@ -811,6 +875,8 @@ const GoalfyBulkImportDialog = ({
               Adicionar outro bloco de importação
             </Button>
           </AspectRatio>
+
+          {/* ENVIO DAS LISTAS */}
 
           <div className="space-y-3">
             <div>
@@ -880,7 +946,6 @@ const GoalfyBulkImportDialog = ({
             variant="outline"
             onClick={() => {
               resetDialog();
-
               onOpenChange(false);
             }}
             disabled={isImporting}

@@ -5,6 +5,7 @@ import {
 } from "@/src/services/suseps/resolve-susep";
 
 import { adaptPortoOpportunity } from "./adapter";
+import { getPortoOpportunityExternalId } from "./identity";
 import {
   portoOpportunitiesResponseSchema,
   portoOpportunitySchema,
@@ -167,7 +168,7 @@ export const ingestPortoResponse = async ({
       failures.push({
         index,
 
-        externalId: getRawStringValue(rawOpportunity, "idOportunidadeSql"),
+        externalId: getPortoOpportunityExternalId(rawOpportunity),
 
         document: getRawStringValue(rawOpportunity, "cpfCnpjCliente"),
 
@@ -183,12 +184,20 @@ export const ingestPortoResponse = async ({
 
     const opportunity = parsedOpportunity.data;
 
+    const externalId = getPortoOpportunityExternalId(opportunity);
+
     try {
+      if (!externalId) {
+        throw new Error(
+          "A oportunidade Porto não possui idOportunidadeSql nem idOportunidadeDynamics.",
+        );
+      }
+
       const susepCode = normalizeSusepCode(opportunity.susep);
 
       if (!susepCode) {
         throw new Error(
-          `A oportunidade ${opportunity.idOportunidadeSql} não possui SUSEP informada.`,
+          `A oportunidade ${externalId} não possui SUSEP informada.`,
         );
       }
 
@@ -196,7 +205,7 @@ export const ingestPortoResponse = async ({
 
       if (!productCode) {
         throw new Error(
-          `A oportunidade ${opportunity.idOportunidadeSql} da SUSEP ${susepCode} não informou o código do produto.`,
+          `A oportunidade ${externalId} da SUSEP ${susepCode} não informou o código do produto.`,
         );
       }
 
@@ -226,25 +235,16 @@ export const ingestPortoResponse = async ({
         susepResolutionCache.set(cacheKey, susep);
       }
 
-      const product =
-        sourceProduct ?? (susep.multichannel ? susep.productCodeName : null);
-
-      if (!product) {
-        throw new Error(
-          `A oportunidade ${opportunity.idOportunidadeSql} não informou o nome do produto.`,
-        );
-      }
-
-      const resolvedProductCode = susep.multichannel
-        ? susep.productCode
-        : productCode;
-
+      // Salvar o produto lógico do catálogo, não o nome livre da Porto.
+      const product = susep.productName;
       const input = adaptPortoOpportunity(opportunity, {
         enterpriseInsurerId: normalizedEnterpriseInsurerId,
 
         susepId: susep.id,
 
-        productCode: resolvedProductCode,
+        externalId,
+
+        productCodeId: susep.productCodeId,
 
         product,
       });
@@ -284,7 +284,7 @@ export const ingestPortoResponse = async ({
       failures.push({
         index,
 
-        externalId: opportunity.idOportunidadeSql,
+        externalId,
 
         document: opportunity.cpfCnpjCliente,
 

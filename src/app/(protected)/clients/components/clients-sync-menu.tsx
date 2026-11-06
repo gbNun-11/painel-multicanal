@@ -9,6 +9,7 @@ import { distributeSelectedGoalfyClientAction } from "@/src/actions/clients/dist
 import { sendGoalfyEmailListAction } from "@/src/actions/clients/send-goalfy-email-list";
 import { sendGoalfyImportErrorReportAction } from "@/src/actions/clients/send-goalfy-import-error-report";
 import { sendGoalfyWhatsAppListAction } from "@/src/actions/clients/send-goalfy-whatsapp-list";
+
 import { Button } from "@/src/components/ui/button";
 import {
   DropdownMenu,
@@ -20,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/src/components/ui/dropdown-menu";
 import { toast } from "@/src/components/ui/toast";
+
 import type { GoalfyImportFailure } from "@/src/data/clients/goalfy-import-error-types";
 import type {
   GoalfyBulkImportRunner,
@@ -33,13 +35,12 @@ import GoalfySelectedImportDialog from "./goalfy-selected-import-dialog";
 
 interface ClientsSyncMenuProps {
   syncLabel: string;
-
   goalfyOptions: GoalfyImportOptions;
 }
 
 const CLIENTS_PER_REQUEST = 500;
 
-const chunkArray = <T,>(values: T[], size: number) => {
+const chunkArray = <T,>(values: T[], size: number): T[][] => {
   const chunks: T[][] = [];
 
   for (let index = 0; index < values.length; index += size) {
@@ -55,10 +56,12 @@ const getErrorMessage = (error: unknown, fallback: string) => {
 
 interface SuccessfulGroup {
   enterpriseInsurerId: string;
-
   clientIds: string[];
-
   products: Set<string>;
+}
+
+interface BulkEmailGroup extends SuccessfulGroup {
+  salespersonId: string;
 }
 
 const getGroupProduct = (group: SuccessfulGroup) => {
@@ -134,6 +137,8 @@ const ClientsSyncMenu = ({
 
     const importFailures: GoalfyImportFailure[] = [];
 
+    const pendingEmailGroups = new Map<string, BulkEmailGroup>();
+
     onProgress(0, totalImports);
 
     for (const block of payload.blocks) {
@@ -146,6 +151,8 @@ const ClientsSyncMenu = ({
               enterpriseInsurerId: block.enterpriseInsurerId,
 
               product: block.product,
+
+              salesModel: block.salesModel,
 
               salespersonId: allocation.userId,
             });
@@ -217,20 +224,70 @@ const ClientsSyncMenu = ({
           }
         }
 
+        if (payload.sendListByEmail && successfulClientIds.length > 0) {
+          const groupKey = `${block.enterpriseInsurerId}:` + allocation.userId;
+
+          const existingGroup = pendingEmailGroups.get(groupKey);
+
+          if (existingGroup) {
+            existingGroup.clientIds.push(...successfulClientIds);
+
+            existingGroup.products.add(block.product);
+          } else {
+            pendingEmailGroups.set(groupKey, {
+              enterpriseInsurerId: block.enterpriseInsurerId,
+
+              salespersonId: allocation.userId,
+
+              clientIds: [...successfulClientIds],
+
+              products: new Set([block.product]),
+            });
+          }
+        }
+
         if (payload.sendListByWhatsApp && successfulClientIds.length > 0) {
           for (const clientIds of chunkArray(
             successfulClientIds,
             CLIENTS_PER_REQUEST,
           )) {
-            const result = await sendGoalfyWhatsAppListAction({
-              salespersonId: allocation.userId,
+            try {
+              const result = await sendGoalfyWhatsAppListAction({
+                salespersonId: allocation.userId,
 
-              enterpriseInsurerId: block.enterpriseInsurerId,
+                enterpriseInsurerId: block.enterpriseInsurerId,
 
-              clientIds,
-            });
+                clientIds,
+              });
 
-            if (!result?.data?.success) {
+              if (!result?.data?.success) {
+                whatsappFailures += 1;
+
+                importFailures.push({
+                  stage: "whatsapp",
+
+                  enterpriseInsurerId: block.enterpriseInsurerId,
+
+                  product: block.product,
+
+                  salespersonId: allocation.userId,
+
+                  clientIds,
+
+                  message:
+                    result?.data?.error ??
+                    "Não foi possível enviar a lista pelo WhatsApp.",
+
+                  details: null,
+
+                  attempts: null,
+
+                  statusCode: null,
+
+                  occurredAt: new Date().toISOString(),
+                });
+              }
+            } catch (error) {
               whatsappFailures += 1;
 
               importFailures.push({
@@ -244,52 +301,10 @@ const ClientsSyncMenu = ({
 
                 clientIds,
 
-                message:
-                  result?.data?.error ??
+                message: getErrorMessage(
+                  error,
                   "Não foi possível enviar a lista pelo WhatsApp.",
-
-                details: null,
-
-                attempts: null,
-
-                statusCode: null,
-
-                occurredAt: new Date().toISOString(),
-              });
-            }
-          }
-        }
-
-        if (payload.sendListByEmail && successfulClientIds.length > 0) {
-          for (const clientIds of chunkArray(
-            successfulClientIds,
-            CLIENTS_PER_REQUEST,
-          )) {
-            const result = await sendGoalfyEmailListAction({
-              salespersonId: allocation.userId,
-
-              enterpriseInsurerId: block.enterpriseInsurerId,
-
-              clientIds,
-            });
-
-            if (!result?.data?.success) {
-              emailFailures += 1;
-
-              importFailures.push({
-                stage: "email",
-
-                enterpriseInsurerId: block.enterpriseInsurerId,
-
-                product: block.product,
-
-                salespersonId: allocation.userId,
-
-                clientIds,
-
-                message:
-                  result?.data?.error ??
-                  "Não foi possível enviar a lista por e-mail.",
+                ),
 
                 details: null,
 
@@ -305,6 +320,83 @@ const ClientsSyncMenu = ({
       }
     }
 
+    for (const group of pendingEmailGroups.values()) {
+      const product = getGroupProduct(group);
+
+      const uniqueClientIds = [...new Set(group.clientIds)];
+
+      for (const clientIds of chunkArray(
+        uniqueClientIds,
+        CLIENTS_PER_REQUEST,
+      )) {
+        try {
+          const result = await sendGoalfyEmailListAction({
+            salespersonId: group.salespersonId,
+
+            enterpriseInsurerId: group.enterpriseInsurerId,
+
+            clientIds,
+          });
+
+          if (!result?.data?.success) {
+            emailFailures += 1;
+
+            importFailures.push({
+              stage: "email",
+
+              enterpriseInsurerId: group.enterpriseInsurerId,
+
+              product,
+
+              salespersonId: group.salespersonId,
+
+              clientIds,
+
+              message:
+                result?.data?.error ??
+                result?.serverError ??
+                "Não foi possível enviar a lista consolidada por e-mail.",
+
+              details: null,
+
+              attempts: null,
+
+              statusCode: null,
+
+              occurredAt: new Date().toISOString(),
+            });
+          }
+        } catch (error) {
+          emailFailures += 1;
+
+          importFailures.push({
+            stage: "email",
+
+            enterpriseInsurerId: group.enterpriseInsurerId,
+
+            product,
+
+            salespersonId: group.salespersonId,
+
+            clientIds,
+
+            message: getErrorMessage(
+              error,
+              "Erro inesperado ao enviar a lista consolidada por e-mail.",
+            ),
+
+            details: null,
+
+            attempts: null,
+
+            statusCode: null,
+
+            occurredAt: new Date().toISOString(),
+          });
+        }
+      }
+    }
+
     const errorReportFailed = await sendErrorReport(importFailures);
 
     router.refresh();
@@ -315,7 +407,8 @@ const ClientsSyncMenu = ({
 
         title: "Importação concluída",
 
-        description: `${successfulImports} cliente(s) distribuído(s) com sucesso.`,
+        description:
+          `${successfulImports} cliente(s) ` + "distribuído(s) com sucesso.",
       });
 
       return;
@@ -587,7 +680,6 @@ const ClientsSyncMenu = ({
     const errorReportFailed = await sendErrorReport(importFailures);
 
     clearSelection();
-
     router.refresh();
 
     if (failedImports === 0 && whatsappFailures === 0 && emailFailures === 0) {
@@ -596,7 +688,9 @@ const ClientsSyncMenu = ({
 
         title: "Transferência concluída",
 
-        description: `${successfulImports} cliente(s) selecionado(s) distribuído(s) com sucesso.`,
+        description:
+          `${successfulImports} cliente(s) selecionado(s) ` +
+          "distribuído(s) com sucesso.",
       });
 
       return;

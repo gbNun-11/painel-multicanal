@@ -2,7 +2,7 @@
 
 import { Loader2Icon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { getSusepsAction } from "@/src/actions/suseps/get-suseps";
 import { Badge } from "@/src/components/ui/badge";
@@ -24,11 +24,13 @@ import {
 import { toast } from "@/src/components/ui/toast";
 import { statusLabels } from "@/src/constants/enums";
 
+import ConfigureMultichannelButton from "./configure-multichannel-button";
 import SusepActions from "./susep-actions";
 import type { SusepContext, SusepTableRow } from "./types";
 
 interface ManageSusepsDialogProps {
   open: boolean;
+
   context: SusepContext;
 }
 
@@ -43,7 +45,9 @@ const ManageSusepsDialog = ({ open, context }: ManageSusepsDialogProps) => {
     onError: ({ error }) => {
       toast.add({
         type: "error",
+
         title: "Erro ao carregar SUSEPs",
+
         description:
           error.serverError ?? "Não foi possível carregar as SUSEPs.",
       });
@@ -54,7 +58,7 @@ const ManageSusepsDialog = ({ open, context }: ManageSusepsDialogProps) => {
     execute({
       enterpriseInsurerId: context.enterpriseInsurerId,
     });
-  }, [context.enterpriseInsurerId, execute]);
+  }, [execute, context.enterpriseInsurerId]);
 
   useEffect(() => {
     if (!open) {
@@ -64,18 +68,22 @@ const ManageSusepsDialog = ({ open, context }: ManageSusepsDialogProps) => {
     loadSuseps();
   }, [open, loadSuseps]);
 
-  const susepCodeById = useMemo(
-    () => new Map(suseps.map((susep) => [susep.id, susep.code])),
-    [suseps],
-  );
+  const getMasterCode = (masterSusepId: string | null) => {
+    if (!masterSusepId) {
+      return "—";
+    }
+
+    return suseps.find((susep) => susep.id === masterSusepId)?.code ?? "—";
+  };
 
   return (
-    <DialogContent className="sm:max-w-3xl">
+    <DialogContent className="sm:max-w-4xl">
       <DialogHeader>
         <DialogTitle>Gerenciar SUSEPs</DialogTitle>
 
         <DialogDescription>
-          Consulte e gerencie as SUSEPs vinculadas à empresa e seguradora.
+          Consulte e gerencie as SUSEPs vinculadas à empresa e seguradora
+          selecionadas.
         </DialogDescription>
       </DialogHeader>
 
@@ -107,7 +115,7 @@ const ManageSusepsDialog = ({ open, context }: ManageSusepsDialogProps) => {
 
               <TableHead className="font-semibold">Status</TableHead>
 
-              <TableHead className="w-12" />
+              <TableHead className="w-24" />
             </TableRow>
           </TableHeader>
 
@@ -135,14 +143,12 @@ const ManageSusepsDialog = ({ open, context }: ManageSusepsDialogProps) => {
                 <TableRow key={susep.id}>
                   <TableCell className="font-medium">{susep.code}</TableCell>
 
-                  <TableCell>
-                    {susep.masterSusepId
-                      ? (susepCodeById.get(susep.masterSusepId) ?? "—")
-                      : "—"}
-                  </TableCell>
+                  <TableCell>{getMasterCode(susep.masterSusepId)}</TableCell>
 
                   <TableCell>
-                    <Badge variant={susep.multichannel ? "default" : "outline"}>
+                    <Badge
+                      variant={susep.multichannel ? "default" : "secondary"}
+                    >
                       {susep.multichannel ? "Sim" : "Não"}
                     </Badge>
                   </TableCell>
@@ -157,12 +163,23 @@ const ManageSusepsDialog = ({ open, context }: ManageSusepsDialogProps) => {
                     </Badge>
                   </TableCell>
 
-                  <TableCell className="text-right">
-                    <SusepActions
-                      susep={susep}
-                      context={context}
-                      onSuccess={loadSuseps}
-                    />
+                  <TableCell>
+                    <div className="flex items-center justify-end gap-1">
+                      {susep.multichannel && (
+                        <ConfigureMultichannelButton
+                          susepId={susep.id}
+                          susepCode={susep.code}
+                          enterpriseName={context.enterpriseName}
+                          insurerName={context.insurerName}
+                        />
+                      )}
+
+                      <SusepActions
+                        susep={susep}
+                        context={context}
+                        onSuccess={loadSuseps}
+                      />
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

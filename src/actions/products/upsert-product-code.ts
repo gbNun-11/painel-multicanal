@@ -82,6 +82,8 @@ export const upsertProductCodeAction = adminActionClient
       ? and(
           eq(productCodesTable.insurerId, product.insurerId),
 
+          eq(productCodesTable.productId, product.id),
+
           eq(productCodesTable.code, code),
 
           eq(productCodesTable.name, name),
@@ -90,6 +92,8 @@ export const upsertProductCodeAction = adminActionClient
         )
       : and(
           eq(productCodesTable.insurerId, product.insurerId),
+
+          eq(productCodesTable.productId, product.id),
 
           eq(productCodesTable.code, code),
 
@@ -106,7 +110,7 @@ export const upsertProductCodeAction = adminActionClient
 
     if (duplicateProductCode) {
       throw new Error(
-        `O código ${code} com o nome "${name}" já está cadastrado para esta seguradora.`,
+        `O código ${code} com o nome "${name}" já está cadastrado para este produto.`,
       );
     }
 
@@ -160,15 +164,11 @@ export const upsertProductCodeAction = adminActionClient
 
       return {
         success: true,
-
-        mode: "created" as const,
-
-        id: createdProductCode.id,
       };
     } catch (error) {
       if (isDatabaseErrorCode(error, "23505")) {
         throw new Error(
-          `O código ${code} com o nome "${name}" já está cadastrado para esta seguradora.`,
+          `O código ${code} com o nome "${name}" já está cadastrado para este produto ou existe um conflito de unicidade no cadastro.`,
         );
       }
 

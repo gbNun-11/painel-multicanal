@@ -7,6 +7,7 @@ import {
   clientsTable,
   enterpriseInsurersTable,
   enterprisesTable,
+  opportunitiesTable,
   usersTable,
 } from "@/src/db/schema";
 import { sendGoalfyWhatsAppList } from "@/src/integrations/goalfy/send-whatsapp-list";
@@ -23,14 +24,18 @@ export const sendGoalfyWhatsAppListAction = protectedActionClient
         db
           .select({
             id: usersTable.id,
+
             name: usersTable.name,
+
             phone: usersTable.phone,
           })
           .from(usersTable)
           .where(
             and(
               eq(usersTable.id, salespersonId),
+
               eq(usersTable.role, "comercial"),
+
               eq(usersTable.status, "ativo"),
             ),
           )
@@ -65,17 +70,26 @@ export const sendGoalfyWhatsAppListAction = protectedActionClient
 
       const clients = await db
         .select({
-          id: clientsTable.id,
+          id: opportunitiesTable.id,
+
           name: clientsTable.name,
+
           phone: clientsTable.phone,
         })
-        .from(clientsTable)
+        .from(opportunitiesTable)
+        .innerJoin(
+          clientsTable,
+          eq(opportunitiesTable.clientId, clientsTable.id),
+        )
         .where(
           and(
-            inArray(clientsTable.id, clientIds),
-            eq(clientsTable.enterpriseInsurerId, enterpriseInsurerId),
-            eq(clientsTable.salespersonId, salespersonId),
-            eq(clientsTable.status, "distribuido"),
+            inArray(opportunitiesTable.id, clientIds),
+
+            eq(opportunitiesTable.enterpriseInsurerId, enterpriseInsurerId),
+
+            eq(opportunitiesTable.salespersonId, salespersonId),
+
+            eq(opportunitiesTable.distributionStatus, "distribuido"),
           ),
         );
 

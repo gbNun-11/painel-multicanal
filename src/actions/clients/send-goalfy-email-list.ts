@@ -1,23 +1,99 @@
 "use server";
 
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, ilike, inArray } from "drizzle-orm";
 
 import { db } from "@/src/db";
 import {
   clientsTable,
   enterpriseInsurersTable,
   enterprisesTable,
+  opportunitiesTable,
   usersTable,
 } from "@/src/db/schema";
 import { getSmtpAccountByEnterpriseId } from "@/src/integrations/email/config";
-import { sendDistributionEmail } from "@/src/integrations/email/send-distribution-email";
+import {
+  DistributionPartialDeliveryError,
+  sendDistributionEmail,
+  type DistributionCopyRecipient,
+} from "@/src/integrations/email/send-distribution-email";
 import { protectedActionClient } from "@/src/lib/safe-action";
 import sendGoalfyEmailListSchema from "@/src/schemas/client/sendGoalfyEmailListSchema";
+
+const normalizedProduct = (product: string | null) =>
+  (product ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
+
+const requiresThallesCopy = (product: string | null) =>
+  ["AUTOMOVEL", "MOTO"].includes(normalizedProduct(product));
+
+/**
+ * Não fixa e-mail ou ID inventado no código.
+ * Com GOALFY_AUTO_MOTO_CC_USER_ID configurado, consulta o ID exato.
+ * Sem essa variável, só aceita um usuário ativo cujo primeiro nome seja
+ * THALLES ou THALES. Se houver ambiguidade, interrompe o envio.
+ */
+const resolveThallesRecipient =
+  async (): Promise<DistributionCopyRecipient> => {
+    const explicitId = process.env.GOALFY_AUTO_MOTO_CC_USER_ID?.trim();
+
+    const candidates = await db
+      .select({
+        id: usersTable.id,
+        name: usersTable.name,
+        email: usersTable.email,
+      })
+      .from(usersTable)
+      .where(
+        explicitId
+          ? and(eq(usersTable.id, explicitId), eq(usersTable.status, "ativo"))
+          : and(
+              eq(usersTable.status, "ativo"),
+              ilike(usersTable.name, "thal%"),
+            ),
+      );
+
+    const matches = explicitId
+      ? candidates
+      : candidates.filter((user) => {
+          const firstName = user.name
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .trim()
+            .split(/\s+/)[0]
+            ?.toUpperCase();
+          return firstName === "THALLES" || firstName === "THALES";
+        });
+
+    if (matches.length !== 1) {
+      throw new Error(
+        "Não foi possível identificar de forma única o usuário THALLES ativo para " +
+          "cópia de AUTOMÓVEL/MOTO. Confirme o cadastro ou configure " +
+          "GOALFY_AUTO_MOTO_CC_USER_ID com o ID correto.",
+      );
+    }
+
+    const user = matches[0];
+    if (!user.email?.trim()) {
+      throw new Error("O usuário THALLES não possui e-mail cadastrado.");
+    }
+
+    return { name: user.name, email: user.email.trim() };
+  };
 
 export const sendGoalfyEmailListAction = protectedActionClient
   .inputSchema(sendGoalfyEmailListSchema)
   .action(async ({ parsedInput, ctx }) => {
     const { salespersonId, enterpriseInsurerId, clientIds } = parsedInput;
+    let sentClients = 0;
+    const deliveredGroups: Array<{
+      group: string;
+      messageId: string;
+      count: number;
+      reportFilename: string;
+    }> = [];
 
     try {
       const [senderResult, salespersonResult, enterpriseResult, clients] =
@@ -25,9 +101,7 @@ export const sendGoalfyEmailListAction = protectedActionClient
           db
             .select({
               id: usersTable.id,
-
               name: usersTable.name,
-
               email: usersTable.email,
             })
             .from(usersTable)
@@ -37,18 +111,14 @@ export const sendGoalfyEmailListAction = protectedActionClient
           db
             .select({
               id: usersTable.id,
-
               name: usersTable.name,
-
               email: usersTable.email,
             })
             .from(usersTable)
             .where(
               and(
                 eq(usersTable.id, salespersonId),
-
                 eq(usersTable.role, "comercial"),
-
                 eq(usersTable.status, "ativo"),
               ),
             )
@@ -57,7 +127,6 @@ export const sendGoalfyEmailListAction = protectedActionClient
           db
             .select({
               enterpriseId: enterprisesTable.id,
-
               enterpriseName: enterprisesTable.name,
             })
             .from(enterpriseInsurersTable)
@@ -70,49 +139,39 @@ export const sendGoalfyEmailListAction = protectedActionClient
 
           db
             .select({
-              id: clientsTable.id,
-
+              id: opportunitiesTable.id,
               name: clientsTable.name,
-
               document: clientsTable.document,
-
               phone: clientsTable.phone,
-
               email: clientsTable.email,
-
-              product: clientsTable.product,
-
-              salesModel: clientsTable.salesModel,
-
-              propensity: clientsTable.propensity,
-
-              sourceCreatedAt: clientsTable.sourceCreatedAt,
-
-              assignedAt: clientsTable.assignedAt,
+              product: opportunitiesTable.product,
+              salesModel: opportunitiesTable.salesModel,
+              propensity: opportunitiesTable.propensity,
+              sourceCreatedAt: opportunitiesTable.sourceCreatedAt,
+              assignedAt: opportunitiesTable.assignedAt,
             })
-            .from(clientsTable)
+            .from(opportunitiesTable)
+            .innerJoin(
+              clientsTable,
+              eq(opportunitiesTable.clientId, clientsTable.id),
+            )
             .where(
               and(
-                inArray(clientsTable.id, clientIds),
-
-                eq(clientsTable.enterpriseInsurerId, enterpriseInsurerId),
-
-                eq(clientsTable.salespersonId, salespersonId),
-
-                eq(clientsTable.status, "distribuido"),
+                inArray(opportunitiesTable.id, clientIds),
+                eq(opportunitiesTable.enterpriseInsurerId, enterpriseInsurerId),
+                eq(opportunitiesTable.salespersonId, salespersonId),
+                eq(opportunitiesTable.distributionStatus, "distribuido"),
               ),
             )
             .orderBy(asc(clientsTable.name)),
         ]);
 
       const sender = senderResult[0];
-
       if (!sender) {
         throw new Error(
           "Usuário responsável pela distribuição não encontrado.",
         );
       }
-
       if (!sender.email?.trim()) {
         throw new Error(
           "O usuário responsável pela distribuição não possui e-mail cadastrado.",
@@ -120,11 +179,9 @@ export const sendGoalfyEmailListAction = protectedActionClient
       }
 
       const salesperson = salespersonResult[0];
-
       if (!salesperson) {
         throw new Error("Usuário comercial não encontrado ou inativo.");
       }
-
       if (!salesperson.email?.trim()) {
         throw new Error(
           `O usuário comercial ${salesperson.name} não possui e-mail cadastrado.`,
@@ -132,80 +189,119 @@ export const sendGoalfyEmailListAction = protectedActionClient
       }
 
       const enterprise = enterpriseResult[0];
-
-      if (!enterprise) {
-        throw new Error("Empresa não encontrada.");
-      }
+      if (!enterprise) throw new Error("Empresa não encontrada.");
 
       if (clients.length === 0) {
         throw new Error(
-          "Nenhum cliente distribuído válido foi encontrado para envio por e-mail.",
+          "Nenhuma oportunidade distribuída válida foi encontrada para envio por e-mail.",
         );
       }
-
       if (clients.length !== clientIds.length) {
         throw new Error(
-          "Alguns clientes informados não pertencem à distribuição solicitada.",
+          "Algumas oportunidades informadas não pertencem à distribuição solicitada.",
         );
       }
 
       const smtpAccount = getSmtpAccountByEnterpriseId(enterprise.enterpriseId);
-
-      const result = await sendDistributionEmail({
+      const baseData = {
         smtpAccount,
-
         enterpriseName: enterprise.enterpriseName,
+        sender: { name: sender.name, email: sender.email.trim() },
+        recipient: { name: salesperson.name, email: salesperson.email.trim() },
+      };
 
-        sender: {
-          name: sender.name,
+      const autoMotoClients = clients.filter((client) =>
+        requiresThallesCopy(client.product),
+      );
+      const ordinaryClients = clients.filter(
+        (client) => !requiresThallesCopy(client.product),
+      );
 
-          email: sender.email,
-        },
+      // Resolve o CC obrigatório antes de disparar a primeira mensagem.
+      // Não inclui no e-mail do THALLES produtos fora de AUTOMÓVEL/MOTO.
+      const thalles =
+        autoMotoClients.length > 0 ? await resolveThallesRecipient() : null;
 
-        recipient: {
-          name: salesperson.name,
+      const groups = [
+        ...(autoMotoClients.length > 0
+          ? [
+              {
+                name: "AUTOMOVEL_MOTO",
+                clients: autoMotoClients,
+                cc: [thalles!],
+              },
+            ]
+          : []),
+        ...(ordinaryClients.length > 0
+          ? [
+              {
+                name: "OUTROS_PRODUTOS",
+                clients: ordinaryClients,
+                cc: [] as DistributionCopyRecipient[],
+              },
+            ]
+          : []),
+      ];
 
-          email: salesperson.email,
-        },
+      for (const group of groups) {
+        const result = await sendDistributionEmail(
+          { ...baseData, clients: group.clients },
+          group.cc,
+        );
 
-        clients,
-      });
+        sentClients += group.clients.length;
+        deliveredGroups.push({
+          group: group.name,
+          messageId: result.messageId,
+          count: group.clients.length,
+          reportFilename: result.reportFilename,
+        });
 
-      console.log("[GOALFY EMAIL] E-mail enviado:", {
-        sender: sender.email,
-
-        recipient: salesperson.email,
-
-        enterprise: enterprise.enterpriseName,
-
-        clients: clients.length,
-
-        attachment: result.reportFilename,
-
-        messageId: result.messageId,
-      });
+        console.log(
+          "[GOALFY EMAIL] Mensagem única por grupo aceita pelo SMTP:",
+          {
+            group: group.name,
+            recipientCount: result.accepted.length,
+            opportunities: group.clients.length,
+            attempts: result.attempts,
+            messageId: result.messageId,
+          },
+        );
+      }
 
       return {
         success: true,
-
-        sent: clients.length,
-
-        messageId: result.messageId,
-
-        reportFilename: result.reportFilename,
+        sent: sentClients,
+        messageId: deliveredGroups[0]?.messageId ?? null,
+        reportFilename: deliveredGroups[0]?.reportFilename ?? null,
+        distributorNotified: true,
+        distributorMessageId: deliveredGroups[0]?.messageId ?? null,
+        deliveries: deliveredGroups,
       };
     } catch (error) {
+      const partialDelivery =
+        sentClients > 0 ||
+        (error instanceof DistributionPartialDeliveryError &&
+          error.accepted.length > 0);
       const message =
         error instanceof Error
           ? error.message
           : "Erro desconhecido no envio por e-mail.";
 
-      console.error("[GOALFY EMAIL] Erro:", error);
+      console.warn("[GOALFY EMAIL] Falha no envio:", {
+        message,
+        sentClients,
+        partialDelivery,
+      });
 
       return {
         success: false,
-
-        error: message,
+        partialDelivery,
+        sent: sentClients,
+        error: partialDelivery
+          ? `${message} Parte da distribuição já foi aceita pelo SMTP; não reenvie o lote completo.`
+          : message,
+        deliveries: deliveredGroups,
       };
     }
   });
