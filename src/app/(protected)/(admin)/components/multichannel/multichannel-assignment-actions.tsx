@@ -1,24 +1,16 @@
 "use client";
 
-import {
-  CircleCheckIcon,
-  CircleXIcon,
-  EllipsisIcon,
-  PencilIcon,
-} from "lucide-react";
+import { CircleCheckIcon, CircleXIcon, PencilIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
 
 import { changeMultichannelAssignmentStatusAction } from "@/src/actions/multichannel/change-multichannel-assignment-status";
-import { Button } from "@/src/components/ui/button";
 import { Dialog } from "@/src/components/ui/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from "@/src/components/ui/dropdown-menu";
+import { TableRowActions } from "@/src/components/ui/table-row-actions";
 import { toast } from "@/src/components/ui/toast";
 
 import type {
@@ -30,17 +22,11 @@ import UpsertMultichannelAssignmentForm from "./upsert-multichannel-assignment-f
 
 interface MultichannelAssignmentActionsProps {
   susepId: string;
-
   susepCode: string;
-
   susepStatus: "ativo" | "inativo";
-
   assignment: MultichannelAssignmentTableRow;
-
   products: MultichannelProductOption[];
-
   users: MultichannelUserOption[];
-
   onSuccess: () => void;
 }
 
@@ -71,9 +57,7 @@ const MultichannelAssignmentActions = ({
 
         toast.add({
           type: "success",
-
           title: isActive ? "Configuração inativada" : "Configuração ativada",
-
           description: isActive
             ? "A configuração multicanal foi inativada."
             : "A configuração multicanal foi ativada.",
@@ -85,9 +69,7 @@ const MultichannelAssignmentActions = ({
       onError: ({ error }) => {
         toast.add({
           type: "error",
-
           title: "Erro ao alterar configuração",
-
           description:
             error.serverError ??
             "Não foi possível alterar a configuração multicanal.",
@@ -99,62 +81,47 @@ const MultichannelAssignmentActions = ({
   const handleChangeStatus = () => {
     execute({
       id: assignment.id,
-
       status: assignment.status === "ativo" ? "inativo" : "ativo",
     });
   };
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              disabled={isPending}
-            >
-              <EllipsisIcon className="size-4" />
+      <TableRowActions
+        label={`Abrir ações da configuração do produto ${assignment.productName}`}
+        disabled={isPending}
+      >
+        <DropdownMenuItem
+          disabled={!canEdit}
+          onClick={() => {
+            setEditDialogOpen(true);
+          }}
+        >
+          <PencilIcon className="size-4" />
+          Alterar usuário
+        </DropdownMenuItem>
 
-              <span className="sr-only">Abrir ações</span>
-            </Button>
+        <DropdownMenuSeparator />
+
+        <DropdownMenuItem
+          onClick={handleChangeStatus}
+          disabled={
+            isPending || (assignment.status === "inativo" && !canActivate)
           }
-        />
-
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            disabled={!canEdit}
-            onClick={() => {
-              setEditDialogOpen(true);
-            }}
-          >
-            <PencilIcon className="size-4" />
-            Alterar usuário
-          </DropdownMenuItem>
-
-          <DropdownMenuSeparator />
-
-          <DropdownMenuItem
-            onClick={handleChangeStatus}
-            disabled={
-              isPending || (assignment.status === "inativo" && !canActivate)
-            }
-          >
-            {assignment.status === "ativo" ? (
-              <>
-                <CircleXIcon className="size-4" />
-                Inativar
-              </>
-            ) : (
-              <>
-                <CircleCheckIcon className="size-4" />
-                Ativar
-              </>
-            )}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        >
+          {assignment.status === "ativo" ? (
+            <>
+              <CircleXIcon className="size-4" />
+              Inativar
+            </>
+          ) : (
+            <>
+              <CircleCheckIcon className="size-4" />
+              Ativar
+            </>
+          )}
+        </DropdownMenuItem>
+      </TableRowActions>
 
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <UpsertMultichannelAssignmentForm
@@ -165,7 +132,6 @@ const MultichannelAssignmentActions = ({
           users={users}
           onSuccess={() => {
             setEditDialogOpen(false);
-
             onSuccess();
           }}
         />

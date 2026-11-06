@@ -1,24 +1,16 @@
 "use client";
 
-import {
-  CircleCheckIcon,
-  CircleXIcon,
-  EllipsisIcon,
-  PencilIcon,
-} from "lucide-react";
+import { CircleCheckIcon, CircleXIcon, PencilIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
 
 import { changeSusepStatusAction } from "@/src/actions/suseps/change-susep-status";
-import { Button } from "@/src/components/ui/button";
 import { Dialog } from "@/src/components/ui/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from "@/src/components/ui/dropdown-menu";
+import { TableRowActions } from "@/src/components/ui/table-row-actions";
 import { toast } from "@/src/components/ui/toast";
 
 import type { SusepContext, SusepTableRow } from "./types";
@@ -61,56 +53,41 @@ const SusepActions = ({ susep, context, onSuccess }: SusepActionsProps) => {
   const handleChangeStatus = () => {
     execute({
       id: susep.id,
-
       status: susep.status === "ativo" ? "inativo" : "ativo",
     });
   };
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              disabled={isPending}
-            >
-              <EllipsisIcon className="size-4" />
+      <TableRowActions
+        label={`Abrir ações da SUSEP ${susep.code}`}
+        disabled={isPending}
+      >
+        <DropdownMenuItem
+          onClick={() => {
+            setEditDialogOpen(true);
+          }}
+        >
+          <PencilIcon className="size-4" />
+          Editar
+        </DropdownMenuItem>
 
-              <span className="sr-only">Abrir ações da SUSEP</span>
-            </Button>
-          }
-        />
+        <DropdownMenuSeparator />
 
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            onClick={() => {
-              setEditDialogOpen(true);
-            }}
-          >
-            <PencilIcon className="size-4" />
-            Editar
-          </DropdownMenuItem>
-
-          <DropdownMenuSeparator />
-
-          <DropdownMenuItem onClick={handleChangeStatus} disabled={isPending}>
-            {susep.status === "ativo" ? (
-              <>
-                <CircleXIcon className="size-4" />
-                Inativar
-              </>
-            ) : (
-              <>
-                <CircleCheckIcon className="size-4" />
-                Ativar
-              </>
-            )}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        <DropdownMenuItem onClick={handleChangeStatus} disabled={isPending}>
+          {susep.status === "ativo" ? (
+            <>
+              <CircleXIcon className="size-4" />
+              Inativar
+            </>
+          ) : (
+            <>
+              <CircleCheckIcon className="size-4" />
+              Ativar
+            </>
+          )}
+        </DropdownMenuItem>
+      </TableRowActions>
 
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <UpsertSusepForm
@@ -118,7 +95,6 @@ const SusepActions = ({ susep, context, onSuccess }: SusepActionsProps) => {
           susep={susep}
           onSuccess={() => {
             setEditDialogOpen(false);
-
             onSuccess();
           }}
         />
