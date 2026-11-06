@@ -381,7 +381,7 @@ const ClientsPageActions = ({
                           toggleProduct(product, checked)
                         }
                       />
-                      <span className="min-w-0 break-words text-sm font-medium">
+                      <span className="min-w-0 wrap-break-word text-sm font-medium">
                         {product}
                       </span>
                     </label>
@@ -417,7 +417,7 @@ const ClientsPageActions = ({
                           toggleEnterpriseId(company.id, checked)
                         }
                       />
-                      <span className="min-w-0 break-words text-sm font-medium">
+                      <span className="min-w-0 wrap-break-word text-sm font-medium">
                         {company.name}
                       </span>
                     </label>
