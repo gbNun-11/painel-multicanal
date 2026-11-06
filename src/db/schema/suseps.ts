@@ -1,4 +1,8 @@
+import { sql } from "drizzle-orm";
 import {
+  boolean,
+  check,
+  foreignKey,
   index,
   pgTable,
   text,
@@ -9,7 +13,6 @@ import {
 
 import { enterpriseInsurersTable } from "./enterprise-insurers";
 import { statusEnum } from "./enums";
-import { usersTable } from "./users";
 
 export const susepsTable = pgTable(
   "enterprise_insurer_suseps",
@@ -23,18 +26,11 @@ export const susepsTable = pgTable(
         onUpdate: "cascade",
       }),
 
-    brokerUserId: uuid("broker_user_id")
-      .notNull()
-      .references(() => usersTable.id, {
-        onDelete: "restrict",
-        onUpdate: "cascade",
-      }),
+    masterSusepId: uuid("master_susep_id"),
 
     code: text("code").notNull(),
 
-    productCode: text("product_code").notNull(),
-
-    product: text("product").notNull(),
+    multichannel: boolean("multichannel").default(false).notNull(),
 
     status: statusEnum("status").default("ativo").notNull(),
 
@@ -57,12 +53,28 @@ export const susepsTable = pgTable(
       table.code,
     ),
 
+    uniqueIndex("suseps_id_enterprise_insurer_unique_idx").on(
+      table.id,
+      table.enterpriseInsurerId,
+    ),
+
+    foreignKey({
+      columns: [table.masterSusepId, table.enterpriseInsurerId],
+      foreignColumns: [table.id, table.enterpriseInsurerId],
+      name: "suseps_master_same_enterprise_insurer_fk",
+    })
+      .onDelete("restrict")
+      .onUpdate("cascade"),
+
+    check(
+      "suseps_master_not_self_check",
+      sql`${table.masterSusepId} IS NULL OR ${table.masterSusepId} <> ${table.id}`,
+    ),
+
     index("suseps_enterprise_insurer_idx").on(table.enterpriseInsurerId),
 
+    index("suseps_master_susep_idx").on(table.masterSusepId),
+
     index("suseps_code_idx").on(table.code),
-
-    index("suseps_broker_user_idx").on(table.brokerUserId),
-
-    index("suseps_product_code_idx").on(table.productCode),
   ],
 );

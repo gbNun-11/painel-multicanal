@@ -1,8 +1,8 @@
 "use client";
 
-import { ListIcon, SearchIcon } from "lucide-react";
+import { ListIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Button } from "@/src/components/ui/button";
 import { Checkbox } from "@/src/components/ui/checkbox";
@@ -16,6 +16,7 @@ import {
   DialogTrigger,
 } from "@/src/components/ui/dialog";
 import { Input } from "@/src/components/ui/input";
+import SearchQueryInput from "@/src/components/ui/search-query-input";
 
 import type { GoalfyImportOptions } from "@/src/data/clients/goalfy-import-types";
 
@@ -23,9 +24,7 @@ import ClientsSyncMenu from "./clients-sync-menu";
 
 interface ClientsPageActionsProps {
   products: string[];
-
   syncLabel: string;
-
   goalfyOptions: GoalfyImportOptions;
 }
 
@@ -49,11 +48,8 @@ const getSaoPauloDate = (offsetDays = 0) => {
 
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Sao_Paulo",
-
     year: "numeric",
-
     month: "2-digit",
-
     day: "2-digit",
   }).formatToParts(date);
 
@@ -79,8 +75,6 @@ const ClientsPageActions = ({
 
   const searchParamsString = searchParams.toString();
 
-  const [search, setSearch] = useState(searchParams.get("q") ?? "");
-
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const [productSearch, setProductSearch] = useState("");
@@ -100,38 +94,6 @@ const ClientsPageActions = ({
       scroll: false,
     });
   };
-
-  useEffect(() => {
-    setSearch(searchParams.get("q") ?? "");
-  }, [searchParamsString]);
-
-  useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      const params = new URLSearchParams(searchParamsString);
-
-      const normalized = search.trim();
-
-      const current = params.get("q") ?? "";
-
-      if (normalized === current) {
-        return;
-      }
-
-      if (normalized) {
-        params.set("q", normalized);
-      } else {
-        params.delete("q");
-      }
-
-      params.delete("page");
-
-      navigate(params);
-    }, 400);
-
-    return () => {
-      window.clearTimeout(timeout);
-    };
-  }, [search, searchParamsString, pathname, router]);
 
   const activeFilterCount =
     Number(Boolean(searchParams.get("from") || searchParams.get("to"))) +
@@ -264,16 +226,7 @@ const ClientsPageActions = ({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="relative min-w-64 flex-1 sm:w-80 sm:flex-none">
-        <SearchIcon className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-
-        <Input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Pesquisar nome ou CPF/CNPJ..."
-          className="pl-9"
-        />
-      </div>
+      <SearchQueryInput placeholder="Pesquisar nome ou CPF/CNPJ..." />
 
       <Dialog open={filtersOpen} onOpenChange={handleFiltersOpenChange}>
         <DialogTrigger
@@ -282,7 +235,7 @@ const ClientsPageActions = ({
               <ListIcon />
               Filtros
               {activeFilterCount > 0 && (
-                <span className="bg-primary text-primary-foreground flex size-5 items-center justify-center rounded-full text-xs">
+                <span className="flex size-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
                   {activeFilterCount}
                 </span>
               )}
@@ -395,7 +348,7 @@ const ClientsPageActions = ({
                   filteredProducts.map((product) => (
                     <label
                       key={product}
-                      className="hover:bg-muted flex cursor-pointer items-center gap-3 rounded-md px-2 py-2"
+                      className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 hover:bg-muted"
                     >
                       <Checkbox
                         checked={selectedProducts.includes(product)}
@@ -408,7 +361,7 @@ const ClientsPageActions = ({
                     </label>
                   ))
                 ) : (
-                  <p className="text-muted-foreground px-2 py-4 text-center text-sm">
+                  <p className="px-2 py-4 text-center text-sm text-muted-foreground">
                     Nenhum produto encontrado.
                   </p>
                 )}
@@ -428,7 +381,7 @@ const ClientsPageActions = ({
                 {SALES_MODEL_OPTIONS.map((option) => (
                   <label
                     key={option.value}
-                    className="hover:bg-muted flex cursor-pointer items-center gap-3 rounded-md border px-3 py-3"
+                    className="flex cursor-pointer items-center gap-3 rounded-md border px-3 py-3 hover:bg-muted"
                   >
                     <Checkbox
                       checked={selectedSalesModels.includes(option.value)}

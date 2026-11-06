@@ -1,0 +1,34 @@
+"use client";
+
+import { PackageIcon } from "lucide-react";
+import { useState } from "react";
+
+import ManageProductsDialog from "./products/manage-products-dialog";
+import type { ProductInsurerOption } from "./products/types";
+import { Button } from "@/src/components/ui/button";
+import { Dialog, DialogTrigger } from "@/src/components/ui/dialog";
+
+interface ManageProductsButtonProps {
+  insurers: ProductInsurerOption[];
+}
+
+const ManageProductsButton = ({ insurers }: ManageProductsButtonProps) => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger
+        render={
+          <Button type="button" variant="outline">
+            <PackageIcon className="size-4" />
+            Gerenciar produtos
+          </Button>
+        }
+      />
+
+      <ManageProductsDialog open={open} insurers={insurers} />
+    </Dialog>
+  );
+};
+
+export default ManageProductsButton;

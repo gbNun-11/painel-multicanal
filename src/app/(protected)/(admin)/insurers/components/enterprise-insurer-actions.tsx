@@ -23,9 +23,9 @@ import {
 } from "@/src/components/ui/dropdown-menu";
 import { toast } from "@/src/components/ui/toast";
 
-import ManageSusepsDialog from "./suseps/manage-suseps-dialog";
-import UpsertSusepForm from "./suseps/upsert-susep-form";
 import type { EnterpriseInsurerTableRow } from "./types";
+import UpsertSusepForm from "../../components/suseps/upsert-susep-form";
+import ManageSusepsDialog from "../../components/suseps/manage-suseps-dialog";
 
 interface EnterpriseInsurerActionsProps {
   enterpriseInsurer: EnterpriseInsurerTableRow;
@@ -48,7 +48,9 @@ const EnterpriseInsurerActions = ({
 
         toast.add({
           type: "success",
+
           title: isActive ? "Vínculo inativado" : "Vínculo ativado",
+
           description: isActive
             ? "O vínculo foi inativado com sucesso."
             : "O vínculo foi ativado com sucesso.",
@@ -60,7 +62,9 @@ const EnterpriseInsurerActions = ({
       onError: ({ error }) => {
         toast.add({
           type: "error",
+
           title: "Erro ao alterar vínculo",
+
           description:
             error.serverError ??
             "Não foi possível alterar o status do vínculo.",
@@ -75,6 +79,16 @@ const EnterpriseInsurerActions = ({
 
       status: enterpriseInsurer.status === "ativo" ? "inativo" : "ativo",
     });
+  };
+
+  const susepContext = {
+    type: "enterpriseInsurer" as const,
+
+    enterpriseInsurerId: enterpriseInsurer.id,
+
+    insurerName: enterpriseInsurer.insurerName,
+
+    enterpriseName: enterpriseInsurer.enterpriseName,
   };
 
   return (
@@ -97,6 +111,7 @@ const EnterpriseInsurerActions = ({
 
         <DropdownMenuContent align="end">
           <DropdownMenuItem
+            disabled={enterpriseInsurer.status !== "ativo"}
             onClick={() => {
               setSusepDialogOpen(true);
             }}
@@ -134,9 +149,7 @@ const EnterpriseInsurerActions = ({
 
       <Dialog open={susepDialogOpen} onOpenChange={setSusepDialogOpen}>
         <UpsertSusepForm
-          enterpriseInsurerId={enterpriseInsurer.id}
-          insurerName={enterpriseInsurer.insurerName}
-          enterpriseName={enterpriseInsurer.enterpriseName}
+          context={susepContext}
           onSuccess={() => {
             setSusepDialogOpen(false);
           }}
@@ -149,9 +162,7 @@ const EnterpriseInsurerActions = ({
       >
         <ManageSusepsDialog
           open={manageSusepsDialogOpen}
-          enterpriseInsurerId={enterpriseInsurer.id}
-          insurerName={enterpriseInsurer.insurerName}
-          enterpriseName={enterpriseInsurer.enterpriseName}
+          context={susepContext}
         />
       </Dialog>
     </>

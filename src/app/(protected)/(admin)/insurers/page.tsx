@@ -15,6 +15,7 @@ import { getEnterpriseInsurers } from "@/src/data/insurers/get-enterprise-insure
 import AddEnterpriseInsurerButton from "./components/add-enterprise-insurer-button";
 import AddInsurersButton from "./components/add-insurers-button";
 import EnterpriseInsurersTable from "./components/enterprise-insurers-table";
+import ManageProductsButton from "./components/manage-products-button";
 
 interface InsurersPageProps {
   searchParams: Promise<{
@@ -34,6 +35,7 @@ const InsurersPage = async ({ searchParams }: InsurersPageProps) => {
 
   const [
     { enterpriseInsurers, pagination },
+
     { insurers, enterprises, existingLinks },
   ] = await Promise.all([
     getEnterpriseInsurers({
@@ -66,6 +68,8 @@ const InsurersPage = async ({ searchParams }: InsurersPageProps) => {
           />
 
           <AddInsurersButton />
+
+          <ManageProductsButton insurers={insurers} />
         </PageActions>
       </PageHeader>
 

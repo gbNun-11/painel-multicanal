@@ -36,25 +36,17 @@ import type { UserTableRow } from "./types";
 
 type UpsertUserFormProps = {
   user?: UserTableRow;
-
   onSuccess: () => void;
 };
 
 const getDefaultValues = (user?: UserTableRow) => ({
   id: user?.id,
-
   name: user?.name ?? "",
-
   cpf: user?.cpf ?? "",
-
   birthDate: user?.birthDate ?? "",
-
   phone: user?.phone ?? "",
-
   email: user?.email ?? "",
-
   password: "",
-
   role: user?.role,
 });
 
@@ -80,6 +72,10 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
   useEffect(() => {
     reset(getDefaultValues(user));
   }, [user, reset]);
+
+  const closeDialog = () => {
+    onSuccess();
+  };
 
   const createUser = async (data: UpsertUserFormData) => {
     const { error } = await authClient.admin.createUser({
@@ -119,6 +115,8 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
           "O e-mail informado já está em uso. Por favor, utilize outro e-mail.",
       });
 
+      closeDialog();
+
       return false;
     }
 
@@ -131,6 +129,8 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
         error.message ||
         "Não foi possível criar o usuário. Verifique os dados e tente novamente.",
     });
+
+    closeDialog();
 
     return false;
   };
@@ -167,6 +167,8 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
           "Não foi possível atualizar os dados do usuário.",
       });
 
+      closeDialog();
+
       return false;
     }
 
@@ -183,8 +185,12 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
 
           title: "Erro ao alterar função",
 
-          description: "Não foi possível alterar a função do usuário.",
+          description:
+            roleError.message ||
+            "Não foi possível alterar a função do usuário.",
         });
+
+        closeDialog();
 
         return false;
       }
@@ -203,8 +209,12 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
 
           title: "Erro ao alterar senha",
 
-          description: "Não foi possível alterar a senha do usuário.",
+          description:
+            passwordError.message ||
+            "Não foi possível alterar a senha do usuário.",
         });
+
+        closeDialog();
 
         return false;
       }
@@ -237,7 +247,7 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
 
       router.refresh();
 
-      onSuccess();
+      closeDialog();
     } catch {
       toast.add({
         type: "error",
@@ -249,6 +259,8 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
         description:
           "Não foi possível se comunicar com o servidor. Tente novamente.",
       });
+
+      closeDialog();
     }
   };
 

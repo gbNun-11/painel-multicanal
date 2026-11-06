@@ -9,10 +9,13 @@ import {
   PageHeaderContent,
   PageTitle,
 } from "@/src/components/ui/page-container";
-
 import { getClientFilters } from "@/src/data/clients/get-client-filters";
 import { getClients } from "@/src/data/clients/get-clients";
 import { getGoalfyImportOptions } from "@/src/data/clients/get-goalfy-import-options";
+import {
+  getFirstSearchParam,
+  getSearchParamArray,
+} from "@/src/utils/search-params";
 
 import ClientsPageActions from "./clients-page-actions";
 import { ClientsSelectionProvider } from "./clients-selection-context";
@@ -21,33 +24,12 @@ import type { ClientsSearchParams } from "./types";
 
 interface ClientsPageProps {
   searchParams: Promise<ClientsSearchParams>;
-
   insurerId: string;
-
   pathname: string;
-
   title: string;
-
   description: string;
-
   syncLabel: string;
 }
-
-const getFirstParam = (value: string | string[] | undefined) => {
-  if (Array.isArray(value)) {
-    return value[0];
-  }
-
-  return value;
-};
-
-const getArrayParam = (value: string | string[] | undefined) => {
-  if (!value) {
-    return [];
-  }
-
-  return Array.isArray(value) ? value : [value];
-};
 
 const ClientsPage = async ({
   searchParams,
@@ -59,37 +41,31 @@ const ClientsPage = async ({
 }: ClientsPageProps) => {
   const params = await searchParams;
 
-  const pageParam = getFirstParam(params.page);
+  const pageParam = getFirstSearchParam(params.page);
 
   const parsedPage = Number(pageParam);
 
   const requestedPage =
     Number.isSafeInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
 
-  const search = getFirstParam(params.q);
+  const search = getFirstSearchParam(params.q);
 
-  const arrivalDateFrom = getFirstParam(params.from);
+  const arrivalDateFrom = getFirstSearchParam(params.from);
 
-  const arrivalDateTo = getFirstParam(params.to);
+  const arrivalDateTo = getFirstSearchParam(params.to);
 
-  const products = getArrayParam(params.product);
+  const products = getSearchParamArray(params.product);
 
-  const salesModels = getArrayParam(params.salesModel);
+  const salesModels = getSearchParamArray(params.salesModel);
 
   const [clientsResult, filtersResult, goalfyOptions] = await Promise.all([
     getClients({
       page: requestedPage,
-
       insurerId,
-
       search,
-
       arrivalDateFrom,
-
       arrivalDateTo,
-
       products,
-
       salesModels,
     }),
 

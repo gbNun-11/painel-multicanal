@@ -17,9 +17,7 @@ const getTodayDateString = () => {
   const today = new Date();
 
   const year = today.getFullYear();
-
   const month = String(today.getMonth() + 1).padStart(2, "0");
-
   const day = String(today.getDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
@@ -85,14 +83,10 @@ const normalizeUserBirthDate = (value: unknown) => {
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
-
     schema: {
       users: usersTable,
-
       session,
-
       account,
-
       verification,
     },
   }),
@@ -109,15 +103,26 @@ export const auth = betterAuth({
           }
 
           const cpf = normalizeUserCpf(user.cpf);
-
           const birthDate = normalizeUserBirthDate(user.birthDate);
+
+          const [existingUserByCpf] = await db
+            .select({
+              id: usersTable.id,
+            })
+            .from(usersTable)
+            .where(eq(usersTable.cpf, cpf))
+            .limit(1);
+
+          if (existingUserByCpf) {
+            throw new APIError("BAD_REQUEST", {
+              message: "Já existe um usuário cadastrado com este CPF.",
+            });
+          }
 
           return {
             data: {
               ...user,
-
               cpf,
-
               birthDate,
             },
           };
@@ -160,11 +165,8 @@ export const auth = betterAuth({
           const [user] = await db
             .select({
               id: usersTable.id,
-
               email: usersTable.email,
-
               role: usersTable.role,
-
               status: usersTable.status,
             })
             .from(usersTable)
@@ -205,11 +207,8 @@ export const auth = betterAuth({
 
   emailAndPassword: {
     enabled: true,
-
     disableSignUp: true,
-
     minPasswordLength: 8,
-
     maxPasswordLength: 128,
   },
 
@@ -219,35 +218,26 @@ export const auth = betterAuth({
     additionalFields: {
       cpf: {
         type: "string",
-
         required: true,
-
         input: true,
-
         returned: false,
       },
 
       birthDate: {
         type: "string",
-
         required: true,
-
         input: true,
-
         returned: false,
       },
 
       phone: {
         type: "string",
-
         required: true,
       },
 
       status: {
         type: ["ativo", "inativo"],
-
         required: true,
-
         input: false,
       },
     },
@@ -256,12 +246,9 @@ export const auth = betterAuth({
   plugins: [
     admin({
       ac,
-
       roles: {
         admin: roles.admin,
-
         administrativo: roles.administrativo,
-
         comercial: roles.comercial,
       },
     }),
@@ -270,7 +257,6 @@ export const auth = betterAuth({
   advanced: {
     database: {
       generateId: "uuid",
-
       joins: true,
     },
   },

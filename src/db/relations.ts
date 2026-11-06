@@ -6,7 +6,10 @@ import {
   enterpriseInsurersTable,
   enterprisesTable,
   insurersTable,
+  multichannelAssignmentsTable,
   opportunitiesTable,
+  productCodesTable,
+  productsTable,
   session,
   susepsTable,
   usersTable,
@@ -33,6 +36,12 @@ const relationalSchema = {
   enterpriseInsurersTable,
 
   susepsTable,
+
+  productsTable,
+
+  productCodesTable,
+
+  multichannelAssignmentsTable,
 };
 
 export const relations = defineRelations(relationalSchema, (r) => ({
@@ -52,9 +61,9 @@ export const relations = defineRelations(relationalSchema, (r) => ({
       to: r.opportunitiesTable.salespersonId,
     }),
 
-    suseps: r.many.susepsTable({
+    multichannelAssignments: r.many.multichannelAssignmentsTable({
       from: r.users.id,
-      to: r.susepsTable.brokerUserId,
+      to: r.multichannelAssignmentsTable.userId,
     }),
   },
 
@@ -83,6 +92,16 @@ export const relations = defineRelations(relationalSchema, (r) => ({
     enterprises: r.many.enterpriseInsurersTable({
       from: r.insurersTable.id,
       to: r.enterpriseInsurersTable.insurerId,
+    }),
+
+    products: r.many.productsTable({
+      from: r.insurersTable.id,
+      to: r.productsTable.insurerId,
+    }),
+
+    productCodes: r.many.productCodesTable({
+      from: r.insurersTable.id,
+      to: r.productCodesTable.insurerId,
     }),
   },
 
@@ -114,14 +133,72 @@ export const relations = defineRelations(relationalSchema, (r) => ({
       to: r.enterpriseInsurersTable.id,
     }),
 
-    brokerUser: r.one.users({
-      from: r.susepsTable.brokerUserId,
-      to: r.users.id,
+    master: r.one.susepsTable({
+      from: r.susepsTable.masterSusepId,
+      to: r.susepsTable.id,
+      alias: "susep_master",
+    }),
+
+    children: r.many.susepsTable({
+      from: r.susepsTable.id,
+      to: r.susepsTable.masterSusepId,
+      alias: "susep_master",
+    }),
+
+    multichannelAssignments: r.many.multichannelAssignmentsTable({
+      from: r.susepsTable.id,
+      to: r.multichannelAssignmentsTable.susepId,
     }),
 
     opportunities: r.many.opportunitiesTable({
       from: r.susepsTable.id,
       to: r.opportunitiesTable.susepId,
+    }),
+  },
+
+  productsTable: {
+    insurer: r.one.insurersTable({
+      from: r.productsTable.insurerId,
+      to: r.insurersTable.id,
+    }),
+
+    codes: r.many.productCodesTable({
+      from: r.productsTable.id,
+      to: r.productCodesTable.productId,
+    }),
+
+    multichannelAssignments: r.many.multichannelAssignmentsTable({
+      from: r.productsTable.id,
+      to: r.multichannelAssignmentsTable.productId,
+    }),
+  },
+
+  productCodesTable: {
+    insurer: r.one.insurersTable({
+      from: r.productCodesTable.insurerId,
+      to: r.insurersTable.id,
+    }),
+
+    product: r.one.productsTable({
+      from: [r.productCodesTable.productId, r.productCodesTable.insurerId],
+      to: [r.productsTable.id, r.productsTable.insurerId],
+    }),
+  },
+
+  multichannelAssignmentsTable: {
+    susep: r.one.susepsTable({
+      from: r.multichannelAssignmentsTable.susepId,
+      to: r.susepsTable.id,
+    }),
+
+    product: r.one.productsTable({
+      from: r.multichannelAssignmentsTable.productId,
+      to: r.productsTable.id,
+    }),
+
+    user: r.one.users({
+      from: r.multichannelAssignmentsTable.userId,
+      to: r.users.id,
     }),
   },
 

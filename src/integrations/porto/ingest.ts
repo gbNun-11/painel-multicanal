@@ -1,6 +1,8 @@
-import type { ResolvedSusep } from "@/src/services/suseps/resolve-susep";
 import { ingestOpportunity } from "@/src/services/opportunities/ingest-opportunity";
-import { resolveSusep } from "@/src/services/suseps/resolve-susep";
+import {
+  resolveSusep,
+  type ResolvedSusep,
+} from "@/src/services/suseps/resolve-susep";
 
 import { adaptPortoOpportunity } from "./adapter";
 import {
@@ -23,7 +25,9 @@ export interface PortoIngestSuccess {
 
   susepId: string;
 
-  brokerUserId: string;
+  multichannel: boolean;
+
+  multichannelUserId: string | null;
 
   clientCreated: boolean;
 
@@ -74,6 +78,14 @@ const normalizeSusepCode = (value: string | null | undefined) => {
   return normalizeOptionalText(value)?.toUpperCase() ?? null;
 };
 
+const normalizeProductCode = (value: string | null | undefined) => {
+  return normalizeOptionalText(value)?.toUpperCase() ?? null;
+};
+
+const normalizeCacheProductName = (value: string | null | undefined) => {
+  return value?.trim().replace(/\s+/g, " ").toLocaleUpperCase("pt-BR") ?? "";
+};
+
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) {
     return error.message;
@@ -85,6 +97,7 @@ const getErrorMessage = (error: unknown) => {
 const getValidationDetails = (
   issues: {
     path: PropertyKey[];
+
     message: string;
   }[],
 ) => {
@@ -119,25 +132,6 @@ const getRawStringValue = (value: unknown, key: string) => {
   return null;
 };
 
-const validateSusepProduct = (
-  opportunityProductCode: string | null | undefined,
-  susep: ResolvedSusep,
-) => {
-  const productCode = normalizeOptionalText(opportunityProductCode);
-
-  if (!productCode) {
-    throw new Error(
-      `A oportunidade da SUSEP ${susep.code} não informou o código do produto.`,
-    );
-  }
-
-  if (productCode !== susep.productCode) {
-    throw new Error(
-      `Produto incompatível com a SUSEP ${susep.code}. A oportunidade informou o produto ${productCode}, mas a SUSEP está configurada para ${susep.productCode} - ${susep.product}.`,
-    );
-  }
-};
-
 export const ingestPortoResponse = async ({
   enterpriseInsurerId,
   payload,
@@ -156,7 +150,7 @@ export const ingestPortoResponse = async ({
 
   const failures: PortoIngestFailure[] = [];
 
-  const susepCache = new Map<string, ResolvedSusep>();
+  const susepResolutionCache = new Map<string, ResolvedSusep>();
 
   let clientsCreated = 0;
 
@@ -198,28 +192,61 @@ export const ingestPortoResponse = async ({
         );
       }
 
-      let susep = susepCache.get(susepCode);
+      const productCode = normalizeProductCode(opportunity.codigoProduto);
+
+      if (!productCode) {
+        throw new Error(
+          `A oportunidade ${opportunity.idOportunidadeSql} da SUSEP ${susepCode} não informou o código do produto.`,
+        );
+      }
+
+      const sourceProduct = normalizeOptionalText(opportunity.nomeProduto);
+
+      const cacheKey = JSON.stringify([
+        susepCode,
+
+        productCode,
+
+        normalizeCacheProductName(sourceProduct),
+      ]);
+
+      let susep = susepResolutionCache.get(cacheKey);
 
       if (!susep) {
         susep = await resolveSusep({
           enterpriseInsurerId: normalizedEnterpriseInsurerId,
 
           code: susepCode,
+
+          productCode,
+
+          productName: sourceProduct,
         });
 
-        susepCache.set(susepCode, susep);
+        susepResolutionCache.set(cacheKey, susep);
       }
 
-      validateSusepProduct(opportunity.codigoProduto, susep);
+      const product =
+        sourceProduct ?? (susep.multichannel ? susep.productCodeName : null);
+
+      if (!product) {
+        throw new Error(
+          `A oportunidade ${opportunity.idOportunidadeSql} não informou o nome do produto.`,
+        );
+      }
+
+      const resolvedProductCode = susep.multichannel
+        ? susep.productCode
+        : productCode;
 
       const input = adaptPortoOpportunity(opportunity, {
         enterpriseInsurerId: normalizedEnterpriseInsurerId,
 
         susepId: susep.id,
 
-        productCode: susep.productCode,
+        productCode: resolvedProductCode,
 
-        product: susep.product,
+        product,
       });
 
       const result = await ingestOpportunity(input);
@@ -243,7 +270,11 @@ export const ingestPortoResponse = async ({
 
         susepId: susep.id,
 
-        brokerUserId: susep.brokerUserId,
+        multichannel: susep.multichannel,
+
+        multichannelUserId: susep.multichannel
+          ? susep.multichannelUserId
+          : null,
 
         clientCreated: result.clientCreated,
 
