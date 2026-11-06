@@ -7,6 +7,7 @@ import {
   type RowSelectionState,
   useTable,
 } from "@tanstack/react-table";
+import { Loader2Icon } from "lucide-react";
 
 import {
   Table,
@@ -18,7 +19,6 @@ import {
 } from "@/src/components/ui/table";
 
 import { type DataTableFeatures, features } from "./data-table-features";
-
 import {
   DataTablePagination,
   type DataTablePaginationProps,
@@ -28,18 +28,16 @@ export type DataTablePaginationMeta = DataTablePaginationProps;
 
 interface DataTableProps<TData extends RowData> {
   columns: ColumnDef<DataTableFeatures, TData>[];
-
   data: TData[];
-
   pagination?: DataTablePaginationMeta;
-
   rowSelection?: RowSelectionState;
-
   onRowSelectionChange?: OnChangeFn<RowSelectionState>;
-
   getRowId?: (originalRow: TData, index: number) => string;
-
   onRowClick?: (originalRow: TData) => void;
+
+  isLoading?: boolean;
+  loadingMessage?: string;
+  emptyMessage?: string;
 }
 
 const shouldIgnoreRowClick = (target: EventTarget | null) => {
@@ -73,6 +71,9 @@ export function DataTable<TData extends RowData>({
   onRowSelectionChange,
   getRowId,
   onRowClick,
+  isLoading = false,
+  loadingMessage = "Carregando registros...",
+  emptyMessage = "Nenhum resultado encontrado.",
 }: DataTableProps<TData>) {
   const table = useTable({
     features,
@@ -89,10 +90,14 @@ export function DataTable<TData extends RowData>({
 
     onRowSelectionChange,
 
-    manualPagination: Boolean(pagination),
+    // Os dados já vêm paginados do servidor ou representam
+    // a lista completa de um diálogo administrativo.
+    manualPagination: true,
 
     rowCount: pagination?.total,
   });
+
+  const rows = table.getRowModel().rows;
 
   return (
     <div className="space-y-4">
@@ -113,8 +118,26 @@ export function DataTable<TData extends RowData>({
           </TableHeader>
 
           <TableBody>
-            {table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map((row) => (
+            {isLoading ? (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  <div
+                    role="status"
+                    className="flex items-center justify-center gap-2 text-muted-foreground"
+                  >
+                    <Loader2Icon
+                      className="size-4 animate-spin"
+                      aria-hidden="true"
+                    />
+                    {loadingMessage}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : rows.length > 0 ? (
+              rows.map((row) => (
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() ? "selected" : undefined}
@@ -141,7 +164,6 @@ export function DataTable<TData extends RowData>({
                     }
 
                     event.preventDefault();
-
                     onRowClick(row.original);
                   }}
                 >
@@ -162,9 +184,9 @@ export function DataTable<TData extends RowData>({
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
-                  className="h-24 text-center"
+                  className="h-24 text-center text-muted-foreground"
                 >
-                  Nenhum resultado encontrado.
+                  {emptyMessage}
                 </TableCell>
               </TableRow>
             )}
