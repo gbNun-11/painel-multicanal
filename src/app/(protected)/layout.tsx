@@ -1,32 +1,18 @@
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
-import React from "react";
+import type { ReactNode } from "react";
 
 import { SidebarProvider, SidebarTrigger } from "@/src/components/ui/sidebar";
-import { auth } from "@/src/lib/auth";
-import { hasAllowedLoginRole } from "@/src/utils/auth-policy";
+import { PAGE_ACCESS, requirePageAccess } from "@/src/lib/require-page-access";
 
 import { AppSidebar } from "./components/app-sidebar";
 
-const ProtectLayout = async ({ children }: { children: React.ReactNode }) => {
-  const session = await auth.api.getSession({
-    headers: await headers(),
+interface ProtectedLayoutProps {
+  children: ReactNode;
+}
 
-    query: {
-      disableCookieCache: true,
-    },
+const ProtectedLayout = async ({ children }: ProtectedLayoutProps) => {
+  await requirePageAccess(PAGE_ACCESS.administrative, {
+    deniedRedirectTo: "/authentication",
   });
-  if (!session) {
-    redirect("/authentication");
-  }
-
-  if (session.user.status !== "ativo") {
-    redirect("/authentication");
-  }
-
-  if (!hasAllowedLoginRole(session.user.role)) {
-    redirect("/authentication");
-  }
 
   return (
     <SidebarProvider>
@@ -41,4 +27,4 @@ const ProtectLayout = async ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-export default ProtectLayout;
+export default ProtectedLayout;

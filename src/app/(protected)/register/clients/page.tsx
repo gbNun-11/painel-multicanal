@@ -57,7 +57,7 @@ export default async function RegisteredClientsPage({
 
     query.set("page", String(pagination.page));
 
-    redirect(`/cadastros/clientes?${query.toString()}`);
+    redirect(`/register/clients?${query.toString()}`);
   }
 
   return (

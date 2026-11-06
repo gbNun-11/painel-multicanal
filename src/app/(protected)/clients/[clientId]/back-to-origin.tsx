@@ -12,7 +12,7 @@ export default function BackToOrigin() {
       return;
     }
 
-    router.push("/cadastros/clientes");
+    router.push("/register/clients");
   };
 
   return (
