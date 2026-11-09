@@ -3,7 +3,7 @@ import { createSafeActionClient } from "next-safe-action";
 
 import { auth } from "@/src/lib/auth";
 
-class ActionError extends Error {}
+export class ActionError extends Error {}
 
 export const actionClient = createSafeActionClient({
   defaultValidationErrorsShape: "flattened",
