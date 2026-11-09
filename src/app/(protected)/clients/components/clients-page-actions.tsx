@@ -1,6 +1,6 @@
 "use client";
 
-import { ListIcon } from "lucide-react";
+import { ListIcon, XIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -17,7 +17,6 @@ import {
 } from "@/src/components/ui/dialog";
 import { Input } from "@/src/components/ui/input";
 import SearchQueryInput from "@/src/components/ui/search-query-input";
-
 import type { GoalfyImportOptions } from "@/src/data/clients/goalfy-import-types";
 
 import ClientsSyncMenu from "./clients-sync-menu";
@@ -251,7 +250,10 @@ const ClientsPageActions = ({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <SearchQueryInput placeholder="Pesquisar nome ou CPF/CNPJ..." />
+      <SearchQueryInput
+        placeholder="Pesquisar nome ou CPF/CNPJ..."
+        showClearButton
+      />
 
       <Dialog open={filtersOpen} onOpenChange={handleFiltersOpenChange}>
         <DialogTrigger
@@ -475,6 +477,19 @@ const ClientsPageActions = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {activeFilterCount > 0 && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Limpar filtros avançados"
+          title="Limpar filtros avançados"
+          onClick={handleClearFilters}
+        >
+          <XIcon className="size-4" />
+        </Button>
+      )}
 
       <ClientsSyncMenu syncLabel={syncLabel} goalfyOptions={goalfyOptions} />
     </div>
