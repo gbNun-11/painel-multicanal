@@ -1,9 +1,10 @@
-import type { ReactNode } from "react";
+import { type ReactNode, Suspense } from "react";
 
 import { SidebarProvider, SidebarTrigger } from "@/src/components/ui/sidebar";
 import { PAGE_ACCESS, requirePageAccess } from "@/src/lib/require-page-access";
 
 import { AppSidebar } from "./components/app-sidebar";
+import { DistributionFiltersMemory } from "./components/distribution-filters-memory";
 
 interface ProtectedLayoutProps {
   children: ReactNode;
@@ -16,6 +17,10 @@ const ProtectedLayout = async ({ children }: ProtectedLayoutProps) => {
 
   return (
     <SidebarProvider>
+      <Suspense fallback={null}>
+        <DistributionFiltersMemory />
+      </Suspense>
+
       <AppSidebar />
 
       <main className="w-full">
