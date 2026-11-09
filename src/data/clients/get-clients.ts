@@ -9,12 +9,11 @@ import {
   inArray,
   isNull,
   or,
-  sql,
   type SQL,
+  sql,
 } from "drizzle-orm";
 
 import { INSURER_IDS } from "@/src/constants/insurers";
-import { DEFAULT_PAGE_SIZE } from "@/src/constants/pagination";
 import { db } from "@/src/db";
 import {
   clientsTable,
@@ -23,7 +22,7 @@ import {
   opportunitiesTable,
   opportunitySalesModelEnum,
 } from "@/src/db/schema";
-
+import { calculatePagination } from "@/src/utils/pagination";
 import {
   escapeLikePattern,
   normalizeNumericSearch,
@@ -138,10 +137,6 @@ export const getClients = async ({
   salesModels,
   enterpriseIds,
 }: GetClientsParams) => {
-  const pageSize = DEFAULT_PAGE_SIZE;
-
-  const requestedPage = Number.isSafeInteger(page) && page > 0 ? page : 1;
-
   const normalizedSearch =
     normalizeSearchTerm(search)?.slice(0, MAX_SEARCH_LENGTH) ?? null;
 
@@ -256,11 +251,11 @@ export const getClients = async ({
 
   const total = countResult?.total ?? 0;
 
-  const totalPages = Math.ceil(total / pageSize);
-
-  const safePage = totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
-
-  const offset = (safePage - 1) * pageSize;
+  // Paginação centralizada para todas as seguradoras.
+  const { pagination, offset } = calculatePagination({
+    page,
+    total,
+  });
 
   const clients = await db
     .select({
@@ -304,25 +299,14 @@ export const getClients = async ({
         ${opportunitiesTable.sourceCreatedAt}
         DESC NULLS LAST
       `,
-
       asc(clientsTable.name),
-
       asc(opportunitiesTable.id),
     )
-    .limit(pageSize)
+    .limit(pagination.pageSize)
     .offset(offset);
 
   return {
     clients,
-
-    pagination: {
-      page: safePage,
-
-      pageSize,
-
-      total,
-
-      totalPages,
-    },
+    pagination,
   };
 };
