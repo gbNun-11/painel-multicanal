@@ -4,6 +4,7 @@ import { db } from "@/src/db";
 import { insurersTable } from "@/src/db/schema";
 import { adminActionClient } from "@/src/lib/safe-action";
 import upsertInsurerSchema from "@/src/schemas/insurer/upsertInsurerSchema";
+import { isDatabaseErrorCode } from "@/src/utils/database-errors";
 
 export const createInsurerAction = adminActionClient
   .inputSchema(upsertInsurerSchema)
@@ -27,11 +28,7 @@ export const createInsurerAction = adminActionClient
         success: true,
       };
     } catch (error) {
-      const databaseError = error as {
-        code?: string;
-      };
-
-      if (databaseError.code === "23505") {
+      if (isDatabaseErrorCode(error, "23505")) {
         throw new Error("Já existe uma seguradora cadastrada com este nome.");
       }
 

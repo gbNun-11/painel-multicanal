@@ -10,6 +10,7 @@ import {
 } from "@/src/db/schema";
 import { adminActionClient } from "@/src/lib/safe-action";
 import createEnterpriseInsurerSchema from "@/src/schemas/insurer/createEnterpriseInsurerSchema";
+import { isDatabaseErrorCode } from "@/src/utils/database-errors";
 
 export const createEnterpriseInsurerAction = adminActionClient
   .inputSchema(createEnterpriseInsurerSchema)
@@ -70,11 +71,7 @@ export const createEnterpriseInsurerAction = adminActionClient
         success: true,
       };
     } catch (error) {
-      const databaseError = error as {
-        code?: string;
-      };
-
-      if (databaseError.code === "23505") {
+      if (isDatabaseErrorCode(error, "23505")) {
         throw new Error(
           "Esta seguradora já está vinculada à empresa selecionada.",
         );
