@@ -10,7 +10,7 @@ import {
   multichannelAssignmentsTable,
   susepsTable,
 } from "@/src/db/schema";
-import { adminActionClient } from "@/src/lib/safe-action";
+import { ActionError, adminActionClient } from "@/src/lib/safe-action";
 import upsertSusepSchema from "@/src/schemas/susep/upsertSusepSchema";
 import { isDatabaseErrorCode } from "@/src/utils/database-errors";
 
@@ -43,7 +43,7 @@ export const upsertSusepAction = adminActionClient
       .limit(1);
 
     if (!enterpriseInsurer) {
-      throw new Error(
+      throw new ActionError(
         "O vínculo entre empresa e seguradora não existe ou está inativo.",
       );
     }
@@ -73,20 +73,20 @@ export const upsertSusepAction = adminActionClient
         .limit(1);
 
       if (!existingSusep) {
-        throw new Error("SUSEP não encontrada.");
+        throw new ActionError("SUSEP não encontrada.");
       }
 
       if (
         existingSusep.enterpriseInsurerId !== parsedInput.enterpriseInsurerId
       ) {
-        throw new Error(
+        throw new ActionError(
           "Não é permitido alterar o vínculo da SUSEP com a empresa e seguradora.",
         );
       }
     }
 
     if (parsedInput.id && parsedInput.masterSusepId === parsedInput.id) {
-      throw new Error("Uma SUSEP não pode ser Master dela mesma.");
+      throw new ActionError("Uma SUSEP não pode ser Master dela mesma.");
     }
 
     if (parsedInput.masterSusepId) {
@@ -111,17 +111,17 @@ export const upsertSusepAction = adminActionClient
         .limit(1);
 
       if (!masterSusep) {
-        throw new Error(
+        throw new ActionError(
           "A SUSEP Master não existe neste vínculo entre empresa e seguradora.",
         );
       }
 
       if (masterSusep.status !== "ativo") {
-        throw new Error("A SUSEP Master selecionada está inativa.");
+        throw new ActionError("A SUSEP Master selecionada está inativa.");
       }
 
       if (masterSusep.masterSusepId) {
-        throw new Error("Uma SUSEP filha não pode ser utilizada como Master.");
+        throw new ActionError("Uma SUSEP filha não pode ser utilizada como Master.");
       }
 
       if (parsedInput.id) {
@@ -134,7 +134,7 @@ export const upsertSusepAction = adminActionClient
           .limit(1);
 
         if (childSusep) {
-          throw new Error(
+          throw new ActionError(
             "Uma SUSEP que já possui SUSEPs vinculadas não pode se tornar filha de outra Master.",
           );
         }
@@ -159,7 +159,7 @@ export const upsertSusepAction = adminActionClient
       .limit(1);
 
     if (duplicateSusep) {
-      throw new Error("Já existe uma SUSEP com este código neste vínculo.");
+      throw new ActionError("Já existe uma SUSEP com este código neste vínculo.");
     }
 
     if (
@@ -176,7 +176,7 @@ export const upsertSusepAction = adminActionClient
         .limit(1);
 
       if (assignment) {
-        throw new Error(
+        throw new ActionError(
           "Remova as configurações multicanal desta SUSEP antes de desativar o modo multicanal.",
         );
       }
@@ -201,7 +201,7 @@ export const upsertSusepAction = adminActionClient
           });
 
         if (!updatedSusep) {
-          throw new Error("SUSEP não encontrada.");
+          throw new ActionError("SUSEP não encontrada.");
         }
 
         return {
@@ -235,7 +235,7 @@ export const upsertSusepAction = adminActionClient
       };
     } catch (error) {
       if (isDatabaseErrorCode(error, "23505")) {
-        throw new Error("Já existe uma SUSEP com este código neste vínculo.");
+        throw new ActionError("Já existe uma SUSEP com este código neste vínculo.");
       }
 
       throw error;

@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 
 import { db } from "@/src/db";
 import { susepsTable } from "@/src/db/schema";
-import { adminActionClient } from "@/src/lib/safe-action";
+import { ActionError, adminActionClient } from "@/src/lib/safe-action";
 import changeSusepStatusSchema from "@/src/schemas/susep/changeSusepStatusSchema";
 
 export const changeSusepStatusAction = adminActionClient
@@ -21,7 +21,7 @@ export const changeSusepStatusAction = adminActionClient
       });
 
     if (!updatedSusep) {
-      throw new Error("SUSEP não encontrada.");
+      throw new ActionError("SUSEP não encontrada.");
     }
 
     return {
