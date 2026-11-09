@@ -1,5 +1,4 @@
 import { sql } from "drizzle-orm";
-
 import {
   bigint,
   check,
@@ -15,13 +14,13 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { clientsTable } from "./clients";
-import { opportunityCountersTable } from "./opportunity-counters";
 import { enterpriseInsurersTable } from "./enterprise-insurers";
 import {
   opportunityDistributionStatusEnum,
   opportunitySalesModelEnum,
   opportunitySalesStatusEnum,
 } from "./enums";
+import { opportunityCountersTable } from "./opportunity-counters";
 import { productCodesTable } from "./product-codes";
 import { susepsTable } from "./suseps";
 import { usersTable } from "./users";
