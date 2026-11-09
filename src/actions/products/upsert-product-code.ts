@@ -8,7 +8,7 @@ import {
   productCodesTable,
   productsTable,
 } from "@/src/db/schema";
-import { adminActionClient } from "@/src/lib/safe-action";
+import { ActionError, adminActionClient } from "@/src/lib/safe-action";
 import upsertProductCodeSchema from "@/src/schemas/product/upsertProductCodeSchema";
 import { isDatabaseErrorCode } from "@/src/utils/database-errors";
 
@@ -35,17 +35,17 @@ export const upsertProductCodeAction = adminActionClient
       .limit(1);
 
     if (!product) {
-      throw new Error("Produto não encontrado.");
+      throw new ActionError("Produto não encontrado.");
     }
 
     if (product.insurerStatus !== "ativo") {
-      throw new Error(
+      throw new ActionError(
         "Não é possível cadastrar ou alterar códigos de uma seguradora inativa.",
       );
     }
 
     if (product.status !== "ativo") {
-      throw new Error(
+      throw new ActionError(
         "Não é possível cadastrar ou alterar códigos de um produto inativo.",
       );
     }
@@ -64,15 +64,15 @@ export const upsertProductCodeAction = adminActionClient
         .limit(1);
 
       if (!existingProductCode) {
-        throw new Error("Código do produto não encontrado.");
+        throw new ActionError("Código do produto não encontrado.");
       }
 
       if (existingProductCode.productId !== parsedInput.productId) {
-        throw new Error("Não é permitido mover um código para outro produto.");
+        throw new ActionError("Não é permitido mover um código para outro produto.");
       }
 
       if (existingProductCode.insurerId !== product.insurerId) {
-        throw new Error(
+        throw new ActionError(
           "O código do produto possui uma seguradora incompatível.",
         );
       }
@@ -109,7 +109,7 @@ export const upsertProductCodeAction = adminActionClient
       .limit(1);
 
     if (duplicateProductCode) {
-      throw new Error(
+      throw new ActionError(
         `O código ${code} com o nome "${name}" já está cadastrado para este produto.`,
       );
     }
@@ -131,7 +131,7 @@ export const upsertProductCodeAction = adminActionClient
           });
 
         if (!updatedProductCode) {
-          throw new Error("Código do produto não encontrado.");
+          throw new ActionError("Código do produto não encontrado.");
         }
 
         return {
@@ -167,7 +167,7 @@ export const upsertProductCodeAction = adminActionClient
       };
     } catch (error) {
       if (isDatabaseErrorCode(error, "23505")) {
-        throw new Error(
+        throw new ActionError(
           `O código ${code} com o nome "${name}" já está cadastrado para este produto ou existe um conflito de unicidade no cadastro.`,
         );
       }

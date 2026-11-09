@@ -4,7 +4,7 @@ import { and, eq, ne } from "drizzle-orm";
 
 import { db } from "@/src/db";
 import { insurersTable, productsTable } from "@/src/db/schema";
-import { adminActionClient } from "@/src/lib/safe-action";
+import { ActionError, adminActionClient } from "@/src/lib/safe-action";
 import upsertProductSchema from "@/src/schemas/product/upsertProductSchema";
 import { isDatabaseErrorCode } from "@/src/utils/database-errors";
 
@@ -24,11 +24,11 @@ export const upsertProductAction = adminActionClient
       .limit(1);
 
     if (!insurer) {
-      throw new Error("Seguradora não encontrada.");
+      throw new ActionError("Seguradora não encontrada.");
     }
 
     if (insurer.status !== "ativo") {
-      throw new Error(
+      throw new ActionError(
         "Não é possível cadastrar ou alterar produtos de uma seguradora inativa.",
       );
     }
@@ -45,11 +45,11 @@ export const upsertProductAction = adminActionClient
         .limit(1);
 
       if (!existingProduct) {
-        throw new Error("Produto não encontrado.");
+        throw new ActionError("Produto não encontrado.");
       }
 
       if (existingProduct.insurerId !== parsedInput.insurerId) {
-        throw new Error("Não é permitido alterar a seguradora de um produto.");
+        throw new ActionError("Não é permitido alterar a seguradora de um produto.");
       }
     }
 
@@ -73,7 +73,7 @@ export const upsertProductAction = adminActionClient
       .limit(1);
 
     if (duplicateProduct) {
-      throw new Error("Já existe um produto com este nome para a seguradora.");
+      throw new ActionError("Já existe um produto com este nome para a seguradora.");
     }
 
     try {
@@ -91,7 +91,7 @@ export const upsertProductAction = adminActionClient
           });
 
         if (!updatedProduct) {
-          throw new Error("Produto não encontrado.");
+          throw new ActionError("Produto não encontrado.");
         }
 
         return {
@@ -123,7 +123,7 @@ export const upsertProductAction = adminActionClient
       };
     } catch (error) {
       if (isDatabaseErrorCode(error, "23505")) {
-        throw new Error(
+        throw new ActionError(
           "Já existe um produto com este nome para a seguradora.",
         );
       }
