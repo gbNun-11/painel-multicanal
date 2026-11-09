@@ -9,17 +9,17 @@ import {
   ChevronRightIcon,
   FolderOpenIcon,
   LayoutDashboardIcon,
+  type LucideIcon,
   SendIcon,
   UserGroupIcon,
   UserIcon,
   UsersIcon,
   WalletIcon,
-  type LucideIcon,
 } from "lucide-react";
-import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 
 import {
   Sidebar,
@@ -168,19 +168,23 @@ export function AppSidebar() {
     return activeGroup ? [activeGroup] : ["dashboard"];
   });
 
-  // Expande o grupo correspondente à rota,
-  // sem impedir o fechamento manual.
-  useEffect(() => {
+  // Expande o grupo ao mudar de rota,
+  // preservando o fechamento manual na rota atual.
+  const [previousPathname, setPreviousPathname] = useState(pathname);
+
+  if (previousPathname !== pathname) {
+    setPreviousPathname(pathname);
+
     const activeGroup = findActiveGroup(pathname);
 
-    if (!activeGroup) {
-      return;
+    if (activeGroup) {
+      setExpandedGroups((current) =>
+        current.includes(activeGroup)
+          ? current
+          : [...current, activeGroup],
+      );
     }
-
-    setExpandedGroups((current) =>
-      current.includes(activeGroup) ? current : [...current, activeGroup],
-    );
-  }, [pathname]);
+  }
 
   const toggleGroup = (groupId: GroupId) => {
     setExpandedGroups((current) =>
