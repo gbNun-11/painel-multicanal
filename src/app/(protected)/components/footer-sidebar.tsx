@@ -14,7 +14,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/src/components/ui/dropdown-menu";
-import { formatPersonName } from "@/src/utils/formatters";
 import {
   SidebarFooter,
   SidebarMenu,
@@ -22,6 +21,7 @@ import {
   SidebarMenuItem,
 } from "@/src/components/ui/sidebar";
 import { authClient } from "@/src/lib/auth-client";
+import { formatPersonName } from "@/src/utils/formatters";
 
 const FooterSidebar = () => {
   const session = authClient.useSession();
@@ -37,7 +37,6 @@ const FooterSidebar = () => {
     });
   };
 
-  const userEmail = session.data?.user.email;
 
   return (
     <SidebarFooter>
