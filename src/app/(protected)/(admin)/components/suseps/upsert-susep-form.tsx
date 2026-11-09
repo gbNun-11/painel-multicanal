@@ -1,7 +1,6 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useEffect, useState } from "react";
@@ -9,7 +8,6 @@ import { Controller, useForm } from "react-hook-form";
 
 import { getSusepsAction } from "@/src/actions/suseps/get-suseps";
 import { upsertSusepAction } from "@/src/actions/suseps/upsert-susep";
-import { Button } from "@/src/components/ui/button";
 import { CardContent, CardFooter } from "@/src/components/ui/card";
 import { Checkbox } from "@/src/components/ui/checkbox";
 import {
@@ -18,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/src/components/ui/dialog";
+import { FormSubmitButton } from "@/src/components/ui/form-submit-button";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
 import {
@@ -294,23 +293,12 @@ const UpsertSusepForm = ({
         </CardContent>
 
         <CardFooter className="pt-6">
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={isPending || isLoadingSuseps}
-          >
-            {isPending ? (
-              <>
-                <Loader2Icon className="mr-2 size-4 animate-spin" />
-
-                {isEditing ? "Salvando..." : "Vinculando..."}
-              </>
-            ) : isEditing ? (
-              "Salvar alterações"
-            ) : (
-              "Vincular SUSEP"
-            )}
-          </Button>
+          <FormSubmitButton
+            isPending={isPending}
+            disabled={isLoadingSuseps}
+            idleLabel={isEditing ? "Salvar alterações" : "Vincular SUSEP"}
+            pendingLabel={isEditing ? "Salvando..." : "Vinculando..."}
+          />
         </CardFooter>
       </form>
     </DialogContent>
