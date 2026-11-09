@@ -7,30 +7,15 @@ import {
   DataTable,
   type DataTablePaginationMeta,
 } from "@/src/components/ui/data-table";
-
 import type { DataTableFeatures } from "@/src/components/ui/data-table-features";
-
 import type { RegisteredClientRow } from "@/src/data/clients/get-registered-clients";
-
+import { formatDate } from "@/src/utils/date-formatters";
 import { formatDocument, formatPhone } from "@/src/utils/formatters";
 
 interface RegisteredClientsTableProps {
   clients: RegisteredClientRow[];
   pagination: DataTablePaginationMeta;
 }
-
-const formatDate = (date: Date | null) => {
-  if (!date) {
-    return "-";
-  }
-
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    timeZone: "America/Sao_Paulo",
-  }).format(new Date(date));
-};
 
 const columns: ColumnDef<DataTableFeatures, RegisteredClientRow>[] = [
   {

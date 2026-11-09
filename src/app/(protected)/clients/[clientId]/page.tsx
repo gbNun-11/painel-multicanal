@@ -19,6 +19,7 @@ import {
   PageTitle,
 } from "@/src/components/ui/page-container";
 import { getClient360 } from "@/src/data/clients/get-client-360";
+import { formatDateTime } from "@/src/utils/date-formatters";
 import { formatDocument, formatPhone } from "@/src/utils/formatters";
 
 import BackToOrigin from "./back-to-origin";
@@ -29,15 +30,6 @@ interface Client360PageProps {
     page?: string | string[];
   }>;
 }
-
-const formatDateTime = (date: Date | null): string =>
-  date
-    ? new Intl.DateTimeFormat("pt-BR", {
-        dateStyle: "short",
-        timeStyle: "short",
-        timeZone: "America/Sao_Paulo",
-      }).format(date)
-    : "Não informado";
 
 const formatDateOnly = (date: string | null): string =>
   date ? date.split("-").reverse().join("/") : "Não informado";
