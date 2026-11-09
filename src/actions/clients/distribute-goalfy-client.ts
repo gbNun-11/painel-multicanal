@@ -1,8 +1,8 @@
 "use server";
 
-import { distributeGoalfyOpportunity } from "@/src/services/opportunities/distribute-goalfy-opportunity";
 import { protectedActionClient } from "@/src/lib/safe-action";
 import distributeGoalfyClientSchema from "@/src/schemas/client/distributeGoalfyClientSchema";
+import { distributeGoalfyOpportunity } from "@/src/services/opportunities/distribute-goalfy-opportunity";
 
 export const distributeGoalfyClientAction = protectedActionClient
   .inputSchema(distributeGoalfyClientSchema)

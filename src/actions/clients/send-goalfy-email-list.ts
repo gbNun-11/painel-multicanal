@@ -12,9 +12,9 @@ import {
 } from "@/src/db/schema";
 import { getSmtpAccountByEnterpriseId } from "@/src/integrations/email/config";
 import {
+  type DistributionCopyRecipient,
   DistributionPartialDeliveryError,
   sendDistributionEmail,
-  type DistributionCopyRecipient,
 } from "@/src/integrations/email/send-distribution-email";
 import { protectedActionClient } from "@/src/lib/safe-action";
 import sendGoalfyEmailListSchema from "@/src/schemas/client/sendGoalfyEmailListSchema";
