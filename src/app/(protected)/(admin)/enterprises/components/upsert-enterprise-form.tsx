@@ -24,6 +24,7 @@ import { toast } from "@/src/components/ui/toast";
 import upsertEnterpriseSchema, {
   type UpsertEnterpriseFormData,
 } from "@/src/schemas/enterprise/upsertEnterprisesSchema";
+import { normalizeCnpj } from "@/src/utils/documents";
 import { formatCnpj } from "@/src/utils/formatters";
 
 import type { EnterpriseTableRow } from "./types";
@@ -180,7 +181,9 @@ const UpsertEnterpriseForm = ({
                   <Input
                     id="cnpj"
                     type="text"
-                    inputMode="numeric"
+                    inputMode="text"
+                    autoCapitalize="characters"
+                    spellCheck={false}
                     placeholder="00.000.000/0000-00"
                     maxLength={18}
                     value={formatCnpj(field.value ?? "")}
@@ -189,11 +192,16 @@ const UpsertEnterpriseForm = ({
                     ref={field.ref}
                     aria-invalid={!!errors.cnpj}
                     onChange={(event) => {
-                      const rawValue = event.target.value
-                        .replace(/\D/g, "")
-                        .slice(0, 14);
+                      const normalized = normalizeCnpj(event.target.value);
 
-                      field.onChange(rawValue);
+                      const base = normalized.slice(0, 12);
+
+                      const checkDigits = normalized
+                        .slice(12)
+                        .replace(/\D/g, "")
+                        .slice(0, 2);
+
+                      field.onChange(`${base}${checkDigits}`);
                     }}
                   />
                 )}

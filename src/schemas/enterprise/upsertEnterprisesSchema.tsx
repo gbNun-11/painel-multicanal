@@ -14,11 +14,13 @@ const upsertEnterpriseSchema = z.object({
   cnpj: z
     .string()
     .trim()
+    .toUpperCase()
     .length(14, {
-      error: "O CNPJ deve conter exatamente 14 números.",
+      error: "O CNPJ deve conter exatamente 14 caracteres.",
     })
-    .regex(/^\d+$/, {
-      error: "O CNPJ deve conter apenas números.",
+    .regex(/^[A-Z0-9]{12}\d{2}$/, {
+      error:
+        "O CNPJ deve ter 12 caracteres alfanuméricos e 2 dígitos numéricos.",
     }),
 });
 
