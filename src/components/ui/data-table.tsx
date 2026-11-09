@@ -172,8 +172,8 @@ export function DataTable<TData extends RowData>({
                       key={cell.id}
                       className={
                         cell.column.id === "actions"
-                          ? "text-right text-foreground"
-                          : "text-foreground"
+                          ? "h-10 px-2 py-1 text-right text-foreground"
+                          : "h-10 px-2 py-1 text-foreground"
                       }
                       data-row-select-cell={
                         cell.column.id === "select" ? "true" : undefined
