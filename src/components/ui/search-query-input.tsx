@@ -119,7 +119,7 @@ const SearchQueryInput = ({
   placeholder,
   queryParam = "q",
   debounceMs = 400,
-  showClearButton = false,
+  showClearButton = true,
 }: SearchQueryInputProps) => {
   const pathname = usePathname();
 
