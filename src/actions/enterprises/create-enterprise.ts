@@ -4,6 +4,7 @@ import { db } from "@/src/db";
 import { enterprisesTable } from "@/src/db/schema";
 import { adminActionClient } from "@/src/lib/safe-action";
 import upsertEnterpriseSchema from "@/src/schemas/enterprise/upsertEnterprisesSchema";
+import { isDatabaseErrorCode } from "@/src/utils/database-errors";
 
 export const createEnterpriseAction = adminActionClient
   .inputSchema(upsertEnterpriseSchema)
@@ -28,12 +29,7 @@ export const createEnterpriseAction = adminActionClient
         success: true,
       };
     } catch (error) {
-      const databaseError = error as {
-        code?: string;
-        constraint?: string;
-      };
-
-      if (databaseError.code === "23505") {
+      if (isDatabaseErrorCode(error, "23505")) {
         throw new Error("Já existe uma empresa cadastrada com este CNPJ.");
       }
 
