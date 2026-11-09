@@ -1,7 +1,6 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Controller, type FieldErrors, useForm } from "react-hook-form";
@@ -10,7 +9,6 @@ import {
   getUserGoalfyIdAction,
   saveUserGoalfyIdAction,
 } from "@/src/actions/users/goalfy-user-id";
-import { Button } from "@/src/components/ui/button";
 import { CardContent, CardFooter } from "@/src/components/ui/card";
 import {
   DialogContent,
@@ -18,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/src/components/ui/dialog";
+import { FormSubmitButton } from "@/src/components/ui/form-submit-button";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
 import {
@@ -59,8 +58,21 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
   const router = useRouter();
 
   const isEditing = Boolean(user);
-  const [loadingGoalfyId, setLoadingGoalfyId] = useState(Boolean(user));
-  const [goalfyLoadError, setGoalfyLoadError] = useState(false);
+
+  const [goalfyLoadState, setGoalfyLoadState] = useState<{
+    userId: string;
+    status: "loaded" | "error";
+  } | null>(null);
+
+  const loadingGoalfyId = Boolean(
+    user && goalfyLoadState?.userId !== user.id,
+  );
+
+  const goalfyLoadError = Boolean(
+    user &&
+      goalfyLoadState?.userId === user.id &&
+      goalfyLoadState?.status === "error",
+  );
 
   const {
     register,
@@ -78,31 +90,31 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
   });
 
   useEffect(() => {
-    let active = true;
     reset(getDefaultValues(user));
-    setGoalfyLoadError(false);
 
     if (!user) {
-      setLoadingGoalfyId(false);
       return;
     }
 
-    setLoadingGoalfyId(true);
+    let active = true;
+    const userId = user.id;
 
-    void getUserGoalfyIdAction({ userId: user.id })
+    void getUserGoalfyIdAction({ userId })
       .then((result) => {
         if (!active) return;
+
         if (!result?.data) {
-          setGoalfyLoadError(true);
+          setGoalfyLoadState({ userId, status: "error" });
           return;
         }
+
         setValue("goalfyUserId", result.data.goalfyUserId ?? "");
+        setGoalfyLoadState({ userId, status: "loaded" });
       })
       .catch(() => {
-        if (active) setGoalfyLoadError(true);
-      })
-      .finally(() => {
-        if (active) setLoadingGoalfyId(false);
+        if (active) {
+          setGoalfyLoadState({ userId, status: "error" });
+        }
       });
 
     return () => {
@@ -607,23 +619,12 @@ const UpsertUserForm = ({ user, onSuccess }: UpsertUserFormProps) => {
         </CardContent>
 
         <CardFooter className="pt-6">
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={isSubmitting || loadingGoalfyId || goalfyLoadError}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 size-4 animate-spin" />
-
-                {isEditing ? "Salvando..." : "Criando usuário..."}
-              </>
-            ) : isEditing ? (
-              "Salvar alterações"
-            ) : (
-              "Criar usuário"
-            )}
-          </Button>
+          <FormSubmitButton
+            isPending={isSubmitting}
+            disabled={loadingGoalfyId || goalfyLoadError}
+            idleLabel={isEditing ? "Salvar alterações" : "Criar usuário"}
+            pendingLabel={isEditing ? "Salvando..." : "Criando usuário..."}
+          />
         </CardFooter>
       </form>
     </DialogContent>
