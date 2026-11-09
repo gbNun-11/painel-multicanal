@@ -12,6 +12,7 @@ import {
 } from "@/src/db/schema";
 import { adminActionClient } from "@/src/lib/safe-action";
 import upsertSusepSchema from "@/src/schemas/susep/upsertSusepSchema";
+import { isDatabaseErrorCode } from "@/src/utils/database-errors";
 
 export const upsertSusepAction = adminActionClient
   .inputSchema(upsertSusepSchema)
@@ -233,17 +234,7 @@ export const upsertSusepAction = adminActionClient
         success: true,
       };
     } catch (error) {
-      const databaseError = error as {
-        code?: string;
-
-        cause?: {
-          code?: string;
-        };
-      };
-
-      const errorCode = databaseError.code ?? databaseError.cause?.code;
-
-      if (errorCode === "23505") {
+      if (isDatabaseErrorCode(error, "23505")) {
         throw new Error("Já existe uma SUSEP com este código neste vínculo.");
       }
 
