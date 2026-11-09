@@ -21,6 +21,7 @@ import {
 import { getClient360 } from "@/src/data/clients/get-client-360";
 import { formatDateTime } from "@/src/utils/date-formatters";
 import { formatDocument, formatPhone } from "@/src/utils/formatters";
+import { parsePageSearchParam } from "@/src/utils/search-params";
 
 import BackToOrigin from "./back-to-origin";
 
@@ -86,14 +87,7 @@ export default async function Client360Page({
   const { clientId } = await params;
   const query = await searchParams;
 
-  const pageParam = Array.isArray(query.page) ? query.page[0] : query.page;
-
-  const requestedPage = Number(pageParam);
-
-  const page =
-    Number.isSafeInteger(requestedPage) && requestedPage > 0
-      ? requestedPage
-      : 1;
+  const page = parsePageSearchParam(query.page);
 
   const { client, opportunities, pagination } = await getClient360({
     clientId,
