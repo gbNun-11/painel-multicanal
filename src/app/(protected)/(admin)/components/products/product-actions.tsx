@@ -3,7 +3,6 @@
 import {
   CircleCheckIcon,
   CircleXIcon,
-  EllipsisIcon,
   ListTreeIcon,
   PencilIcon,
 } from "lucide-react";
@@ -11,15 +10,12 @@ import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
 
 import { changeProductStatusAction } from "@/src/actions/products/change-product-status";
-import { Button } from "@/src/components/ui/button";
 import { Dialog } from "@/src/components/ui/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from "@/src/components/ui/dropdown-menu";
+import { TableRowActions } from "@/src/components/ui/table-row-actions";
 import { toast } from "@/src/components/ui/toast";
 
 import ManageProductCodesDialog from "./manage-product-codes-dialog";
@@ -28,9 +24,7 @@ import UpsertProductForm from "./upsert-product-form";
 
 interface ProductActionsProps {
   product: ProductTableRow;
-
   insurerName: string;
-
   onSuccess: () => void;
 }
 
@@ -49,9 +43,7 @@ const ProductActions = ({
 
       toast.add({
         type: "success",
-
         title: isActive ? "Produto inativado" : "Produto ativado",
-
         description: isActive
           ? "O produto foi inativado com sucesso."
           : "O produto foi ativado com sucesso.",
@@ -63,9 +55,7 @@ const ProductActions = ({
     onError: ({ error }) => {
       toast.add({
         type: "error",
-
         title: "Erro ao alterar produto",
-
         description:
           error.serverError ?? "Não foi possível alterar o status do produto.",
       });
@@ -75,65 +65,50 @@ const ProductActions = ({
   const handleChangeStatus = () => {
     execute({
       id: product.id,
-
       status: product.status === "ativo" ? "inativo" : "ativo",
     });
   };
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              disabled={isPending}
-            >
-              <EllipsisIcon className="size-4" />
+      <TableRowActions
+        label={`Abrir ações do produto ${product.name}`}
+        disabled={isPending}
+      >
+        <DropdownMenuItem
+          onClick={() => {
+            setEditDialogOpen(true);
+          }}
+        >
+          <PencilIcon className="size-4" />
+          Editar
+        </DropdownMenuItem>
 
-              <span className="sr-only">Abrir ações</span>
-            </Button>
-          }
-        />
+        <DropdownMenuItem
+          onClick={() => {
+            setCodesDialogOpen(true);
+          }}
+        >
+          <ListTreeIcon className="size-4" />
+          Gerenciar códigos
+        </DropdownMenuItem>
 
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            onClick={() => {
-              setEditDialogOpen(true);
-            }}
-          >
-            <PencilIcon className="size-4" />
-            Editar
-          </DropdownMenuItem>
+        <DropdownMenuSeparator />
 
-          <DropdownMenuItem
-            onClick={() => {
-              setCodesDialogOpen(true);
-            }}
-          >
-            <ListTreeIcon className="size-4" />
-            Gerenciar códigos
-          </DropdownMenuItem>
-
-          <DropdownMenuSeparator />
-
-          <DropdownMenuItem onClick={handleChangeStatus} disabled={isPending}>
-            {product.status === "ativo" ? (
-              <>
-                <CircleXIcon className="size-4" />
-                Inativar
-              </>
-            ) : (
-              <>
-                <CircleCheckIcon className="size-4" />
-                Ativar
-              </>
-            )}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        <DropdownMenuItem onClick={handleChangeStatus} disabled={isPending}>
+          {product.status === "ativo" ? (
+            <>
+              <CircleXIcon className="size-4" />
+              Inativar
+            </>
+          ) : (
+            <>
+              <CircleCheckIcon className="size-4" />
+              Ativar
+            </>
+          )}
+        </DropdownMenuItem>
+      </TableRowActions>
 
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <UpsertProductForm
@@ -142,7 +117,6 @@ const ProductActions = ({
           product={product}
           onSuccess={() => {
             setEditDialogOpen(false);
-
             onSuccess();
           }}
         />

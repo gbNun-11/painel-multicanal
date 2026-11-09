@@ -1,14 +1,16 @@
 "use client";
 
-import { Loader2Icon, PlusIcon } from "lucide-react";
+import type { ColumnDef } from "@tanstack/react-table";
+import { PlusIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { getProductsAction } from "@/src/actions/products/get-products";
-import { Badge } from "@/src/components/ui/badge";
 import { Button } from "@/src/components/ui/button";
-import { Dialog } from "@/src/components/ui/dialog";
+import { DataTable } from "@/src/components/ui/data-table";
+import type { DataTableFeatures } from "@/src/components/ui/data-table-features";
 import {
+  Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -23,16 +25,8 @@ import {
   SelectValue,
 } from "@/src/components/ui/select";
 import { Separator } from "@/src/components/ui/separator";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/src/components/ui/table";
+import { StatusBadge } from "@/src/components/ui/status-badge";
 import { toast } from "@/src/components/ui/toast";
-import { statusLabels } from "@/src/constants/enums";
 
 import ProductActions from "./product-actions";
 import type { ProductInsurerOption, ProductTableRow } from "./types";
@@ -40,7 +34,6 @@ import UpsertProductForm from "./upsert-product-form";
 
 interface ManageProductsDialogProps {
   open: boolean;
-
   insurers: ProductInsurerOption[];
 }
 
@@ -53,14 +46,12 @@ const ManageProductsDialog = ({
   );
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-
   const [products, setProducts] = useState<ProductTableRow[]>([]);
 
   const insurerItems = useMemo(
     () =>
       insurers.map((insurer) => ({
         value: insurer.id,
-
         label: insurer.name,
       })),
     [insurers],
@@ -68,6 +59,8 @@ const ManageProductsDialog = ({
 
   const selectedInsurer =
     insurers.find((insurer) => insurer.id === selectedInsurerId) ?? null;
+
+  const insurerName = selectedInsurer?.name ?? "";
 
   const { execute, isPending } = useAction(getProductsAction, {
     onSuccess: ({ data }) => {
@@ -79,9 +72,7 @@ const ManageProductsDialog = ({
 
       toast.add({
         type: "error",
-
         title: "Erro ao carregar produtos",
-
         description:
           error.serverError ??
           "Não foi possível carregar os produtos da seguradora.",
@@ -91,8 +82,6 @@ const ManageProductsDialog = ({
 
   const loadProducts = useCallback(() => {
     if (!selectedInsurerId) {
-      setProducts([]);
-
       return;
     }
 
@@ -108,6 +97,44 @@ const ManageProductsDialog = ({
 
     loadProducts();
   }, [open, selectedInsurerId, loadProducts]);
+
+  const columns = useMemo<ColumnDef<DataTableFeatures, ProductTableRow>[]>(
+    () => [
+      {
+        accessorKey: "name",
+        header: "Produto",
+        cell: ({ row }) => (
+          <span className="font-medium">{row.original.name}</span>
+        ),
+      },
+      {
+        id: "activeCodesCount",
+        header: "Variações ativas",
+        cell: ({ row }) =>
+          row.original.codes.filter((code) => code.status === "ativo").length,
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => <StatusBadge status={row.original.status} />,
+      },
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <div className="flex justify-end">
+            <ProductActions
+              product={row.original}
+              insurerName={insurerName}
+              onSuccess={loadProducts}
+            />
+          </div>
+        ),
+      },
+    ],
+    [insurerName, loadProducts],
+  );
 
   return (
     <>
@@ -130,7 +157,6 @@ const ManageProductsDialog = ({
             value={selectedInsurerId}
             onValueChange={(value) => {
               setSelectedInsurerId(value);
-
               setProducts([]);
             }}
           >
@@ -175,81 +201,14 @@ const ManageProductsDialog = ({
               </Button>
             </div>
 
-            <div className="overflow-hidden rounded-md border">
-              <Table>
-                <TableHeader className="bg-muted/60 dark:bg-muted/30">
-                  <TableRow>
-                    <TableHead className="font-semibold">Produto</TableHead>
-
-                    <TableHead className="font-semibold">
-                      Variações ativas
-                    </TableHead>
-
-                    <TableHead className="font-semibold">Status</TableHead>
-
-                    <TableHead className="w-12" />
-                  </TableRow>
-                </TableHeader>
-
-                <TableBody>
-                  {isPending ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="h-24 text-center">
-                        <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                          <Loader2Icon className="size-4 animate-spin" />
-                          Carregando produtos...
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : products.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={4}
-                        className="h-24 text-center text-muted-foreground"
-                      >
-                        Nenhum produto cadastrado para esta seguradora.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    products.map((product) => {
-                      const activeCodesCount = product.codes.filter(
-                        (code) => code.status === "ativo",
-                      ).length;
-
-                      return (
-                        <TableRow key={product.id}>
-                          <TableCell className="font-medium">
-                            {product.name}
-                          </TableCell>
-
-                          <TableCell>{activeCodesCount}</TableCell>
-
-                          <TableCell>
-                            <Badge
-                              variant={
-                                product.status === "ativo"
-                                  ? "default"
-                                  : "secondary"
-                              }
-                            >
-                              {statusLabels[product.status]}
-                            </Badge>
-                          </TableCell>
-
-                          <TableCell className="text-right">
-                            <ProductActions
-                              product={product}
-                              insurerName={selectedInsurer.name}
-                              onSuccess={loadProducts}
-                            />
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+            <DataTable
+              columns={columns}
+              data={products}
+              getRowId={(product) => product.id}
+              isLoading={isPending}
+              loadingMessage="Carregando produtos..."
+              emptyMessage="Nenhum produto cadastrado para esta seguradora."
+            />
           </>
         )}
       </DialogContent>
@@ -261,7 +220,6 @@ const ManageProductsDialog = ({
             insurerName={selectedInsurer.name}
             onSuccess={() => {
               setCreateDialogOpen(false);
-
               loadProducts();
             }}
           />

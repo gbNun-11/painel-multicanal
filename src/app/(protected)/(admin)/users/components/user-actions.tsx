@@ -1,25 +1,17 @@
 "use client";
 
-import {
-  MoreHorizontalIcon,
-  PencilIcon,
-  UserCheckIcon,
-  UserXIcon,
-} from "lucide-react";
+import { PencilIcon, UserCheckIcon, UserXIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
 
 import { changeUserStatusAction } from "@/src/actions/users/change-user-status";
-import { Button } from "@/src/components/ui/button";
 import { Dialog } from "@/src/components/ui/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from "@/src/components/ui/dropdown-menu";
+import { TableRowActions } from "@/src/components/ui/table-row-actions";
 import { toast } from "@/src/components/ui/toast";
 
 import type { UserTableRow } from "./types";
@@ -69,47 +61,32 @@ const UserActions = ({ user }: UserActionsProps) => {
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label="Abrir ações do usuário"
-            >
-              <MoreHorizontalIcon className="size-4" />
-            </Button>
-          }
-        />
+      <TableRowActions label="Abrir ações do usuário">
+        <DropdownMenuItem
+          onClick={() => {
+            setEditOpen(true);
+          }}
+        >
+          <PencilIcon className="size-4" />
+          Editar
+        </DropdownMenuItem>
 
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            onClick={() => {
-              setEditOpen(true);
-            }}
-          >
-            <PencilIcon className="size-4" />
-            Editar
-          </DropdownMenuItem>
+        <DropdownMenuSeparator />
 
-          <DropdownMenuSeparator />
-
-          <DropdownMenuItem disabled={isPending} onClick={handleChangeStatus}>
-            {user.status === "ativo" ? (
-              <>
-                <UserXIcon className="size-4" />
-                Inativar
-              </>
-            ) : (
-              <>
-                <UserCheckIcon className="size-4" />
-                Ativar
-              </>
-            )}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        <DropdownMenuItem disabled={isPending} onClick={handleChangeStatus}>
+          {user.status === "ativo" ? (
+            <>
+              <UserXIcon className="size-4" />
+              Inativar
+            </>
+          ) : (
+            <>
+              <UserCheckIcon className="size-4" />
+              Ativar
+            </>
+          )}
+        </DropdownMenuItem>
+      </TableRowActions>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <UpsertUserForm

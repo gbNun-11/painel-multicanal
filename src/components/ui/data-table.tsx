@@ -170,7 +170,11 @@ export function DataTable<TData extends RowData>({
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
-                      className="text-foreground"
+                      className={
+                        cell.column.id === "actions"
+                          ? "text-right text-foreground"
+                          : "text-foreground"
+                      }
                       data-row-select-cell={
                         cell.column.id === "select" ? "true" : undefined
                       }

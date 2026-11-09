@@ -3,7 +3,6 @@
 import {
   CircleCheckIcon,
   CircleXIcon,
-  EllipsisIcon,
   ListIcon,
   ShieldPlusIcon,
 } from "lucide-react";
@@ -12,20 +11,17 @@ import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
 
 import { changeEnterpriseInsurerStatusAction } from "@/src/actions/insurers/change-enterprise-insurer-status";
-import { Button } from "@/src/components/ui/button";
 import { Dialog } from "@/src/components/ui/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from "@/src/components/ui/dropdown-menu";
+import { TableRowActions } from "@/src/components/ui/table-row-actions";
 import { toast } from "@/src/components/ui/toast";
 
-import type { EnterpriseInsurerTableRow } from "./types";
-import UpsertSusepForm from "../../components/suseps/upsert-susep-form";
 import ManageSusepsDialog from "../../components/suseps/manage-suseps-dialog";
+import UpsertSusepForm from "../../components/suseps/upsert-susep-form";
+import type { EnterpriseInsurerTableRow } from "./types";
 
 interface EnterpriseInsurerActionsProps {
   enterpriseInsurer: EnterpriseInsurerTableRow;
@@ -93,59 +89,45 @@ const EnterpriseInsurerActions = ({
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              disabled={isPending}
-            >
-              <EllipsisIcon className="size-4" />
+      <TableRowActions
+        label="Abrir ações do vínculo entre empresa e seguradora"
+        disabled={isPending}
+      >
+        <DropdownMenuItem
+          disabled={enterpriseInsurer.status !== "ativo"}
+          onClick={() => {
+            setSusepDialogOpen(true);
+          }}
+        >
+          <ShieldPlusIcon className="size-4" />
+          Vincular SUSEP
+        </DropdownMenuItem>
 
-              <span className="sr-only">Abrir ações</span>
-            </Button>
-          }
-        />
+        <DropdownMenuItem
+          onClick={() => {
+            setManageSusepsDialogOpen(true);
+          }}
+        >
+          <ListIcon className="size-4" />
+          Gerenciar SUSEPs
+        </DropdownMenuItem>
 
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            disabled={enterpriseInsurer.status !== "ativo"}
-            onClick={() => {
-              setSusepDialogOpen(true);
-            }}
-          >
-            <ShieldPlusIcon className="size-4" />
-            Vincular SUSEP
-          </DropdownMenuItem>
+        <DropdownMenuSeparator />
 
-          <DropdownMenuItem
-            onClick={() => {
-              setManageSusepsDialogOpen(true);
-            }}
-          >
-            <ListIcon className="size-4" />
-            Gerenciar SUSEPs
-          </DropdownMenuItem>
-
-          <DropdownMenuSeparator />
-
-          <DropdownMenuItem onClick={handleChangeStatus} disabled={isPending}>
-            {enterpriseInsurer.status === "ativo" ? (
-              <>
-                <CircleXIcon className="size-4" />
-                Inativar
-              </>
-            ) : (
-              <>
-                <CircleCheckIcon className="size-4" />
-                Ativar
-              </>
-            )}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        <DropdownMenuItem onClick={handleChangeStatus} disabled={isPending}>
+          {enterpriseInsurer.status === "ativo" ? (
+            <>
+              <CircleXIcon className="size-4" />
+              Inativar
+            </>
+          ) : (
+            <>
+              <CircleCheckIcon className="size-4" />
+              Ativar
+            </>
+          )}
+        </DropdownMenuItem>
+      </TableRowActions>
 
       <Dialog open={susepDialogOpen} onOpenChange={setSusepDialogOpen}>
         <UpsertSusepForm

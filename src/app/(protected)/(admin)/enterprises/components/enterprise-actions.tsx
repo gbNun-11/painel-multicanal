@@ -1,25 +1,17 @@
 "use client";
 
-import {
-  CircleCheckIcon,
-  CircleXIcon,
-  MoreHorizontalIcon,
-  PencilIcon,
-} from "lucide-react";
+import { CircleCheckIcon, CircleXIcon, PencilIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
 
 import { changeEnterpriseStatusAction } from "@/src/actions/enterprises/change-enterprise-status";
-import { Button } from "@/src/components/ui/button";
 import { Dialog } from "@/src/components/ui/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from "@/src/components/ui/dropdown-menu";
+import { TableRowActions } from "@/src/components/ui/table-row-actions";
 import { toast } from "@/src/components/ui/toast";
 
 import type { EnterpriseTableRow } from "./types";
@@ -69,47 +61,32 @@ const EnterpriseActions = ({ enterprise }: EnterpriseActionsProps) => {
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label="Abrir ações da empresa"
-            >
-              <MoreHorizontalIcon className="size-4" />
-            </Button>
-          }
-        />
+      <TableRowActions label="Abrir ações da empresa">
+        <DropdownMenuItem
+          onClick={() => {
+            setEditOpen(true);
+          }}
+        >
+          <PencilIcon className="size-4" />
+          Editar
+        </DropdownMenuItem>
 
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            onClick={() => {
-              setEditOpen(true);
-            }}
-          >
-            <PencilIcon className="size-4" />
-            Editar
-          </DropdownMenuItem>
+        <DropdownMenuSeparator />
 
-          <DropdownMenuSeparator />
-
-          <DropdownMenuItem disabled={isPending} onClick={handleChangeStatus}>
-            {enterprise.status === "ativo" ? (
-              <>
-                <CircleXIcon className="size-4" />
-                Inativar
-              </>
-            ) : (
-              <>
-                <CircleCheckIcon className="size-4" />
-                Ativar
-              </>
-            )}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        <DropdownMenuItem disabled={isPending} onClick={handleChangeStatus}>
+          {enterprise.status === "ativo" ? (
+            <>
+              <CircleXIcon className="size-4" />
+              Inativar
+            </>
+          ) : (
+            <>
+              <CircleCheckIcon className="size-4" />
+              Ativar
+            </>
+          )}
+        </DropdownMenuItem>
+      </TableRowActions>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <UpsertEnterpriseForm

@@ -1,37 +1,29 @@
 "use client";
 
+import type { ColumnDef } from "@tanstack/react-table";
 import { PlusIcon } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
-import { Badge } from "@/src/components/ui/badge";
 import { Button } from "@/src/components/ui/button";
-import { Dialog } from "@/src/components/ui/dialog";
+import { DataTable } from "@/src/components/ui/data-table";
+import type { DataTableFeatures } from "@/src/components/ui/data-table-features";
 import {
+  Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/src/components/ui/dialog";
 import { Separator } from "@/src/components/ui/separator";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/src/components/ui/table";
-import { statusLabels } from "@/src/constants/enums";
+import { StatusBadge } from "@/src/components/ui/status-badge";
 
 import ProductCodeActions from "./product-code-actions";
-import type { ProductTableRow } from "./types";
+import type { ProductCodeTableRow, ProductTableRow } from "./types";
 import UpsertProductCodeForm from "./upsert-product-code-form";
 
 interface ManageProductCodesDialogProps {
   insurerName: string;
-
   product: ProductTableRow;
-
   onSuccess: () => void;
 }
 
@@ -43,6 +35,43 @@ const ManageProductCodesDialog = ({
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const productIsActive = product.status === "ativo";
+
+  const columns = useMemo<ColumnDef<DataTableFeatures, ProductCodeTableRow>[]>(
+    () => [
+      {
+        accessorKey: "code",
+        header: "Código",
+        cell: ({ row }) => (
+          <span className="font-mono font-medium">{row.original.code}</span>
+        ),
+      },
+      {
+        accessorKey: "name",
+        header: "Variação",
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => <StatusBadge status={row.original.status} />,
+      },
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <div className="flex justify-end">
+            <ProductCodeActions
+              insurerName={insurerName}
+              product={product}
+              productCode={row.original}
+              onSuccess={onSuccess}
+            />
+          </div>
+        ),
+      },
+    ],
+    [insurerName, onSuccess, product],
+  );
 
   return (
     <>
@@ -98,65 +127,12 @@ const ManageProductCodesDialog = ({
           </p>
         )}
 
-        <div className="overflow-hidden rounded-md border">
-          <Table>
-            <TableHeader className="bg-muted/60 dark:bg-muted/30">
-              <TableRow>
-                <TableHead className="font-semibold">Código</TableHead>
-
-                <TableHead className="font-semibold">Variação</TableHead>
-
-                <TableHead className="font-semibold">Status</TableHead>
-
-                <TableHead className="w-12" />
-              </TableRow>
-            </TableHeader>
-
-            <TableBody>
-              {product.codes.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={4}
-                    className="h-24 text-center text-muted-foreground"
-                  >
-                    Nenhuma variação cadastrada para este produto.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                product.codes.map((productCode) => (
-                  <TableRow key={productCode.id}>
-                    <TableCell className="font-mono font-medium">
-                      {productCode.code}
-                    </TableCell>
-
-                    <TableCell>{productCode.name}</TableCell>
-
-                    <TableCell>
-                      <Badge
-                        variant={
-                          productCode.status === "ativo"
-                            ? "default"
-                            : "secondary"
-                        }
-                      >
-                        {statusLabels[productCode.status]}
-                      </Badge>
-                    </TableCell>
-
-                    <TableCell className="text-right">
-                      <ProductCodeActions
-                        insurerName={insurerName}
-                        product={product}
-                        productCode={productCode}
-                        onSuccess={onSuccess}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+        <DataTable
+          columns={columns}
+          data={product.codes}
+          getRowId={(productCode) => productCode.id}
+          emptyMessage="Nenhuma variação cadastrada para este produto."
+        />
       </DialogContent>
 
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
@@ -165,7 +141,6 @@ const ManageProductCodesDialog = ({
           product={product}
           onSuccess={() => {
             setCreateDialogOpen(false);
-
             onSuccess();
           }}
         />
