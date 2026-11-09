@@ -1,11 +1,11 @@
 import "server-only";
 
+import { getSmtpConfig } from "./config";
 import { createDistributionExcelReport } from "./create-distribution-excel-report";
 import {
   createDistributionEmailHtml,
   createDistributionEmailText,
 } from "./distribution-email-template";
-import { getSmtpConfig } from "./config";
 import { runControlledSmtpSend } from "./smtp-delivery-queue";
 import { createEmailTransporter } from "./transporter";
 import type { SendDistributionEmailInput } from "./types";

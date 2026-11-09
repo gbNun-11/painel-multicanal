@@ -1,12 +1,12 @@
 import "server-only";
 
+import { getSmtpConfig } from "./config";
 import { createImportErrorExcelReport } from "./create-import-error-excel-report";
 import {
   createImportErrorEmailHtml,
   createImportErrorEmailText,
 } from "./import-error-email-template";
 import type { SendImportErrorReportInput } from "./import-error-report-types";
-import { getSmtpConfig } from "./config";
 import { createEmailTransporter } from "./transporter";
 
 const sanitizeFilename = (value: string) => {
