@@ -2,7 +2,7 @@
 
 import { db } from "@/src/db";
 import { insurersTable } from "@/src/db/schema";
-import { adminActionClient } from "@/src/lib/safe-action";
+import { ActionError, adminActionClient } from "@/src/lib/safe-action";
 import upsertInsurerSchema from "@/src/schemas/insurer/upsertInsurerSchema";
 import { isDatabaseErrorCode } from "@/src/utils/database-errors";
 
@@ -29,7 +29,7 @@ export const createInsurerAction = adminActionClient
       };
     } catch (error) {
       if (isDatabaseErrorCode(error, "23505")) {
-        throw new Error("Já existe uma seguradora cadastrada com este nome.");
+        throw new ActionError("Já existe uma seguradora cadastrada com este nome.");
       }
 
       throw error;

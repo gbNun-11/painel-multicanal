@@ -8,7 +8,7 @@ import {
   enterprisesTable,
   insurersTable,
 } from "@/src/db/schema";
-import { adminActionClient } from "@/src/lib/safe-action";
+import { ActionError, adminActionClient } from "@/src/lib/safe-action";
 import createEnterpriseInsurerSchema from "@/src/schemas/insurer/createEnterpriseInsurerSchema";
 import { isDatabaseErrorCode } from "@/src/utils/database-errors";
 
@@ -44,11 +44,11 @@ export const createEnterpriseInsurerAction = adminActionClient
     ]);
 
     if (!enterprise[0]) {
-      throw new Error("Empresa não encontrada ou inativa.");
+      throw new ActionError("Empresa não encontrada ou inativa.");
     }
 
     if (!insurer[0]) {
-      throw new Error("Seguradora não encontrada ou inativa.");
+      throw new ActionError("Seguradora não encontrada ou inativa.");
     }
 
     try {
@@ -72,7 +72,7 @@ export const createEnterpriseInsurerAction = adminActionClient
       };
     } catch (error) {
       if (isDatabaseErrorCode(error, "23505")) {
-        throw new Error(
+        throw new ActionError(
           "Esta seguradora já está vinculada à empresa selecionada.",
         );
       }
