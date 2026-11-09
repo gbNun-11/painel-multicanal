@@ -10,7 +10,7 @@ import {
   susepsTable,
   usersTable,
 } from "@/src/db/schema";
-import { adminActionClient } from "@/src/lib/safe-action";
+import { ActionError, adminActionClient } from "@/src/lib/safe-action";
 import upsertMultichannelAssignmentSchema from "@/src/schemas/multichannel/upsertMultichannelAssignmentSchema";
 import { isDatabaseErrorCode } from "@/src/utils/database-errors";
 
@@ -40,19 +40,19 @@ export const upsertMultichannelAssignmentAction = adminActionClient
       .limit(1);
 
     if (!susep) {
-      throw new Error("SUSEP não encontrada.");
+      throw new ActionError("SUSEP não encontrada.");
     }
 
     if (susep.enterpriseInsurerStatus !== "ativo") {
-      throw new Error("O vínculo entre empresa e seguradora está inativo.");
+      throw new ActionError("O vínculo entre empresa e seguradora está inativo.");
     }
 
     if (susep.status !== "ativo") {
-      throw new Error(`A SUSEP ${susep.code} está inativa.`);
+      throw new ActionError(`A SUSEP ${susep.code} está inativa.`);
     }
 
     if (!susep.multichannel) {
-      throw new Error(
+      throw new ActionError(
         `A SUSEP ${susep.code} não está configurada como multicanal.`,
       );
     }
@@ -72,17 +72,17 @@ export const upsertMultichannelAssignmentAction = adminActionClient
       .limit(1);
 
     if (!product) {
-      throw new Error("Produto não encontrado.");
+      throw new ActionError("Produto não encontrado.");
     }
 
     if (product.insurerId !== susep.insurerId) {
-      throw new Error(
+      throw new ActionError(
         `O produto ${product.name} não pertence à seguradora da SUSEP ${susep.code}.`,
       );
     }
 
     if (product.status !== "ativo") {
-      throw new Error(`O produto ${product.name} está inativo.`);
+      throw new ActionError(`O produto ${product.name} está inativo.`);
     }
 
     const [user] = await db
@@ -98,11 +98,11 @@ export const upsertMultichannelAssignmentAction = adminActionClient
       .limit(1);
 
     if (!user) {
-      throw new Error("Usuário não encontrado.");
+      throw new ActionError("Usuário não encontrado.");
     }
 
     if (user.status !== "ativo") {
-      throw new Error(`O usuário ${user.name} está inativo.`);
+      throw new ActionError(`O usuário ${user.name} está inativo.`);
     }
 
     if (parsedInput.id) {
@@ -119,17 +119,17 @@ export const upsertMultichannelAssignmentAction = adminActionClient
         .limit(1);
 
       if (!existingAssignment) {
-        throw new Error("Configuração multicanal não encontrada.");
+        throw new ActionError("Configuração multicanal não encontrada.");
       }
 
       if (existingAssignment.susepId !== parsedInput.susepId) {
-        throw new Error(
+        throw new ActionError(
           "Não é permitido mover uma configuração para outra SUSEP.",
         );
       }
 
       if (existingAssignment.productId !== parsedInput.productId) {
-        throw new Error(
+        throw new ActionError(
           "Não é permitido alterar o produto de uma configuração existente.",
         );
       }
@@ -158,7 +158,7 @@ export const upsertMultichannelAssignmentAction = adminActionClient
       .limit(1);
 
     if (duplicateAssignment) {
-      throw new Error(
+      throw new ActionError(
         `A SUSEP ${susep.code} já possui uma configuração para o produto ${product.name}.`,
       );
     }
@@ -178,7 +178,7 @@ export const upsertMultichannelAssignmentAction = adminActionClient
           });
 
         if (!updatedAssignment) {
-          throw new Error("Configuração multicanal não encontrada.");
+          throw new ActionError("Configuração multicanal não encontrada.");
         }
 
         return {
@@ -212,7 +212,7 @@ export const upsertMultichannelAssignmentAction = adminActionClient
       };
     } catch (error) {
       if (isDatabaseErrorCode(error, "23505")) {
-        throw new Error(
+        throw new ActionError(
           `A SUSEP ${susep.code} já possui uma configuração para o produto ${product.name}.`,
         );
       }

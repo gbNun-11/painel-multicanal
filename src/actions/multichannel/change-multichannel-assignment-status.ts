@@ -10,7 +10,7 @@ import {
   susepsTable,
   usersTable,
 } from "@/src/db/schema";
-import { adminActionClient } from "@/src/lib/safe-action";
+import { ActionError, adminActionClient } from "@/src/lib/safe-action";
 import changeMultichannelAssignmentStatusSchema from "@/src/schemas/multichannel/changeMultichannelAssignmentStatusSchema";
 
 export const changeMultichannelAssignmentStatusAction = adminActionClient
@@ -61,36 +61,36 @@ export const changeMultichannelAssignmentStatusAction = adminActionClient
       .limit(1);
 
     if (!assignment) {
-      throw new Error("Configuração multicanal não encontrada.");
+      throw new ActionError("Configuração multicanal não encontrada.");
     }
 
     if (parsedInput.status === "ativo") {
       if (assignment.enterpriseInsurerStatus !== "ativo") {
-        throw new Error("O vínculo entre empresa e seguradora está inativo.");
+        throw new ActionError("O vínculo entre empresa e seguradora está inativo.");
       }
 
       if (assignment.susepStatus !== "ativo") {
-        throw new Error(`A SUSEP ${assignment.susepCode} está inativa.`);
+        throw new ActionError(`A SUSEP ${assignment.susepCode} está inativa.`);
       }
 
       if (!assignment.multichannel) {
-        throw new Error(
+        throw new ActionError(
           `A SUSEP ${assignment.susepCode} não está configurada como multicanal.`,
         );
       }
 
       if (assignment.productStatus !== "ativo") {
-        throw new Error(`O produto ${assignment.productName} está inativo.`);
+        throw new ActionError(`O produto ${assignment.productName} está inativo.`);
       }
 
       if (assignment.productInsurerId !== assignment.insurerId) {
-        throw new Error(
+        throw new ActionError(
           `O produto ${assignment.productName} não pertence à seguradora da SUSEP ${assignment.susepCode}.`,
         );
       }
 
       if (assignment.userStatus !== "ativo") {
-        throw new Error(`O usuário ${assignment.userName} está inativo.`);
+        throw new ActionError(`O usuário ${assignment.userName} está inativo.`);
       }
     }
 
@@ -107,7 +107,7 @@ export const changeMultichannelAssignmentStatusAction = adminActionClient
       });
 
     if (!updatedAssignment) {
-      throw new Error("Configuração multicanal não encontrada.");
+      throw new ActionError("Configuração multicanal não encontrada.");
     }
 
     return {
