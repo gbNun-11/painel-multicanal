@@ -5,7 +5,6 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 
 import { db } from "@/src/db";
-
 import {
   clientsTable,
   enterpriseInsurersTable,
@@ -16,8 +15,8 @@ import {
   susepsTable,
   usersTable,
 } from "@/src/db/schema";
-
 import { PAGE_ACCESS, requirePageAccess } from "@/src/lib/require-page-access";
+import { calculatePagination } from "@/src/utils/pagination";
 
 const PAGE_SIZE = 20;
 
@@ -79,11 +78,11 @@ export const getClient360 = async ({
 
   const total = countResult?.total ?? 0;
 
-  const totalPages = Math.ceil(total / PAGE_SIZE);
-
-  const requestedPage = Number.isSafeInteger(page) && page > 0 ? page : 1;
-
-  const safePage = Math.min(requestedPage, Math.max(1, totalPages));
+  const { pagination, offset } = calculatePagination({
+    page,
+    total,
+    pageSize: PAGE_SIZE,
+  });
 
   const opportunities = await db
     .select({
@@ -125,18 +124,12 @@ export const getClient360 = async ({
     )
     .where(eq(opportunitiesTable.clientId, client.id))
     .orderBy(desc(opportunitiesTable.createdAt), desc(opportunitiesTable.id))
-    .limit(PAGE_SIZE)
-    .offset((safePage - 1) * PAGE_SIZE);
+    .limit(pagination.pageSize)
+    .offset(offset);
 
   return {
     client,
     opportunities,
-
-    pagination: {
-      page: safePage,
-      pageSize: PAGE_SIZE,
-      total,
-      totalPages,
-    },
+    pagination,
   };
 };
