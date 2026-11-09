@@ -15,6 +15,7 @@ import { getGoalfyImportOptions } from "@/src/data/clients/get-goalfy-import-opt
 import {
   getFirstSearchParam,
   getSearchParamArray,
+  parsePageSearchParam,
 } from "@/src/utils/search-params";
 
 import ClientsPageActions from "./clients-page-actions";
@@ -41,12 +42,7 @@ const ClientsPage = async ({
 }: ClientsPageProps) => {
   const params = await searchParams;
 
-  const pageParam = getFirstSearchParam(params.page);
-
-  const parsedPage = Number(pageParam);
-
-  const requestedPage =
-    Number.isSafeInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+  const requestedPage = parsePageSearchParam(params.page);
 
   const search = getFirstSearchParam(params.q);
 

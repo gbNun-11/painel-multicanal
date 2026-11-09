@@ -11,7 +11,10 @@ import {
 } from "@/src/components/ui/page-container";
 import SearchQueryInput from "@/src/components/ui/search-query-input";
 import { getUsers } from "@/src/data/users/get-users";
-import { getFirstSearchParam } from "@/src/utils/search-params";
+import {
+  getFirstSearchParam,
+  parsePageSearchParam,
+} from "@/src/utils/search-params";
 
 import AddUserButton from "./components/add-user-button";
 import UsersTable from "./components/users-table";
@@ -26,14 +29,9 @@ interface UserPageProps {
 const UserPage = async ({ searchParams }: UserPageProps) => {
   const params = await searchParams;
 
-  const pageParam = getFirstSearchParam(params.page);
+  const requestedPage = parsePageSearchParam(params.page);
 
   const search = getFirstSearchParam(params.q);
-
-  const parsedPage = Number(pageParam);
-
-  const requestedPage =
-    Number.isSafeInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
 
   const { users, pagination } = await getUsers({
     page: requestedPage,

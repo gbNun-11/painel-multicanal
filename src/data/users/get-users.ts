@@ -2,9 +2,9 @@ import "server-only";
 
 import { asc, count, eq, ilike, or } from "drizzle-orm";
 
-import { DEFAULT_PAGE_SIZE } from "@/src/constants/pagination";
 import { db } from "@/src/db";
 import { usersTable } from "@/src/db/schema";
+import { calculatePagination } from "@/src/utils/pagination";
 import {
   escapeLikePattern,
   normalizeNumericSearch,
@@ -17,8 +17,6 @@ interface GetUsersParams {
 }
 
 export const getUsers = async ({ page, search }: GetUsersParams) => {
-  const pageSize = DEFAULT_PAGE_SIZE;
-
   const normalizedSearch = normalizeSearchTerm(search);
 
   let searchCondition;
@@ -51,48 +49,30 @@ export const getUsers = async ({ page, search }: GetUsersParams) => {
 
   const total = countResult?.total ?? 0;
 
-  const totalPages = Math.ceil(total / pageSize);
-
-  const safePage =
-    totalPages === 0 ? 1 : Math.min(Math.max(page, 1), totalPages);
-
-  const offset = (safePage - 1) * pageSize;
+  const { pagination, offset } = calculatePagination({
+    page,
+    total,
+  });
 
   const users = await db
     .select({
       id: usersTable.id,
-
       name: usersTable.name,
-
       cpf: usersTable.cpf,
-
       birthDate: usersTable.birthDate,
-
       phone: usersTable.phone,
-
       email: usersTable.email,
-
       role: usersTable.role,
-
       status: usersTable.status,
     })
     .from(usersTable)
     .where(searchCondition)
     .orderBy(asc(usersTable.role), asc(usersTable.name), asc(usersTable.id))
-    .limit(pageSize)
+    .limit(pagination.pageSize)
     .offset(offset);
 
   return {
     users,
-
-    pagination: {
-      page: safePage,
-
-      pageSize,
-
-      total,
-
-      totalPages,
-    },
+    pagination,
   };
 };

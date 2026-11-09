@@ -2,9 +2,9 @@ import "server-only";
 
 import { asc, count, eq, ilike, or, sql } from "drizzle-orm";
 
-import { DEFAULT_PAGE_SIZE } from "@/src/constants/pagination";
 import { db } from "@/src/db";
 import { clientsTable, opportunitiesTable } from "@/src/db/schema";
+import { calculatePagination } from "@/src/utils/pagination";
 import {
   escapeLikePattern,
   normalizeNumericSearch,
@@ -30,10 +30,6 @@ export const getRegisteredClients = async ({
   page,
   search,
 }: GetRegisteredClientsParams) => {
-  const pageSize = DEFAULT_PAGE_SIZE;
-
-  const requestedPage = Number.isSafeInteger(page) && page > 0 ? page : 1;
-
   const normalizedSearch = normalizeSearchTerm(search)?.slice(0, 120) ?? null;
 
   const numericSearch = normalizedSearch
@@ -66,9 +62,11 @@ export const getRegisteredClients = async ({
     .where(whereClause);
 
   const total = countResult?.total ?? 0;
-  const totalPages = Math.ceil(total / pageSize);
 
-  const safePage = totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
+  const { pagination, offset } = calculatePagination({
+    page,
+    total,
+  });
 
   const clients = await db
     .select({
@@ -98,16 +96,11 @@ export const getRegisteredClients = async ({
       clientsTable.createdAt,
     )
     .orderBy(asc(clientsTable.name), asc(clientsTable.id))
-    .limit(pageSize)
-    .offset((safePage - 1) * pageSize);
+    .limit(pagination.pageSize)
+    .offset(offset);
 
   return {
     clients: clients as RegisteredClientRow[],
-    pagination: {
-      page: safePage,
-      pageSize,
-      total,
-      totalPages,
-    },
+    pagination,
   };
 };

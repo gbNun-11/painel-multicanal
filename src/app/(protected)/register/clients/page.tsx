@@ -9,14 +9,13 @@ import {
   PageHeaderContent,
   PageTitle,
 } from "@/src/components/ui/page-container";
-
 import SearchQueryInput from "@/src/components/ui/search-query-input";
-
 import { getRegisteredClients } from "@/src/data/clients/get-registered-clients";
-
 import { PAGE_ACCESS, requirePageAccess } from "@/src/lib/require-page-access";
-
-import { getFirstSearchParam } from "@/src/utils/search-params";
+import {
+  getFirstSearchParam,
+  parsePageSearchParam,
+} from "@/src/utils/search-params";
 
 import RegisteredClientsTable from "./components/registered-clients-table";
 
@@ -36,12 +35,7 @@ export default async function RegisteredClientsPage({
 
   const search = getFirstSearchParam(params.q)?.trim().slice(0, 120) ?? "";
 
-  const requestedPage = Number(getFirstSearchParam(params.page) ?? "1");
-
-  const page =
-    Number.isSafeInteger(requestedPage) && requestedPage > 0
-      ? requestedPage
-      : 1;
+  const page = parsePageSearchParam(params.page);
 
   const { clients, pagination } = await getRegisteredClients({
     page,
@@ -67,7 +61,7 @@ export default async function RegisteredClientsPage({
           <PageTitle>Cadastro de Clientes</PageTitle>
 
           <PageDescription>
-            Consulte os clientes cadastrados no V2, independentemente da
+            Consulte os clientes cadastrados no sistema, independentemente da
             situação das suas oportunidades.
           </PageDescription>
         </PageHeaderContent>
