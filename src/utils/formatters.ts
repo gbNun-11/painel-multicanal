@@ -1,3 +1,5 @@
+import { normalizeCnpj, normalizeCpf } from "@/src/utils/documents";
+
 export const formatPhone = (value: string) => {
   const digits = value.replace(/\D/g, "").slice(0, 11);
 
@@ -13,7 +15,7 @@ export const formatPhone = (value: string) => {
 };
 
 export const formatCpf = (value: string) => {
-  const digits = value.replace(/\D/g, "").slice(0, 11);
+  const digits = normalizeCpf(value).slice(0, 11);
 
   return digits
     .replace(/^(\d{3})(\d)/, "$1.$2")
@@ -22,10 +24,7 @@ export const formatCpf = (value: string) => {
 };
 
 export const formatCnpj = (value: string) => {
-  const normalized = value
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "")
-    .slice(0, 14);
+  const normalized = normalizeCnpj(value).slice(0, 14);
 
   const base = normalized.slice(0, 12);
 
@@ -41,7 +40,7 @@ export const formatCnpj = (value: string) => {
 };
 
 export const formatDocument = (value: string) => {
-  const normalized = value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const normalized = normalizeCnpj(value);
 
   const isCnpj = normalized.length > 11 || /[A-Z]/.test(normalized);
 
