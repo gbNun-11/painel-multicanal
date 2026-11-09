@@ -6,11 +6,11 @@ import { z } from "zod";
 
 import { db } from "@/src/db";
 import { clientsTable, opportunitiesTable } from "@/src/db/schema";
+import { getPortoOpportunityExternalId } from "@/src/integrations/porto/identity";
 import {
   portoOpportunitiesResponseSchema,
   portoOpportunitySchema,
 } from "@/src/integrations/porto/schema";
-import { getPortoOpportunityExternalId } from "@/src/integrations/porto/identity";
 import { authorizePortoOperator } from "@/src/services/porto/authorize-porto-operator";
 import { isAuthorizedPortoJsonPost } from "@/src/services/porto/check-porto-json-origin";
 import { batchDigest } from "@/src/services/porto/porto-batch";

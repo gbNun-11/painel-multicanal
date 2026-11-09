@@ -1,7 +1,7 @@
 import { ingestOpportunity } from "@/src/services/opportunities/ingest-opportunity";
 import {
-  resolveSusep,
   type ResolvedSusep,
+  resolveSusep,
 } from "@/src/services/suseps/resolve-susep";
 
 import { adaptPortoOpportunity } from "./adapter";

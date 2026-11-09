@@ -1,8 +1,9 @@
 import "server-only";
 
 import { createHash } from "node:crypto";
-import { z } from "zod";
+
 import type { NextRequest } from "next/server";
+import { z } from "zod";
 
 import { portoOpportunitiesResponseSchema } from "@/src/integrations/porto/schema";
 
