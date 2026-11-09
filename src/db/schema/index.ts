@@ -1,5 +1,7 @@
+export * from "./assets";
 export * from "./auth";
 export * from "./clients";
+export * from "./commissions";
 export * from "./enterprise-insurers";
 export * from "./enterprises";
 export * from "./enums";
@@ -7,14 +9,11 @@ export * from "./insurers";
 export * from "./multichannel-assignments";
 export * from "./opportunities";
 export * from "./opportunity-counters";
+export * from "./policies";
 export * from "./product-codes";
 export * from "./products";
+export * from "./proposals";
+export * from "./quotes";
+export * from "./records";
 export * from "./suseps";
 export * from "./users";
-
-export * from "./assets";
-export * from "./quotes";
-export * from "./proposals";
-export * from "./policies";
-export * from "./commissions";
-export * from "./records";
