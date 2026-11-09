@@ -1,13 +1,11 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { Controller, useForm, useWatch } from "react-hook-form";
 
 import { createEnterpriseInsurerAction } from "@/src/actions/insurers/create-enterprise-insurer";
-import { Button } from "@/src/components/ui/button";
 import { CardContent, CardFooter } from "@/src/components/ui/card";
 import {
   DialogContent,
@@ -15,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/src/components/ui/dialog";
+import { FormSubmitButton } from "@/src/components/ui/form-submit-button";
 import { Label } from "@/src/components/ui/label";
 import {
   Select,
@@ -237,16 +236,11 @@ const UpsertEnterpriseInsurerForm = ({
         </CardContent>
 
         <CardFooter className="pt-6">
-          <Button type="submit" className="w-full" disabled={isPending}>
-            {isPending ? (
-              <>
-                <Loader2 className="mr-2 size-4 animate-spin" />
-                Vinculando...
-              </>
-            ) : (
-              "Vincular seguradora"
-            )}
-          </Button>
+          <FormSubmitButton
+            isPending={isPending}
+            idleLabel="Vincular seguradora"
+            pendingLabel="Vinculando..."
+          />
         </CardFooter>
       </form>
     </DialogContent>
