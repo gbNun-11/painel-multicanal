@@ -2,7 +2,6 @@ import "server-only";
 
 import { asc, count, eq, sql } from "drizzle-orm";
 
-import { DEFAULT_PAGE_SIZE } from "@/src/constants/pagination";
 import { db } from "@/src/db";
 import {
   enterpriseInsurersTable,
@@ -10,6 +9,7 @@ import {
   insurersTable,
   susepsTable,
 } from "@/src/db/schema";
+import { calculatePagination } from "@/src/utils/pagination";
 
 interface GetEnterpriseInsurersParams {
   page: number;
@@ -18,10 +18,6 @@ interface GetEnterpriseInsurersParams {
 export const getEnterpriseInsurers = async ({
   page,
 }: GetEnterpriseInsurersParams) => {
-  const pageSize = DEFAULT_PAGE_SIZE;
-
-  const requestedPage = Number.isSafeInteger(page) && page > 0 ? page : 1;
-
   const [countResult] = await db
     .select({
       total: count(),
@@ -30,11 +26,10 @@ export const getEnterpriseInsurers = async ({
 
   const total = countResult?.total ?? 0;
 
-  const totalPages = Math.ceil(total / pageSize);
-
-  const safePage = totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
-
-  const offset = (safePage - 1) * pageSize;
+  const { pagination, offset } = calculatePagination({
+    page,
+    total,
+  });
 
   const enterpriseInsurers = await db
     .select({
@@ -73,17 +68,11 @@ export const getEnterpriseInsurers = async ({
       asc(enterprisesTable.name),
       asc(enterpriseInsurersTable.id),
     )
-    .limit(pageSize)
+    .limit(pagination.pageSize)
     .offset(offset);
 
   return {
     enterpriseInsurers,
-
-    pagination: {
-      page: safePage,
-      pageSize,
-      total,
-      totalPages,
-    },
+    pagination,
   };
 };
