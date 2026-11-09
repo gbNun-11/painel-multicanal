@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+
 import {
   PageActions,
   PageContainer,
@@ -9,9 +10,10 @@ import {
   PageTitle,
 } from "@/src/components/ui/page-container";
 import { getEnterprises } from "@/src/data/enterprises/get-enterprises";
+import { parsePageSearchParam } from "@/src/utils/search-params";
 
-import EnterprisesTable from "../enterprises/components/enterprises-table";
 import AddEnterpriseButton from "./components/add-enterprises-button";
+import EnterprisesTable from "./components/enterprises-table";
 
 interface EnterprisePageProps {
   searchParams: Promise<{
@@ -22,12 +24,7 @@ interface EnterprisePageProps {
 const EnterprisePage = async ({ searchParams }: EnterprisePageProps) => {
   const params = await searchParams;
 
-  const pageParam = Array.isArray(params.page) ? params.page[0] : params.page;
-
-  const parsedPage = Number(pageParam);
-
-  const requestedPage =
-    Number.isSafeInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+  const requestedPage = parsePageSearchParam(params.page);
 
   const { enterprises, pagination } = await getEnterprises({
     page: requestedPage,
@@ -44,6 +41,7 @@ const EnterprisePage = async ({ searchParams }: EnterprisePageProps) => {
           <PageTitle>Empresas</PageTitle>
           <PageDescription>Gestão de empresas cadastradas.</PageDescription>
         </PageHeaderContent>
+
         <PageActions>
           <AddEnterpriseButton />
         </PageActions>

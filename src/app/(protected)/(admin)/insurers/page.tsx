@@ -11,6 +11,7 @@ import {
 } from "@/src/components/ui/page-container";
 import { getEnterpriseInsurerOptions } from "@/src/data/insurers/get-enterprise-insurer-options";
 import { getEnterpriseInsurers } from "@/src/data/insurers/get-enterprise-insurers";
+import { parsePageSearchParam } from "@/src/utils/search-params";
 
 import AddEnterpriseInsurerButton from "./components/add-enterprise-insurer-button";
 import AddInsurersButton from "./components/add-insurers-button";
@@ -26,22 +27,15 @@ interface InsurersPageProps {
 const InsurersPage = async ({ searchParams }: InsurersPageProps) => {
   const params = await searchParams;
 
-  const pageParam = Array.isArray(params.page) ? params.page[0] : params.page;
-
-  const parsedPage = Number(pageParam);
-
-  const requestedPage =
-    Number.isSafeInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+  const requestedPage = parsePageSearchParam(params.page);
 
   const [
     { enterpriseInsurers, pagination },
-
     { insurers, enterprises, existingLinks },
   ] = await Promise.all([
     getEnterpriseInsurers({
       page: requestedPage,
     }),
-
     getEnterpriseInsurerOptions(),
   ]);
 
