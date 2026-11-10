@@ -9,6 +9,7 @@ import {
   insurersTable,
   susepsTable,
 } from "@/src/db/schema";
+import { PAGE_ACCESS, requirePageAccess } from "@/src/lib/require-page-access";
 import { calculatePagination } from "@/src/utils/pagination";
 
 interface GetEnterpriseInsurersParams {
@@ -18,6 +19,10 @@ interface GetEnterpriseInsurersParams {
 export const getEnterpriseInsurers = async ({
   page,
 }: GetEnterpriseInsurersParams) => {
+  await requirePageAccess(PAGE_ACCESS.adminOnly, {
+    deniedRedirectTo: "/dashboard",
+  });
+
   const [countResult] = await db
     .select({
       total: count(),
