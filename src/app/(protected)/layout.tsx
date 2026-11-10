@@ -11,7 +11,7 @@ interface ProtectedLayoutProps {
 }
 
 const ProtectedLayout = async ({ children }: ProtectedLayoutProps) => {
-  await requirePageAccess(PAGE_ACCESS.administrative, {
+  const user = await requirePageAccess(PAGE_ACCESS.administrative, {
     deniedRedirectTo: "/authentication",
   });
 
@@ -21,7 +21,7 @@ const ProtectedLayout = async ({ children }: ProtectedLayoutProps) => {
         <DistributionFiltersMemory />
       </Suspense>
 
-      <AppSidebar />
+      <AppSidebar role={user.role} />
 
       <main className="w-full">
         <SidebarTrigger />

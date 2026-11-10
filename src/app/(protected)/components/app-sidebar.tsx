@@ -32,7 +32,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/src/components/ui/sidebar";
-import { authClient } from "@/src/lib/auth-client";
 
 import FooterSidebar from "./footer-sidebar";
 
@@ -151,12 +150,8 @@ const findActiveGroup = (pathname: string): GroupId | undefined =>
     group.items.some((item) => item.url && isRouteActive(pathname, item.url)),
   )?.id;
 
-export function AppSidebar() {
+export function AppSidebar({ role }: { role: string }) {
   const pathname = usePathname();
-
-  const session = authClient.useSession();
-
-  const role = session.data?.user.role;
 
   const isAdmin = role === "admin";
 
