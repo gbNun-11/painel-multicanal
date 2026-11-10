@@ -1,12 +1,13 @@
 import "server-only";
 
+import { calculateRecollectionDate } from "@/src/utils/recollection-date";
+
 import {
+  getGoalfyToken,
   GOALFY_CARD_URL,
   resolveGoalfyProfile,
-  getGoalfyToken,
 } from "./config";
 import { goalfyFetch } from "./goalfy-fetch";
-import { calculateRecollectionDate } from "@/src/utils/recollection-date";
 import type { GoalfyClientData } from "./types";
 
 interface GoalfyField {

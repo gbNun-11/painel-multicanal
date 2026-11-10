@@ -1,4 +1,4 @@
-import { and, eq, isNull, or, sql, type SQL } from "drizzle-orm";
+import { and, eq, isNull, or, type SQL,sql } from "drizzle-orm";
 
 import { db } from "@/src/db";
 import { clientsTable } from "@/src/db/schema";
