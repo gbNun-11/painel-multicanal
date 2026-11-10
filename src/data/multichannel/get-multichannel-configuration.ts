@@ -10,8 +10,11 @@ import {
   susepsTable,
   usersTable,
 } from "@/src/db/schema";
+import { PAGE_ACCESS, requirePageAccess } from "@/src/lib/require-page-access";
 
 export const getMultichannelConfiguration = async (susepId: string) => {
+  await requirePageAccess(PAGE_ACCESS.adminOnly);
+
   const [susep] = await db
     .select({
       id: susepsTable.id,

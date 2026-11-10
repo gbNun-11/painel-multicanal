@@ -9,6 +9,7 @@ import {
   enterprisesTable,
   opportunitiesTable,
 } from "@/src/db/schema";
+import { PAGE_ACCESS, requirePageAccess } from "@/src/lib/require-page-access";
 
 interface GetClientFiltersParams {
   insurerId: string;
@@ -17,6 +18,8 @@ interface GetClientFiltersParams {
 export const getClientFilters = async ({
   insurerId,
 }: GetClientFiltersParams) => {
+  await requirePageAccess(PAGE_ACCESS.administrative);
+
   const insurerCondition =
     insurerId === INSURER_IDS.PORTO
       ? eq(opportunitiesTable.externalSource, "PORTO")

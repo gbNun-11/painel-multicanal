@@ -4,6 +4,7 @@ import { asc, count, eq, ilike, or, sql } from "drizzle-orm";
 
 import { db } from "@/src/db";
 import { clientsTable, opportunitiesTable } from "@/src/db/schema";
+import { PAGE_ACCESS, requirePageAccess } from "@/src/lib/require-page-access";
 import { calculatePagination } from "@/src/utils/pagination";
 import {
   escapeLikePattern,
@@ -30,6 +31,8 @@ export const getRegisteredClients = async ({
   page,
   search,
 }: GetRegisteredClientsParams) => {
+  await requirePageAccess(PAGE_ACCESS.administrative);
+
   const normalizedSearch = normalizeSearchTerm(search)?.slice(0, 120) ?? null;
 
   const numericSearch = normalizedSearch

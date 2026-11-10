@@ -4,6 +4,7 @@ import { asc, count } from "drizzle-orm";
 
 import { db } from "@/src/db";
 import { enterprisesTable } from "@/src/db/schema";
+import { PAGE_ACCESS, requirePageAccess } from "@/src/lib/require-page-access";
 import { calculatePagination } from "@/src/utils/pagination";
 
 interface GetEnterprisesParams {
@@ -11,6 +12,8 @@ interface GetEnterprisesParams {
 }
 
 export const getEnterprises = async ({ page }: GetEnterprisesParams) => {
+  await requirePageAccess(PAGE_ACCESS.adminOnly);
+
   const [countResult] = await db
     .select({
       total: count(),

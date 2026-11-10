@@ -9,6 +9,7 @@ import {
   opportunitiesTable,
   usersTable,
 } from "@/src/db/schema";
+import { PAGE_ACCESS, requirePageAccess } from "@/src/lib/require-page-access";
 
 import type {
   GoalfyBulkSalesModel,
@@ -23,6 +24,8 @@ interface GetGoalfyImportOptionsParams {
 export const getGoalfyImportOptions = async ({
   insurerId,
 }: GetGoalfyImportOptionsParams): Promise<GoalfyImportOptions> => {
+  await requirePageAccess(PAGE_ACCESS.administrative);
+
   const [availabilityResult, commercialUsers] = await Promise.all([
     db
       .select({

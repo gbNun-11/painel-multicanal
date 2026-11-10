@@ -22,6 +22,7 @@ import {
   opportunitiesTable,
   opportunitySalesModelEnum,
 } from "@/src/db/schema";
+import { PAGE_ACCESS, requirePageAccess } from "@/src/lib/require-page-access";
 import { calculatePagination } from "@/src/utils/pagination";
 import {
   escapeLikePattern,
@@ -137,6 +138,8 @@ export const getClients = async ({
   salesModels,
   enterpriseIds,
 }: GetClientsParams) => {
+  await requirePageAccess(PAGE_ACCESS.administrative);
+
   const normalizedSearch =
     normalizeSearchTerm(search)?.slice(0, MAX_SEARCH_LENGTH) ?? null;
 

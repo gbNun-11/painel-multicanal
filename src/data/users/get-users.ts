@@ -4,6 +4,7 @@ import { asc, count, eq, ilike, or } from "drizzle-orm";
 
 import { db } from "@/src/db";
 import { usersTable } from "@/src/db/schema";
+import { PAGE_ACCESS, requirePageAccess } from "@/src/lib/require-page-access";
 import { calculatePagination } from "@/src/utils/pagination";
 import {
   escapeLikePattern,
@@ -17,6 +18,8 @@ interface GetUsersParams {
 }
 
 export const getUsers = async ({ page, search }: GetUsersParams) => {
+  await requirePageAccess(PAGE_ACCESS.adminOnly);
+
   const normalizedSearch = normalizeSearchTerm(search);
 
   let searchCondition;

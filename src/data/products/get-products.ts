@@ -4,8 +4,11 @@ import { asc, eq } from "drizzle-orm";
 
 import { db } from "@/src/db";
 import { productCodesTable, productsTable } from "@/src/db/schema";
+import { PAGE_ACCESS, requirePageAccess } from "@/src/lib/require-page-access";
 
 export const getProducts = async (insurerId: string) => {
+  await requirePageAccess(PAGE_ACCESS.adminOnly);
+
   const [products, productCodes] = await Promise.all([
     db
       .select({
