@@ -1,8 +1,9 @@
 import "server-only";
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
+import { cache } from "react";
 
 import { db } from "@/src/db";
 import { usersTable } from "@/src/db/schema";
@@ -19,10 +20,7 @@ export const PAGE_ACCESS = {
   administrative: ["admin", "administrativo"],
 } as const satisfies Record<string, readonly UserRole[]>;
 
-export const requirePageAccess = async (
-  allowedRoles: readonly UserRole[],
-  options: RequirePageAccessOptions = {},
-) => {
+const getCurrentAccessUser = cache(async () => {
   const session = await auth.api.getSession({
     headers: await headers(),
     query: {
@@ -31,11 +29,7 @@ export const requirePageAccess = async (
   });
 
   if (!session?.user?.id) {
-    redirect("/authentication");
-  }
-
-  if (allowedRoles.length === 0) {
-    notFound();
+    return { hasSession: false as const, user: null };
   }
 
   const [user] = await db
@@ -49,12 +43,28 @@ export const requirePageAccess = async (
         eq(usersTable.id, session.user.id),
         eq(usersTable.status, "ativo"),
         eq(usersTable.banned, false),
-        inArray(usersTable.role, [...allowedRoles]),
       ),
     )
     .limit(1);
 
-  if (!user) {
+  return { hasSession: true as const, user: user ?? null };
+});
+
+export const requirePageAccess = async (
+  allowedRoles: readonly UserRole[],
+  options: RequirePageAccessOptions = {},
+) => {
+  const { hasSession, user } = await getCurrentAccessUser();
+
+  if (!hasSession) {
+    redirect("/authentication");
+  }
+
+  if (allowedRoles.length === 0) {
+    notFound();
+  }
+
+  if (!user || !allowedRoles.includes(user.role)) {
     if (options.deniedRedirectTo) {
       redirect(options.deniedRedirectTo);
     }
