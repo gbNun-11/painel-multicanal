@@ -1,13 +1,11 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2Icon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { useEffect, useMemo } from "react";
 import { Controller, useForm } from "react-hook-form";
 
 import { upsertMultichannelAssignmentAction } from "@/src/actions/multichannel/upsert-multichannel-assignment";
-import { Button } from "@/src/components/ui/button";
 import { CardContent, CardFooter } from "@/src/components/ui/card";
 import {
   DialogContent,
@@ -15,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/src/components/ui/dialog";
+import { FormSubmitButton } from "@/src/components/ui/form-submit-button";
 import { Label } from "@/src/components/ui/label";
 import {
   Select,
@@ -296,18 +295,13 @@ const UpsertMultichannelAssignmentForm = ({
         </CardContent>
 
         <CardFooter className="pt-6">
-          <Button type="submit" className="w-full" disabled={isPending}>
-            {isPending ? (
-              <>
-                <Loader2Icon className="mr-2 size-4 animate-spin" />
-                Salvando...
-              </>
-            ) : isEditing ? (
-              "Salvar alterações"
-            ) : (
-              "Criar configuração"
-            )}
-          </Button>
+          <FormSubmitButton
+            isPending={isPending}
+            idleLabel={
+              isEditing ? "Salvar alterações" : "Criar configuração"
+            }
+            pendingLabel="Salvando..."
+          />
         </CardFooter>
       </form>
     </DialogContent>

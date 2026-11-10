@@ -1,13 +1,11 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2Icon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 
 import { upsertProductCodeAction } from "@/src/actions/products/upsert-product-code";
-import { Button } from "@/src/components/ui/button";
 import { CardContent, CardFooter } from "@/src/components/ui/card";
 import {
   DialogContent,
@@ -15,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/src/components/ui/dialog";
+import { FormSubmitButton } from "@/src/components/ui/form-submit-button";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
 import { Separator } from "@/src/components/ui/separator";
@@ -188,19 +187,11 @@ const UpsertProductCodeForm = ({
         </CardContent>
 
         <CardFooter className="pt-6">
-          <Button type="submit" className="w-full" disabled={isPending}>
-            {isPending ? (
-              <>
-                <Loader2Icon className="mr-2 size-4 animate-spin" />
-
-                {isEditing ? "Salvando..." : "Cadastrando..."}
-              </>
-            ) : isEditing ? (
-              "Salvar alterações"
-            ) : (
-              "Cadastrar código"
-            )}
-          </Button>
+          <FormSubmitButton
+            isPending={isPending}
+            idleLabel={isEditing ? "Salvar alterações" : "Cadastrar código"}
+            pendingLabel={isEditing ? "Salvando..." : "Cadastrando..."}
+          />
         </CardFooter>
       </form>
     </DialogContent>
