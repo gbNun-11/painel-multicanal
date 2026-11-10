@@ -1,9 +1,8 @@
 import "server-only";
 
-import { and, asc, eq, isNull, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, isNull, type SQL,sql } from "drizzle-orm";
 
 import { db } from "@/src/db";
-
 import {
   clientsTable,
   enterpriseInsurersTable,
@@ -13,22 +12,19 @@ import {
   productCodesTable,
   usersTable,
 } from "@/src/db/schema";
-
 import {
   buildGoalfyCardBody,
   createGoalfyCard,
   type GoalfyCreateCardData,
 } from "@/src/integrations/goalfy/create-card";
-
 import {
   getGoalfyErrorDetails,
   type GoalfyErrorDetails,
 } from "@/src/integrations/goalfy/goalfy-fetch";
-
 import {
   getGoalfyReportCards,
-  matchGoalfyReportCard,
   matchesReportSalesperson,
+  matchGoalfyReportCard,
 } from "@/src/integrations/goalfy/report";
 
 type SalesModel = "LEAD" | "VINCULO" | "CONTINGENCIA";
