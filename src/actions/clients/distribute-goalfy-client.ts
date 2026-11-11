@@ -6,7 +6,7 @@ import { distributeGoalfyOpportunity } from "@/src/services/opportunities/distri
 
 export const distributeGoalfyClientAction = protectedActionClient
   .inputSchema(distributeGoalfyClientSchema)
-  .action(async ({ parsedInput }) => {
+  .action(async ({ parsedInput, ctx }) => {
     return distributeGoalfyOpportunity({
       kind: "automatic",
 
@@ -17,5 +17,13 @@ export const distributeGoalfyClientAction = protectedActionClient
       salesModel: parsedInput.salesModel,
 
       salespersonId: parsedInput.salespersonId,
+      ...(parsedInput.batchId
+        ? {
+            tracking: {
+              batchId: parsedInput.batchId,
+              initiatedByUserId: ctx.user.id,
+            },
+          }
+        : {}),
     });
   });

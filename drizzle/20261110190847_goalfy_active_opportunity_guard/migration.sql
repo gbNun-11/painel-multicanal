@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "goalfy_active_opportunity_uidx" ON "goalfy_distribution_batch_items" ("opportunity_id") WHERE "status" IN ('reserved', 'sent', 'inconclusive');

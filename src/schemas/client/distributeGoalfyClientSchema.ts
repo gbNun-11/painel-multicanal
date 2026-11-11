@@ -8,6 +8,8 @@ const distributeGoalfyClientSchema = z.object({
   salesModel: z.enum(["LEAD", "VINCULO", "CONTINGENCIA"]),
 
   salespersonId: z.uuid(),
+
+  batchId: z.uuid().optional(),
 });
 
 export default distributeGoalfyClientSchema;

@@ -5,6 +5,7 @@ export * from "./commissions";
 export * from "./enterprise-insurers";
 export * from "./enterprises";
 export * from "./enums";
+export * from "./goalfy-distribution";
 export * from "./insurers";
 export * from "./multichannel-assignments";
 export * from "./opportunities";

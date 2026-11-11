@@ -6,9 +6,11 @@ import { useState } from "react";
 
 import { distributeGoalfyClientAction } from "@/src/actions/clients/distribute-goalfy-client";
 import { distributeSelectedGoalfyClientAction } from "@/src/actions/clients/distribute-selected-goalfy-client";
+import { finishGoalfyDistributionBatchAction } from "@/src/actions/clients/finish-goalfy-distribution-batch";
 import { sendGoalfyEmailListAction } from "@/src/actions/clients/send-goalfy-email-list";
 import { sendGoalfyImportErrorReportAction } from "@/src/actions/clients/send-goalfy-import-error-report";
 import { sendGoalfyWhatsAppListAction } from "@/src/actions/clients/send-goalfy-whatsapp-list";
+import { startGoalfyDistributionBatchAction } from "@/src/actions/clients/start-goalfy-distribution-batch";
 import { Button } from "@/src/components/ui/button";
 import {
   DropdownMenu,
@@ -29,6 +31,7 @@ import type { GoalfySelectedImportRunner } from "@/src/data/clients/goalfy-selec
 
 import { useClientsSelection } from "./clients-selection-context";
 import GoalfyBulkImportDialog from "./goalfy-bulk-import-dialog";
+import GoalfyPendingBatchesDialog from "./goalfy-pending-batches-dialog";
 import GoalfySelectedImportDialog from "./goalfy-selected-import-dialog";
 
 interface ClientsSyncMenuProps {
@@ -81,6 +84,8 @@ const ClientsSyncMenu = ({
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
 
   const [selectedImportOpen, setSelectedImportOpen] = useState(false);
+
+  const [pendingBatchesOpen, setPendingBatchesOpen] = useState(false);
 
   const { selectedClientIds, hasSelection, clearSelection } =
     useClientsSelection();
@@ -135,14 +140,67 @@ const ClientsSyncMenu = ({
 
     const importFailures: GoalfyImportFailure[] = [];
 
-    const pendingEmailGroups = new Map<string, BulkEmailGroup>();
+    const confirmedGroups = new Map<string, BulkEmailGroup>();
+    const confirmedOpportunityIds = new Set<string>();
+
+    const rememberConfirmed = (item: {
+      opportunityId: string;
+      enterpriseInsurerId: string;
+      salespersonId: string;
+      product: string;
+    }) => {
+      if (confirmedOpportunityIds.has(item.opportunityId)) {
+        return false;
+      }
+
+      confirmedOpportunityIds.add(item.opportunityId);
+
+      const key = `${item.enterpriseInsurerId}:${item.salespersonId}`;
+      const existing = confirmedGroups.get(key);
+
+      if (existing) {
+        existing.clientIds.push(item.opportunityId);
+        existing.products.add(item.product);
+      } else {
+        confirmedGroups.set(key, {
+          enterpriseInsurerId: item.enterpriseInsurerId,
+          salespersonId: item.salespersonId,
+          clientIds: [item.opportunityId],
+          products: new Set([item.product]),
+        });
+      }
+
+      return true;
+    };
+
+    let batchId: string;
+
+    try {
+      const started = await startGoalfyDistributionBatchAction({
+        mode: "automatic",
+        sendListByWhatsApp: payload.sendListByWhatsApp,
+        sendListByEmail: payload.sendListByEmail,
+      });
+
+      if (!started?.data?.batchId) {
+        throw new Error("Não foi possível abrir o lote.");
+      }
+
+      batchId = started.data.batchId;
+    } catch {
+      toast.add({
+        type: "error",
+        title: "Importação não iniciada",
+        description: "Falha ao registrar o lote no PostgreSQL.",
+      });
+
+      return;
+    }
 
     onProgress(0, totalImports);
 
     for (const block of payload.blocks) {
       for (const allocation of block.allocations) {
-        const successfulClientIds: string[] = [];
-
         for (let index = 0; index < allocation.quantity; index += 1) {
           try {
             const result = await distributeGoalfyClientAction({
@@ -153,12 +211,27 @@ const ClientsSyncMenu = ({
               salesModel: block.salesModel,
 
               salespersonId: allocation.userId,
+              batchId,
             });
 
-            if (result?.data?.success === true && result.data.client) {
-              successfulImports += 1;
-
-              successfulClientIds.push(result.data.client.id);
+            if (
+          result?.data?.success === false &&
+          "awaitingReconciliation" in result.data &&
+          result.data.awaitingReconciliation === true
+        ) {
+          // POST aceito; a confirmação será feita
+          // exclusivamente pela conciliação do lote.
+        } else if (result?.data?.success === true && result.data.client) {
+              if (
+                rememberConfirmed({
+                  opportunityId: result.data.client.id,
+                  enterpriseInsurerId: block.enterpriseInsurerId,
+                  salespersonId: allocation.userId,
+                  product: block.product,
+                })
+              ) {
+                successfulImports += 1;
+              }
             } else {
               failedImports += 1;
 
@@ -222,103 +295,122 @@ const ClientsSyncMenu = ({
           }
         }
 
-        if (payload.sendListByEmail && successfulClientIds.length > 0) {
-          const groupKey = `${block.enterpriseInsurerId}:` + allocation.userId;
+      }
+    }
 
-          const existingGroup = pendingEmailGroups.get(groupKey);
+    // Todas as ações individuais terminaram.
+    // Somente agora executamos a conciliação consolidada.
+    let finishedResult;
 
-          if (existingGroup) {
-            existingGroup.clientIds.push(...successfulClientIds);
+    try {
+      finishedResult = await finishGoalfyDistributionBatchAction({
+        batchId,
+      });
+    } catch {
+      finishedResult = null;
+    }
 
-            existingGroup.products.add(block.product);
-          } else {
-            pendingEmailGroups.set(groupKey, {
-              enterpriseInsurerId: block.enterpriseInsurerId,
+    if (!finishedResult?.data) {
+      router.refresh();
 
-              salespersonId: allocation.userId,
+      toast.add({
+        type: "error",
+        title: "Lote aguardando conciliação",
+        description:
+          `Lote ${batchId}: não foi possível concluir a consulta. ` +
+          "Nenhuma lista foi enviada. Não repita a importação.",
+      });
 
-              clientIds: [...successfulClientIds],
+      return;
+    }
 
-              products: new Set([block.product]),
+    const reconciliation = finishedResult.data;
+    const recoveredIds = new Set<string>();
+
+    for (const item of reconciliation.confirmed) {
+      recoveredIds.add(item.opportunityId);
+
+      if (rememberConfirmed(item)) {
+        successfulImports += 1;
+      }
+    }
+
+    // Uma falha recuperada não deve continuar sendo apresentada
+    // como falha de criação no relatório final.
+    for (let index = importFailures.length - 1; index >= 0; index -= 1) {
+      const failure = importFailures[index];
+
+      if (
+        failure.stage === "goalfy" &&
+        failure.clientIds.some((id) => recoveredIds.has(id))
+      ) {
+        importFailures.splice(index, 1);
+        failedImports = Math.max(0, failedImports - 1);
+      }
+    }
+
+    // WhatsApp: apenas oportunidades confirmadas.
+    // Agrupadas por empresa e vendedor, ao final do lote.
+    if (payload.sendListByWhatsApp) {
+      for (const group of confirmedGroups.values()) {
+        const product = getGroupProduct(group);
+        const uniqueIds = [...new Set(group.clientIds)];
+
+        for (const clientIds of chunkArray(
+          uniqueIds,
+          CLIENTS_PER_REQUEST,
+        )) {
+          try {
+            const result = await sendGoalfyWhatsAppListAction({
+              salespersonId: group.salespersonId,
+              enterpriseInsurerId: group.enterpriseInsurerId,
+              clientIds,
             });
-          }
-        }
 
-        if (payload.sendListByWhatsApp && successfulClientIds.length > 0) {
-          for (const clientIds of chunkArray(
-            successfulClientIds,
-            CLIENTS_PER_REQUEST,
-          )) {
-            try {
-              const result = await sendGoalfyWhatsAppListAction({
-                salespersonId: allocation.userId,
-
-                enterpriseInsurerId: block.enterpriseInsurerId,
-
-                clientIds,
-              });
-
-              if (!result?.data?.success) {
-                whatsappFailures += 1;
-
-                importFailures.push({
-                  stage: "whatsapp",
-
-                  enterpriseInsurerId: block.enterpriseInsurerId,
-
-                  product: block.product,
-
-                  salespersonId: allocation.userId,
-
-                  clientIds,
-
-                  message:
-                    result?.data?.error ??
-                    "Não foi possível enviar a lista pelo WhatsApp.",
-
-                  details: null,
-
-                  attempts: null,
-
-                  statusCode: null,
-
-                  occurredAt: new Date().toISOString(),
-                });
-              }
-            } catch (error) {
+            if (!result?.data?.success) {
               whatsappFailures += 1;
 
               importFailures.push({
                 stage: "whatsapp",
-
-                enterpriseInsurerId: block.enterpriseInsurerId,
-
-                product: block.product,
-
-                salespersonId: allocation.userId,
-
+                enterpriseInsurerId: group.enterpriseInsurerId,
+                product,
+                salespersonId: group.salespersonId,
                 clientIds,
-
-                message: getErrorMessage(
-                  error,
+                message:
+                  result?.data?.error ??
                   "Não foi possível enviar a lista pelo WhatsApp.",
-                ),
-
                 details: null,
-
                 attempts: null,
-
                 statusCode: null,
-
                 occurredAt: new Date().toISOString(),
               });
             }
+          } catch (error) {
+            whatsappFailures += 1;
+
+            importFailures.push({
+              stage: "whatsapp",
+              enterpriseInsurerId: group.enterpriseInsurerId,
+              product,
+              salespersonId: group.salespersonId,
+              clientIds,
+              message: getErrorMessage(
+                error,
+                "Erro inesperado ao enviar a lista pelo WhatsApp.",
+              ),
+              details: null,
+              attempts: null,
+              statusCode: null,
+              occurredAt: new Date().toISOString(),
+            });
           }
         }
       }
     }
 
-    for (const group of pendingEmailGroups.values()) {
+    // E-mail: mantém o agrupamento consolidado original.
+    if (payload.sendListByEmail) {
+      for (const group of confirmedGroups.values()) {
       const product = getGroupProduct(group);
 
       const uniqueClientIds = [...new Set(group.clientIds)];
@@ -393,13 +485,19 @@ const ClientsSyncMenu = ({
           });
         }
       }
+      }
     }
 
     const errorReportFailed = await sendErrorReport(importFailures);
 
     router.refresh();
 
-    if (failedImports === 0 && whatsappFailures === 0 && emailFailures === 0) {
+    if (
+      failedImports === 0 &&
+      whatsappFailures === 0 &&
+      emailFailures === 0 &&
+      reconciliation.remaining === 0
+    ) {
       toast.add({
         type: "success",
 
@@ -413,6 +511,12 @@ const ClientsSyncMenu = ({
     }
 
     const details = [`${successfulImports} cliente(s) distribuído(s)`];
+
+    if (reconciliation.remaining > 0) {
+      details.push(
+        `${reconciliation.remaining} oportunidade(s) aguardando conciliação`,
+      );
+    }
 
     if (failedImports > 0) {
       details.push(`${failedImports} falha(s) na criação`);
@@ -437,7 +541,10 @@ const ClientsSyncMenu = ({
     toast.add({
       type: "error",
 
-      title: "Importação concluída com falhas",
+      title:
+        reconciliation.remaining > 0
+          ? "Importação com pendências"
+          : "Importação concluída com falhas",
 
       description: details.join(" • "),
     });
@@ -467,7 +574,14 @@ const ClientsSyncMenu = ({
           salespersonId: payload.salespersonId,
         });
 
-        if (result?.data?.success === true && result.data.client) {
+        if (
+          result?.data?.success === false &&
+          "awaitingReconciliation" in result.data &&
+          result.data.awaitingReconciliation === true
+        ) {
+          // POST aceito; a confirmação será feita
+          // exclusivamente pela conciliação do lote.
+        } else if (result?.data?.success === true && result.data.client) {
           successfulImports += 1;
 
           const enterpriseInsurerId = result.data.enterpriseInsurerId;
@@ -745,6 +859,14 @@ const ClientsSyncMenu = ({
 
             <DropdownMenuItem disabled>{syncLabel}</DropdownMenuItem>
 
+            <DropdownMenuSeparator />
+
+            <DropdownMenuItem
+              onClick={() => setPendingBatchesOpen(true)}
+            >
+              Lotes pendentes
+            </DropdownMenuItem>
+
             <DropdownMenuItem
               disabled={hasSelection}
               onClick={() => setBulkImportOpen(true)}
@@ -764,6 +886,13 @@ const ClientsSyncMenu = ({
           </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {pendingBatchesOpen && (
+        <GoalfyPendingBatchesDialog
+          open={pendingBatchesOpen}
+          onOpenChange={setPendingBatchesOpen}
+        />
+      )}
 
       <GoalfyBulkImportDialog
         open={bulkImportOpen}

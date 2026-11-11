@@ -7,6 +7,8 @@ import {
   clientsTable,
   enterpriseInsurersTable,
   enterprisesTable,
+  goalfyDistributionBatchesTable,
+  goalfyDistributionBatchItemsTable,
   insurersTable,
   opportunitiesTable,
   productCodesTable,
@@ -27,9 +29,20 @@ import {
   matchGoalfyReportCard,
 } from "@/src/integrations/goalfy/report";
 
+import {
+  markGoalfyDistributionInconclusive,
+  markGoalfyRequestStarted,
+  releaseUnsentGoalfyDistribution,
+} from "./goalfy-distribution-lifecycle";
+
 type SalesModel = "LEAD" | "VINCULO" | "CONTINGENCIA";
 
-export type DistributeGoalfyRequest =
+type DistributionTracking = {
+  batchId: string;
+  initiatedByUserId: string;
+};
+
+export type DistributeGoalfyRequest = (
   | {
       kind: "automatic";
       enterpriseInsurerId: string;
@@ -41,7 +54,10 @@ export type DistributeGoalfyRequest =
       kind: "selected";
       opportunityId: string;
       salespersonId: string;
-    };
+    }
+) & {
+  tracking?: DistributionTracking;
+};
 
 const MAX_CREATION_ATTEMPTS = 5;
 
@@ -241,10 +257,38 @@ export const distributeGoalfyOpportunity = async (
     conditions.push(eq(opportunitiesTable.id, request.opportunityId));
   }
 
-  // Uma única execução reserva a oportunidade.
-  // Outras execuções não podem pegá-la enquanto
-  // as cinco tentativas estiverem acontecendo.
+  // O novo rastreamento só será ativado quando o fluxo
+  // completo de conciliação estiver integrado.
+  const tracking = request.tracking;
+
   const opportunity = await db.transaction(async (tx) => {
+    if (tracking) {
+      const [batch] = await tx
+        .select({
+          id: goalfyDistributionBatchesTable.id,
+        })
+        .from(goalfyDistributionBatchesTable)
+        .where(
+          and(
+            eq(goalfyDistributionBatchesTable.id, tracking.batchId),
+            eq(
+              goalfyDistributionBatchesTable.initiatedByUserId,
+              tracking.initiatedByUserId,
+            ),
+            eq(goalfyDistributionBatchesTable.mode, request.kind),
+            eq(goalfyDistributionBatchesTable.status, "running"),
+          ),
+        )
+        .limit(1)
+        .for("update");
+
+      if (!batch) {
+        throw new Error(
+          "Lote inexistente, encerrado ou não autorizado.",
+        );
+      }
+    }
+
     const [candidate] = await tx
       .select({
         opportunityId: opportunitiesTable.id,
@@ -314,7 +358,23 @@ export const distributeGoalfyOpportunity = async (
         id: opportunitiesTable.id,
       });
 
-    return claimed ? candidate : null;
+    if (!claimed) {
+      return null;
+    }
+
+    if (tracking) {
+      await tx.insert(goalfyDistributionBatchItemsTable).values({
+        batchId: tracking.batchId,
+        opportunityId: candidate.opportunityId,
+        enterpriseInsurerId,
+        salespersonId,
+        expectedExternalId: candidate.externalId,
+        expectedGoalfyResponsibleId: goalfyResponsibleValue,
+        status: "reserved",
+      });
+    }
+
+    return candidate;
   });
 
   if (!opportunity) {
@@ -393,6 +453,18 @@ export const distributeGoalfyOpportunity = async (
     );
   };
 
+  const confirmedResult = () => ({
+    success: true as const,
+    client: {
+      id: opportunityId,
+      name: opportunity.name,
+      phone: opportunity.phone,
+    },
+    salespersonId,
+    enterpriseInsurerId,
+    product: opportunity.product.trim(),
+  });
+
   const finalize = async () => {
     const [updated] = await db
       .update(opportunitiesTable)
@@ -419,17 +491,7 @@ export const distributeGoalfyOpportunity = async (
       );
     }
 
-    return {
-      success: true as const,
-      client: {
-        id: opportunityId,
-        name: opportunity.name,
-        phone: opportunity.phone,
-      },
-      salespersonId,
-      enterpriseInsurerId,
-      product: opportunity.product.trim(),
-    };
+    return confirmedResult();
   };
 
   const pending = (
@@ -555,12 +617,102 @@ export const distributeGoalfyOpportunity = async (
     // Detecta payload inválido antes de qualquer POST.
     buildGoalfyCardBody(cardInput);
   } catch (error) {
+    if (tracking) {
+      try {
+        await releaseUnsentGoalfyDistribution({
+          batchId: tracking.batchId,
+          opportunityId,
+          salespersonId,
+        });
+      } catch {
+        return fail(
+          "goalfy_tracking_release_error",
+          "database",
+          opportunityId,
+          "Falha ao liberar reserva sem POST. Revisão necessária.",
+        );
+      }
+
+      return fail(
+        "goalfy_validation_error",
+        "goalfy",
+        opportunityId,
+        "Não foi possível preparar o card. Reserva liberada.",
+        errorDetails(error),
+        0,
+      );
+    }
+
     return restorePending(
       "goalfy_validation_error",
       "Não foi possível preparar o card. A oportunidade voltou para Distribuição Pendente.",
       errorDetails(error),
       0,
     );
+  }
+
+  // Novo fluxo: um único POST, sem consulta repetida ao XLSX.
+  // Somente será utilizado quando as ações enviarem tracking.
+  if (tracking) {
+    const tracked = {
+      batchId: tracking.batchId,
+      opportunityId,
+      salespersonId,
+    };
+
+    try {
+      await markGoalfyRequestStarted(tracked);
+    } catch {
+      return pending(
+        "goalfy_tracking_start_error",
+        "Não foi possível registrar o início. Nenhum POST foi disparado.",
+        0,
+      );
+    }
+
+    try {
+      await createGoalfyCard(cardInput);
+    } catch (error) {
+      const goalfyError = getGoalfyErrorDetails(error);
+
+      try {
+        await markGoalfyDistributionInconclusive(
+          tracked,
+          "goalfy_create_unconfirmed",
+          goalfyError.status,
+        );
+      } catch {
+        return pending(
+          "goalfy_tracking_write_error",
+          "POST sem confirmação. Controle permanece reservado para revisão.",
+          1,
+          goalfyError.status,
+        );
+      }
+
+      return pending(
+        "goalfy_create_unconfirmed",
+        "POST sem confirmação. Aguardar conciliação antes de reenviar.",
+        1,
+        goalfyError.status,
+      );
+    }
+
+    // O HTTP de sucesso não comprova a presença do card
+    // na consulta consolidada do Goalfy.
+    // O registro permanece em status "sent" até a conciliação.
+    // Somente finishGoalfyDistributionBatchAction poderá
+    // confirmar e excluir o controle temporário.
+    // POST aceito: resultado intermediário, não uma falha.
+    // A oportunidade continua bloqueada até a conciliação.
+    // O sucesso definitivo será retornado pelo fechamento
+    // do lote após validação dos identificadores no Goalfy.
+    return {
+      success: false as const,
+      awaitingReconciliation: true as const,
+      opportunityId,
+      failure: null,
+    };
   }
 
   // Conferência anterior à primeira tentativa.
