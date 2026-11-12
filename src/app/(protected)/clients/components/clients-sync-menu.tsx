@@ -38,6 +38,10 @@ interface ClientsSyncMenuProps {
   goalfyOptions: GoalfyImportOptions;
 }
 
+// Permite que o índice do Goalfy reflita os cards recém-criados.
+const waitForGoalfyIndex = () =>
+  new Promise<void>((resolve) => setTimeout(resolve, 5_000));
+
 const getErrorMessage = (error: unknown, fallback: string) => {
   return error instanceof Error ? error.message : fallback;
 };
@@ -278,6 +282,10 @@ const ClientsSyncMenu = ({
       }
     }
 
+    // Aguardar a atualização do Goalfy após o último POST.
+    // Não reenviar nenhum card durante a espera.
+    await waitForGoalfyIndex();
+
     // Todas as ações individuais terminaram.
     // Somente agora executamos a conciliação consolidada.
     let finishedResult;
@@ -335,7 +343,21 @@ const ClientsSyncMenu = ({
     let notificationsPending = false;
     let notificationMessage = "";
 
-    if (payload.sendListByWhatsApp || payload.sendListByEmail) {
+    const notificationsEnabled =
+      payload.sendListByWhatsApp || payload.sendListByEmail;
+
+    const notificationsReady =
+      reconciliation.remaining === 0 &&
+      reconciliation.unresolved.length === 0;
+
+    if (notificationsEnabled && !notificationsReady) {
+      notificationsPending = true;
+      notificationMessage =
+        "Notificações aguardando a confirmação de todas as " +
+        "oportunidades. Nenhuma lista foi enviada.";
+    }
+
+    if (notificationsEnabled && notificationsReady) {
       try {
         const dispatched =
           await dispatchGoalfyBatchNotificationsAction({
@@ -530,6 +552,10 @@ const ClientsSyncMenu = ({
       }
     }
 
+    // Aguardar a atualização do Goalfy após o último POST.
+    // Não reenviar nenhum card durante a espera.
+    await waitForGoalfyIndex();
+
     // Conciliação única após todos os POSTs individuais.
     // O fechamento nunca cria um novo card.
     let finished;
@@ -576,7 +602,21 @@ const ClientsSyncMenu = ({
     let notificationsPending = false;
     let notificationMessage = "";
 
-    if (payload.sendListByWhatsApp || payload.sendListByEmail) {
+    const notificationsEnabled =
+      payload.sendListByWhatsApp || payload.sendListByEmail;
+
+    const notificationsReady =
+      reconciliation.remaining === 0 &&
+      reconciliation.unresolved.length === 0;
+
+    if (notificationsEnabled && !notificationsReady) {
+      notificationsPending = true;
+      notificationMessage =
+        "Notificações aguardando a confirmação de todas as " +
+        "oportunidades. Nenhuma lista foi enviada.";
+    }
+
+    if (notificationsEnabled && notificationsReady) {
       try {
         const dispatched =
           await dispatchGoalfyBatchNotificationsAction({

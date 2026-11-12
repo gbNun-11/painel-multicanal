@@ -298,7 +298,7 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
       for (let attempt = 1; attempt <= 2; attempt += 1) {
         if (attempt === 2) {
           // Tempo para eventual atualização do índice Goalfy.
-          await new Promise<void>((resolve) => setTimeout(resolve, 3000));
+          await new Promise<void>((resolve) => setTimeout(resolve, 5000));
         }
 
         try {

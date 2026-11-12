@@ -5,6 +5,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/src/db";
 import {
   goalfyDistributionBatchesTable,
+  goalfyDistributionBatchItemsTable,
   goalfyDistributionNotificationItemsTable,
 } from "@/src/db/schema";
 
@@ -87,6 +88,26 @@ export const claimGoalfyNotificationGroup = async (
 
     if (!channelEnabled) {
       throw new Error("Canal de notificação não autorizado para o lote.");
+    }
+
+    // Impede mensagens fragmentadas enquanto uma oportunidade
+    // do mesmo lote ainda estiver aguardando confirmação.
+    // O FOR UPDATE do lote serializa esta verificação
+    // com a confirmação de oportunidades.
+    const [distributionState] = await tx
+      .select({
+        total: sql<number>`count(*)::integer`,
+      })
+      .from(goalfyDistributionBatchItemsTable)
+      .where(
+        eq(goalfyDistributionBatchItemsTable.batchId, input.batchId),
+      );
+
+    if ((distributionState?.total ?? 0) > 0) {
+      throw new Error(
+        "O lote ainda possui oportunidades em conciliação. " +
+        "Nenhuma notificação foi reservada para envio.",
+      );
     }
 
     const available = await tx

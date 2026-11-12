@@ -208,6 +208,7 @@ export const getPendingGoalfyDistributionBatchesAction =
             canDispatch:
               batch.initiatedByUserId === ctx.user.id &&
               batch.status === "reconciling" &&
+              remaining === 0 &&
               (whatsappPending + emailPending > 0 || canFinalize),
             whatsappPending,
             emailPending,

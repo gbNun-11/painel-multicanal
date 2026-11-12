@@ -237,6 +237,22 @@ export const dispatchGoalfyBatchNotificationsAction =
         );
       }
 
+      const [distributionState] = await db
+        .select({
+          total: sql<number>`count(*)::integer`,
+        })
+        .from(goalfyDistributionBatchItemsTable)
+        .where(
+          eq(goalfyDistributionBatchItemsTable.batchId, batchId),
+        );
+
+      if ((distributionState?.total ?? 0) > 0) {
+        throw new ActionError(
+          "Notificações bloqueadas: o lote ainda possui " +
+          "oportunidades aguardando conciliação.",
+        );
+      }
+
       // Lê exclusivamente entradas ainda não reservadas.
       // A reserva definitiva acontece dentro das ações
       // protegidas de WhatsApp e e-mail.
