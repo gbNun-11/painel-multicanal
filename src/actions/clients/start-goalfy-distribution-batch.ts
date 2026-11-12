@@ -4,10 +4,11 @@ import { z } from "zod";
 
 import { db } from "@/src/db";
 import { goalfyDistributionBatchesTable } from "@/src/db/schema";
+import { ActionError, protectedActionClient } from "@/src/lib/safe-action";
 import {
-  ActionError,
-  protectedActionClient,
-} from "@/src/lib/safe-action";
+  assertGoalfyBatchCompletionSecret,
+  createGoalfyBatchCompletionToken,
+} from "@/src/services/opportunities/goalfy-batch-completion-token";
 
 const startGoalfyDistributionBatchSchema = z.object({
   mode: z.enum(["automatic", "selected"]),
@@ -15,31 +16,32 @@ const startGoalfyDistributionBatchSchema = z.object({
   sendListByEmail: z.boolean().default(false),
 });
 
-export const startGoalfyDistributionBatchAction =
-  protectedActionClient
-    .inputSchema(startGoalfyDistributionBatchSchema)
-    .action(async ({ parsedInput, ctx }) => {
-      const [batch] = await db
-        .insert(goalfyDistributionBatchesTable)
-        .values({
-          initiatedByUserId: ctx.user.id,
-          mode: parsedInput.mode,
-          status: "running",
-          sendListByWhatsApp: parsedInput.sendListByWhatsApp,
-          sendListByEmail: parsedInput.sendListByEmail,
-        })
-        .returning({
-          id: goalfyDistributionBatchesTable.id,
-        });
+export const startGoalfyDistributionBatchAction = protectedActionClient
+  .inputSchema(startGoalfyDistributionBatchSchema)
+  .action(async ({ parsedInput, ctx }) => {
+    // Impede criar um lote sem chave de assinatura válida.
+    assertGoalfyBatchCompletionSecret();
 
-      if (!batch) {
-        throw new ActionError(
-          "Não foi possível iniciar o lote de distribuição.",
-        );
-      }
+    const [batch] = await db
+      .insert(goalfyDistributionBatchesTable)
+      .values({
+        initiatedByUserId: ctx.user.id,
+        mode: parsedInput.mode,
+        status: "running",
+        sendListByWhatsApp: parsedInput.sendListByWhatsApp,
+        sendListByEmail: parsedInput.sendListByEmail,
+      })
+      .returning({
+        id: goalfyDistributionBatchesTable.id,
+      });
 
-      return {
-        batchId: batch.id,
-        status: "running" as const,
-      };
-    });
+    if (!batch) {
+      throw new ActionError("Não foi possível iniciar o lote de distribuição.");
+    }
+
+    return {
+      batchId: batch.id,
+      completionToken: createGoalfyBatchCompletionToken(batch.id, ctx.user.id),
+      status: "running" as const,
+    };
+  });

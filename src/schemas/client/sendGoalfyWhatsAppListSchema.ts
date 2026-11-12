@@ -7,7 +7,7 @@ const sendGoalfyWhatsAppListSchema = z.object({
 
   clientIds: z.array(z.uuid()).min(1).max(500),
 
-  batchId: z.uuid().optional(),
+  batchId: z.uuid(),
 });
 
 export default sendGoalfyWhatsAppListSchema;

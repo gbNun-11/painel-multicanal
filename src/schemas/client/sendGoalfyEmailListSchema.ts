@@ -26,7 +26,7 @@ const sendGoalfyEmailListSchema = z.object({
       error: "Existem clientes duplicados na lista.",
     }),
 
-  batchId: z.uuid().optional(),
+  batchId: z.uuid(),
 });
 
 export default sendGoalfyEmailListSchema;

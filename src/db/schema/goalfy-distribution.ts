@@ -248,3 +248,70 @@ export const goalfyDistributionNotificationItemsTable = pgTable(
     ),
   ],
 );
+
+
+// Histórico permanente de resoluções administrativas.
+// NÃO depende do lote nem da outbox por chave estrangeira,
+// pois ambos são temporários e podem ser excluídos.
+export const goalfyNotificationResolutionAuditTable = pgTable(
+  "goalfy_notification_resolution_audit",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    batchId: uuid("batch_id").notNull(),
+    notificationId: uuid("notification_id").notNull(),
+
+    opportunityId: uuid("opportunity_id")
+      .notNull()
+      .references(() => opportunitiesTable.id, {
+        onDelete: "restrict",
+      }),
+
+    channel: text("channel").notNull(),
+    previousStatus: text("previous_status").notNull(),
+    previousErrorCode: text("previous_error_code"),
+
+    evidenceSource: text("evidence_source").notNull(),
+    evidenceReference: text("evidence_reference").notNull(),
+    resolutionNote: text("resolution_note").notNull(),
+
+    resolvedByUserId: uuid("resolved_by_user_id")
+      .notNull()
+      .references(() => usersTable.id, {
+        onDelete: "restrict",
+      }),
+
+    resolvedAt: timestamp("resolved_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("goalfy_resolution_notification_uidx").on(
+      table.notificationId,
+    ),
+
+    index("goalfy_resolution_batch_idx").on(table.batchId),
+
+    index("goalfy_resolution_opportunity_idx").on(
+      table.opportunityId,
+    ),
+
+    check(
+      "goalfy_resolution_channel_check",
+      sql`${table.channel} IN ('whatsapp', 'email')`,
+    ),
+
+    check(
+      "goalfy_resolution_previous_status_check",
+      sql`${table.previousStatus} = 'uncertain'`,
+    ),
+
+    check(
+      "goalfy_resolution_source_check",
+      sql`${table.evidenceSource} IN
+        ('smtp_log', 'whatsapp_log')`,
+    ),
+  ],
+);

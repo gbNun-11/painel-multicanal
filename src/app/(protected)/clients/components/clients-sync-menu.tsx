@@ -149,6 +149,7 @@ const ClientsSyncMenu = ({
     };
 
     let batchId: string;
+    let completionToken: string;
 
     try {
       const started = await startGoalfyDistributionBatchAction({
@@ -157,11 +158,15 @@ const ClientsSyncMenu = ({
         sendListByEmail: payload.sendListByEmail,
       });
 
-      if (!started?.data?.batchId) {
+      if (
+        !started?.data?.batchId ||
+        !started.data.completionToken
+      ) {
         throw new Error("Não foi possível abrir o lote.");
       }
 
       batchId = started.data.batchId;
+      completionToken = started.data.completionToken;
     } catch {
       toast.add({
         type: "error",
@@ -280,6 +285,7 @@ const ClientsSyncMenu = ({
     try {
       finishedResult = await finishGoalfyDistributionBatchAction({
         batchId,
+        completionToken,
       });
     } catch {
       finishedResult = null;
@@ -432,6 +438,7 @@ const ClientsSyncMenu = ({
     onProgress,
   ) => {
     let batchId: string;
+    let completionToken: string;
 
     // O lote deve existir antes de reservar qualquer oportunidade.
     try {
@@ -441,11 +448,15 @@ const ClientsSyncMenu = ({
         sendListByEmail: payload.sendListByEmail,
       });
 
-      if (!started?.data?.batchId) {
+      if (
+        !started?.data?.batchId ||
+        !started.data.completionToken
+      ) {
         throw new Error("Não foi possível registrar o lote.");
       }
 
       batchId = started.data.batchId;
+      completionToken = started.data.completionToken;
     } catch {
       toast.add({
         type: "error",
@@ -526,6 +537,7 @@ const ClientsSyncMenu = ({
     try {
       finished = await finishGoalfyDistributionBatchAction({
         batchId,
+        completionToken,
       });
     } catch {
       finished = null;

@@ -77,8 +77,6 @@ const finishIfFullyDelivered = async (
       .select({
         id: goalfyDistributionBatchesTable.id,
         status: goalfyDistributionBatchesTable.status,
-        sendWhatsApp: goalfyDistributionBatchesTable.sendListByWhatsApp,
-        sendEmail: goalfyDistributionBatchesTable.sendListByEmail,
       })
       .from(goalfyDistributionBatchesTable)
       .where(
@@ -129,18 +127,18 @@ const finishIfFullyDelivered = async (
 
     // Preserva lotes com criações pendentes, mensagens em envio
     // ou resultados inconclusivos.
-    const allDelivered =
-      notifications.total > 0 &&
+    // Um lote sem notificações não possui mensagens
+    // aguardando processamento, mesmo que os canais
+    // tenham sido solicitados inicialmente.
+    const notificationsResolved =
+      notifications.pending === 0 &&
+      notifications.sending === 0 &&
+      notifications.uncertain === 0 &&
       notifications.delivered === notifications.total;
-
-    const noNotificationsRequested =
-      !batch.sendWhatsApp &&
-      !batch.sendEmail &&
-      notifications.total === 0;
 
     const completed =
       remainingDistributions === 0 &&
-      (allDelivered || noNotificationsRequested);
+      notificationsResolved;
 
     if (!completed) {
       return {

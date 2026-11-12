@@ -52,6 +52,7 @@ export const getPendingGoalfyDistributionBatchesAction =
           mode: goalfyDistributionBatchesTable.mode,
           status: goalfyDistributionBatchesTable.status,
           startedAt: goalfyDistributionBatchesTable.startedAt,
+          updatedAt: goalfyDistributionBatchesTable.updatedAt,
           operatorName: usersTable.name,
           initiatedByUserId:
             goalfyDistributionBatchesTable.initiatedByUserId,
@@ -88,6 +89,9 @@ export const getPendingGoalfyDistributionBatchesAction =
           batchId: goalfyDistributionBatchItemsTable.batchId,
           status: goalfyDistributionBatchItemsTable.status,
           total: sql<number>`count(*)::integer`,
+          latestUpdatedAt: sql<Date | null>`
+            max(${goalfyDistributionBatchItemsTable.updatedAt})
+          `,
         })
         .from(goalfyDistributionBatchItemsTable)
         .where(
@@ -129,6 +133,20 @@ export const getPendingGoalfyDistributionBatchesAction =
             (row) => row.batchId === batch.id,
           );
 
+          const lastActivityAt = Math.max(
+            batch.startedAt.getTime(),
+            batch.updatedAt.getTime(),
+            ...entries.map((entry) =>
+              entry.latestUpdatedAt
+                ? new Date(entry.latestUpdatedAt).getTime()
+                : 0,
+            ),
+          );
+
+          const canRecoverRunning =
+            batch.status === "running" &&
+            Date.now() - lastActivityAt >= 30 * 60 * 1000;
+
           const countStatus = (status: string) =>
             entries
               .filter((row) => row.status === status)
@@ -159,6 +177,25 @@ export const getPendingGoalfyDistributionBatchesAction =
             "pending",
           );
 
+          const remaining = entries.reduce(
+            (sum, row) => sum + row.total,
+            0,
+          );
+          const notificationSending = countNotifications(
+            null,
+            "sending",
+          );
+          const notificationUncertain = countNotifications(
+            null,
+            "uncertain",
+          );
+
+          const canFinalize =
+            remaining === 0 &&
+            whatsappPending + emailPending === 0 &&
+            notificationSending === 0 &&
+            notificationUncertain === 0;
+
           return {
             batchId: batch.id,
             mode: batch.mode,
@@ -166,24 +203,22 @@ export const getPendingGoalfyDistributionBatchesAction =
             operatorName: batch.operatorName,
             canReconcile:
               batch.initiatedByUserId === ctx.user.id &&
-              ["reconciling", "interrupted"].includes(batch.status),
+              (["reconciling", "interrupted"].includes(batch.status) ||
+                canRecoverRunning),
             canDispatch:
               batch.initiatedByUserId === ctx.user.id &&
               batch.status === "reconciling" &&
-              whatsappPending + emailPending > 0,
+              (whatsappPending + emailPending > 0 || canFinalize),
             whatsappPending,
             emailPending,
-            notificationSending: countNotifications(null, "sending"),
-            notificationUncertain: countNotifications(null, "uncertain"),
+            notificationSending,
+            notificationUncertain,
             notificationDelivered: countNotifications(null, "delivered"),
             startedAt: batch.startedAt.toISOString(),
             reserved: countStatus("reserved"),
             sent: countStatus("sent"),
             inconclusive: countStatus("inconclusive"),
-            remaining: entries.reduce(
-              (sum, row) => sum + row.total,
-              0,
-            ),
+            remaining,
           };
         }),
       };

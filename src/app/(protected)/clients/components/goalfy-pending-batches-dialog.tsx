@@ -16,6 +16,8 @@ import {
 } from "@/src/components/ui/dialog";
 import { toast } from "@/src/components/ui/toast";
 
+import GoalfyNotificationReview from "./goalfy-notification-review";
+
 interface PendingBatch {
   batchId: string;
   mode: string;
@@ -69,6 +71,7 @@ const loadBatches = async (page: number) => {
 const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
   const [reconcilingId, setReconcilingId] = useState<string | null>(null);
   const [dispatchingId, setDispatchingId] = useState<string | null>(null);
+  const [reviewBatchId, setReviewBatchId] = useState<string | null>(null);
   const [reconcileMessage, setReconcileMessage] = useState<string | null>(null);
 
   const [view, setView] = useState<ViewState>({
@@ -214,8 +217,10 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
       const counts = result.notifications;
 
       const message = result.completed
-        ? `Lote encerrado. ${result.acceptedGroups} grupo(s) ` +
-          "aceito(s) nesta execução."
+        ? result.acceptedGroups > 0
+          ? `Lote encerrado. ${result.acceptedGroups} grupo(s) ` +
+            "aceito(s) nesta execução."
+          : "Lote finalizado sem novos envios."
         : `${result.acceptedGroups} grupo(s) aceito(s). ` +
           `${counts.pending} notificação(ões) aguardando envio, ` +
           `${counts.sending} em processamento e ` +
@@ -260,8 +265,22 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
     }
   };
 
-  const reconcileBatch = async (batchId: string) => {
+  const reconcileBatch = async (
+    batchId: string,
+    recoverStaleRunning = false,
+  ) => {
     if (reconcilingId || dispatchingId || view.loading || view.loadingMore) {
+      return;
+    }
+
+    if (
+      recoverStaleRunning &&
+      !window.confirm(
+        "Recuperar este lote impedirá novas criações de cards " +
+          "vinculadas a ele. Os envios já iniciados serão " +
+          "conferidos no Goalfy, sem repetir o POST. Continuar?",
+      )
+    ) {
       return;
     }
 
@@ -287,6 +306,7 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
           // NÃO executa novo POST de criação.
           const response = await finishGoalfyDistributionBatchAction({
             batchId,
+            recoverStaleRunning,
           });
 
           if (!response?.data) {
@@ -491,8 +511,35 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
                   </p>
                 </div>
 
+                {batch.status === "running" && !batch.canReconcile && (
+                  <p className="text-muted-foreground text-xs">
+                    Recuperação disponível após 30 minutos sem atividade.
+                  </p>
+                )}
+
                 <div className="flex flex-wrap justify-end gap-2">
-                  {batch.canReconcile && batch.remaining > 0 && (
+                  {view.canViewAll &&
+                    (batch.notificationUncertain > 0 ||
+                      batch.notificationSending > 0) && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setReviewBatchId((current) =>
+                            current === batch.batchId
+                              ? null
+                              : batch.batchId,
+                          );
+                        }}
+                      >
+                        {reviewBatchId === batch.batchId
+                          ? "Ocultar análise"
+                          : "Analisar notificações"}
+                      </Button>
+                    )}
+
+                  {batch.canReconcile &&
+                    (batch.remaining > 0 || batch.status === "running") && (
                     <Button
                       type="button"
                       variant="outline"
@@ -503,12 +550,17 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
                         view.loadingMore
                       }
                       onClick={() => {
-                        void reconcileBatch(batch.batchId);
+                        void reconcileBatch(
+                          batch.batchId,
+                          batch.status === "running",
+                        );
                       }}
                     >
                       {reconcilingId === batch.batchId
                         ? "Conferindo..."
-                        : "Conferir novamente"}
+                        : batch.status === "running"
+                          ? "Recuperar lote"
+                          : "Conferir novamente"}
                     </Button>
                   )}
 
@@ -527,10 +579,22 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
                     >
                       {dispatchingId === batch.batchId
                         ? "Enviando..."
-                        : "Enviar notificações pendentes"}
+                        : batch.whatsappPending + batch.emailPending > 0
+                          ? "Enviar notificações pendentes"
+                          : "Finalizar lote"}
                     </Button>
                   )}
                 </div>
+
+                {view.canViewAll &&
+                  reviewBatchId === batch.batchId && (
+                    <GoalfyNotificationReview
+                      batchId={batch.batchId}
+                      onResolved={() => {
+                        void refresh();
+                      }}
+                    />
+                  )}
               </div>
             ))}
           </div>
