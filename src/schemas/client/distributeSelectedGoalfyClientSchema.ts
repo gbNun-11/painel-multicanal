@@ -9,7 +9,7 @@ const distributeSelectedGoalfyClientSchema = z.object({
     error: "Usuário comercial inválido.",
   }),
 
-  batchId: z.uuid().optional(),
+  batchId: z.uuid(),
 });
 
 export default distributeSelectedGoalfyClientSchema;

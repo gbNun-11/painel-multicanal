@@ -6,6 +6,7 @@ import { db } from "@/src/db";
 import {
   goalfyDistributionBatchesTable,
   goalfyDistributionBatchItemsTable,
+  goalfyDistributionNotificationItemsTable,
   opportunitiesTable,
 } from "@/src/db/schema";
 
@@ -91,6 +92,29 @@ export const confirmTrackedGoalfyDistribution = async (
   distributionAt: Date,
 ) => {
   return db.transaction(async (tx) => {
+    // O mesmo bloqueio utilizado na conciliação impede
+    // encerrar o lote durante a confirmação.
+    const [batch] = await tx
+      .select({
+        status: goalfyDistributionBatchesTable.status,
+        sendListByWhatsApp:
+          goalfyDistributionBatchesTable.sendListByWhatsApp,
+        sendListByEmail:
+          goalfyDistributionBatchesTable.sendListByEmail,
+      })
+      .from(goalfyDistributionBatchesTable)
+      .where(
+        eq(goalfyDistributionBatchesTable.id, input.batchId),
+      )
+      .limit(1)
+      .for("update");
+
+    if (!batch || batch.status !== "reconciling") {
+      throw new Error(
+        "Lote indisponível para confirmação transacional.",
+      );
+    }
+
     const [updated] = await tx
       .update(opportunitiesTable)
       .set({
@@ -132,6 +156,33 @@ export const confirmTrackedGoalfyDistribution = async (
       throw new Error(
         "Controle de distribuição não encontrado. Transação cancelada.",
       );
+    }
+
+    // O controle de notificações nasce na mesma transação
+    // que confirma a distribuição da oportunidade.
+    const channels: Array<"whatsapp" | "email"> = [];
+
+    if (batch.sendListByWhatsApp) {
+      channels.push("whatsapp");
+    }
+
+    if (batch.sendListByEmail) {
+      channels.push("email");
+    }
+
+    if (channels.length > 0) {
+      await tx
+        .insert(goalfyDistributionNotificationItemsTable)
+        .values(
+          channels.map((channel) => ({
+            batchId: input.batchId,
+            opportunityId: updated.id,
+            enterpriseInsurerId: updated.enterpriseInsurerId,
+            salespersonId: input.salespersonId,
+            channel,
+            status: "pending",
+          })),
+        );
     }
 
     return {

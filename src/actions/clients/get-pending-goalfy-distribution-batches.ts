@@ -7,6 +7,7 @@ import { db } from "@/src/db";
 import {
   goalfyDistributionBatchesTable,
   goalfyDistributionBatchItemsTable,
+  goalfyDistributionNotificationItemsTable,
   usersTable,
 } from "@/src/db/schema";
 import { protectedActionClient } from "@/src/lib/safe-action";
@@ -100,6 +101,26 @@ export const getPendingGoalfyDistributionBatchesAction =
           goalfyDistributionBatchItemsTable.status,
         );
 
+      const notifications = await db
+        .select({
+          batchId: goalfyDistributionNotificationItemsTable.batchId,
+          channel: goalfyDistributionNotificationItemsTable.channel,
+          status: goalfyDistributionNotificationItemsTable.status,
+          total: sql<number>`count(*)::integer`,
+        })
+        .from(goalfyDistributionNotificationItemsTable)
+        .where(
+          inArray(
+            goalfyDistributionNotificationItemsTable.batchId,
+            batches.map((batch) => batch.id),
+          ),
+        )
+        .groupBy(
+          goalfyDistributionNotificationItemsTable.batchId,
+          goalfyDistributionNotificationItemsTable.channel,
+          goalfyDistributionNotificationItemsTable.status,
+        );
+
       return {
         hasMore,
         canViewAll,
@@ -113,6 +134,31 @@ export const getPendingGoalfyDistributionBatchesAction =
               .filter((row) => row.status === status)
               .reduce((sum, row) => sum + row.total, 0);
 
+          const notificationEntries = notifications.filter(
+            (item) => item.batchId === batch.id,
+          );
+
+          const countNotifications = (
+            channel: string | null,
+            status: string,
+          ) =>
+            notificationEntries
+              .filter(
+                (item) =>
+                  (channel === null || item.channel === channel) &&
+                  item.status === status,
+              )
+              .reduce((sum, item) => sum + item.total, 0);
+
+          const whatsappPending = countNotifications(
+            "whatsapp",
+            "pending",
+          );
+          const emailPending = countNotifications(
+            "email",
+            "pending",
+          );
+
           return {
             batchId: batch.id,
             mode: batch.mode,
@@ -121,6 +167,15 @@ export const getPendingGoalfyDistributionBatchesAction =
             canReconcile:
               batch.initiatedByUserId === ctx.user.id &&
               ["reconciling", "interrupted"].includes(batch.status),
+            canDispatch:
+              batch.initiatedByUserId === ctx.user.id &&
+              batch.status === "reconciling" &&
+              whatsappPending + emailPending > 0,
+            whatsappPending,
+            emailPending,
+            notificationSending: countNotifications(null, "sending"),
+            notificationUncertain: countNotifications(null, "uncertain"),
+            notificationDelivered: countNotifications(null, "delivered"),
             startedAt: batch.startedAt.toISOString(),
             reserved: countStatus("reserved"),
             sent: countStatus("sent"),

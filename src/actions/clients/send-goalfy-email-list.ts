@@ -18,6 +18,10 @@ import {
 } from "@/src/integrations/email/send-distribution-email";
 import { protectedActionClient } from "@/src/lib/safe-action";
 import sendGoalfyEmailListSchema from "@/src/schemas/client/sendGoalfyEmailListSchema";
+import {
+  claimGoalfyNotificationGroup,
+  settleGoalfyNotificationGroup,
+} from "@/src/services/opportunities/goalfy-notification-lifecycle";
 
 const normalizedProduct = (product: string | null) =>
   (product ?? "")
@@ -86,7 +90,12 @@ const resolveThallesRecipient =
 export const sendGoalfyEmailListAction = protectedActionClient
   .inputSchema(sendGoalfyEmailListSchema)
   .action(async ({ parsedInput, ctx }) => {
-    const { salespersonId, enterpriseInsurerId, clientIds } = parsedInput;
+    const {
+      salespersonId,
+      enterpriseInsurerId,
+      clientIds,
+      batchId,
+    } = parsedInput;
     let sentClients = 0;
     const deliveredGroups: Array<{
       group: string;
@@ -244,29 +253,85 @@ export const sendGoalfyEmailListAction = protectedActionClient
       ];
 
       for (const group of groups) {
-        const result = await sendDistributionEmail(
-          { ...baseData, clients: group.clients },
-          group.cc,
-        );
+        const tracking = batchId
+          ? {
+              batchId,
+              initiatedByUserId: ctx.user.id,
+              channel: "email" as const,
+              enterpriseInsurerId,
+              salespersonId,
+              opportunityIds: group.clients.map(
+                (client) => client.id,
+              ),
+            }
+          : null;
 
-        sentClients += group.clients.length;
-        deliveredGroups.push({
-          group: group.name,
-          messageId: result.messageId,
-          count: group.clients.length,
-          reportFilename: result.reportFilename,
-        });
+        let claimed = false;
 
-        console.log(
-          "[GOALFY EMAIL] Mensagem única por grupo aceita pelo SMTP:",
-          {
+        try {
+          if (tracking) {
+            // Registra o início antes de qualquer envio SMTP.
+            await claimGoalfyNotificationGroup(tracking);
+            claimed = true;
+          }
+
+          const result = await sendDistributionEmail(
+            { ...baseData, clients: group.clients },
+            group.cc,
+          );
+
+          if (tracking) {
+            // Somente aceite completo permite delivered.
+            await settleGoalfyNotificationGroup({
+              ...tracking,
+              result: "delivered",
+            });
+
+            claimed = false;
+          }
+
+          sentClients += group.clients.length;
+
+          deliveredGroups.push({
             group: group.name,
-            recipientCount: result.accepted.length,
-            opportunities: group.clients.length,
-            attempts: result.attempts,
             messageId: result.messageId,
-          },
-        );
+            count: group.clients.length,
+            reportFilename: result.reportFilename,
+          });
+
+          console.info(
+            "[GOALFY EMAIL] Grupo aceito pelo SMTP:",
+            {
+              group: group.name,
+              opportunities: group.clients.length,
+              recipients: result.accepted.length,
+              messageId: result.messageId,
+              tracked: Boolean(tracking),
+            },
+          );
+        } catch (error) {
+          if (tracking && claimed) {
+            try {
+              // Mesmo uma resposta de erro pode acontecer
+              // depois de o SMTP aceitar a mensagem.
+              // Nunca liberar para reenvio automático.
+              await settleGoalfyNotificationGroup({
+                ...tracking,
+                result: "uncertain",
+                errorCode: "smtp_delivery_unconfirmed",
+              });
+            } catch {
+              // Se a gravação falhar, sending permanece
+              // bloqueado para conferência manual.
+              console.error(
+                "[GOALFY EMAIL] Não foi possível registrar " +
+                  "o resultado. Revisão manual necessária.",
+              );
+            }
+          }
+
+          throw error;
+        }
       }
 
       return {

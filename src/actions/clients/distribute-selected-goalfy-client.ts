@@ -13,13 +13,9 @@ export const distributeSelectedGoalfyClientAction = protectedActionClient
       opportunityId: parsedInput.clientId,
 
       salespersonId: parsedInput.salespersonId,
-      ...(parsedInput.batchId
-        ? {
-            tracking: {
-              batchId: parsedInput.batchId,
-              initiatedByUserId: ctx.user.id,
-            },
-          }
-        : {}),
+      tracking: {
+        batchId: parsedInput.batchId,
+        initiatedByUserId: ctx.user.id,
+      },
     });
   });

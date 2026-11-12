@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { dispatchGoalfyBatchNotificationsAction } from "@/src/actions/clients/dispatch-goalfy-batch-notifications";
 import { finishGoalfyDistributionBatchAction } from "@/src/actions/clients/finish-goalfy-distribution-batch";
 import { getPendingGoalfyDistributionBatchesAction } from "@/src/actions/clients/get-pending-goalfy-distribution-batches";
 import { Button } from "@/src/components/ui/button";
@@ -21,6 +22,12 @@ interface PendingBatch {
   status: string;
   operatorName: string;
   canReconcile: boolean;
+  canDispatch: boolean;
+  whatsappPending: number;
+  emailPending: number;
+  notificationSending: number;
+  notificationUncertain: number;
+  notificationDelivered: number;
   startedAt: string;
   reserved: number;
   sent: number;
@@ -61,6 +68,7 @@ const loadBatches = async (page: number) => {
 
 const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
   const [reconcilingId, setReconcilingId] = useState<string | null>(null);
+  const [dispatchingId, setDispatchingId] = useState<string | null>(null);
   const [reconcileMessage, setReconcileMessage] = useState<string | null>(null);
 
   const [view, setView] = useState<ViewState>({
@@ -177,8 +185,83 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
     }
   };
 
+  const dispatchBatch = async (batchId: string) => {
+    if (
+      reconcilingId ||
+      dispatchingId ||
+      view.loading ||
+      view.loadingMore
+    ) {
+      return;
+    }
+
+    setDispatchingId(batchId);
+    setReconcileMessage(null);
+
+    try {
+      // Esta é a única ação da tela que pode enviar mensagens.
+      const response = await dispatchGoalfyBatchNotificationsAction({
+        batchId,
+      });
+
+      if (!response?.data) {
+        throw new Error(
+          "Não foi possível processar as notificações.",
+        );
+      }
+
+      const result = response.data;
+      const counts = result.notifications;
+
+      const message = result.completed
+        ? `Lote encerrado. ${result.acceptedGroups} grupo(s) ` +
+          "aceito(s) nesta execução."
+        : `${result.acceptedGroups} grupo(s) aceito(s). ` +
+          `${counts.pending} notificação(ões) aguardando envio, ` +
+          `${counts.sending} em processamento e ` +
+          `${counts.uncertain} exigindo revisão.`;
+
+      const requiresAttention =
+        result.attentionGroups > 0 ||
+        counts.sending > 0 ||
+        counts.uncertain > 0;
+
+      setReconcileMessage(message);
+
+      toast.add({
+        type: requiresAttention ? "error" : "success",
+        title: requiresAttention
+          ? "Notificações exigem atenção"
+          : result.completed
+            ? "Lote concluído"
+            : "Notificações processadas",
+        description: message,
+      });
+    } catch (error) {
+      console.error(
+        "[GOALFY NOTIFICATIONS] Falha:",
+        error instanceof Error ? error.message : "Erro desconhecido",
+      );
+
+      const message =
+        "Não foi possível confirmar o processamento das notificações. " +
+        "Consulte novamente o lote antes de qualquer outra ação.";
+
+      setReconcileMessage(message);
+
+      toast.add({
+        type: "error",
+        title: "Falha no processamento",
+        description: message,
+      });
+    } finally {
+      await refresh();
+      setDispatchingId(null);
+    }
+  };
+
   const reconcileBatch = async (batchId: string) => {
-    if (reconcilingId || view.loading || view.loadingMore) {
+    if (reconcilingId || dispatchingId || view.loading || view.loadingMore) {
       return;
     }
 
@@ -247,7 +330,8 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
       if (result.remaining === 0) {
         const message =
           `${confirmedCount} oportunidade(s) confirmada(s). ` +
-          "Lote concluído sem novos envios.";
+          "Nenhum novo card foi criado. " +
+          "Confira abaixo as notificações pendentes.";
 
         setReconcileMessage(message);
 
@@ -333,7 +417,8 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
             {view.canViewAll
               ? "Visualização de todos os lotes pendentes."
               : "Visualização dos seus lotes pendentes."}{" "}
-            Esta tela não realiza novos envios.
+            Conferir novamente não cria cards nem envia mensagens.
+            O envio acontece somente ao clicar em Enviar notificações.
           </DialogDescription>
         </DialogHeader>
 
@@ -394,13 +479,26 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
                   </span>
                 </div>
 
-                {batch.canReconcile && (
-                  <div className="flex justify-end">
+                <div className="space-y-1 text-xs">
+                  <p>
+                    WhatsApp pendente: {batch.whatsappPending}
+                    {" · "}E-mail pendente: {batch.emailPending}
+                  </p>
+                  <p className="text-muted-foreground">
+                    Entregues: {batch.notificationDelivered}
+                    {" · "}Em processamento: {batch.notificationSending}
+                    {" · "}Revisão necessária: {batch.notificationUncertain}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap justify-end gap-2">
+                  {batch.canReconcile && batch.remaining > 0 && (
                     <Button
                       type="button"
                       variant="outline"
                       disabled={
                         reconcilingId !== null ||
+                        dispatchingId !== null ||
                         view.loading ||
                         view.loadingMore
                       }
@@ -412,8 +510,27 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
                         ? "Conferindo..."
                         : "Conferir novamente"}
                     </Button>
-                  </div>
-                )}
+                  )}
+
+                  {batch.canDispatch && (
+                    <Button
+                      type="button"
+                      disabled={
+                        dispatchingId !== null ||
+                        reconcilingId !== null ||
+                        view.loading ||
+                        view.loadingMore
+                      }
+                      onClick={() => {
+                        void dispatchBatch(batch.batchId);
+                      }}
+                    >
+                      {dispatchingId === batch.batchId
+                        ? "Enviando..."
+                        : "Enviar notificações pendentes"}
+                    </Button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
