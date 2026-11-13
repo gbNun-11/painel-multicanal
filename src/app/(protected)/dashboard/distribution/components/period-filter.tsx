@@ -3,7 +3,7 @@
 import { CalendarDaysIcon, ChevronDownIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ptBR } from "react-day-picker/locale";
 
 import { Button } from "@/src/components/ui/button";
@@ -64,10 +64,6 @@ const PeriodFilter = ({
 }) => {
   const router = useRouter();
   const [mode, setMode] = useState<DashboardPeriodMode>(period.granularity);
-
-  useEffect(() => {
-    setMode(period.granularity);
-  }, [period.granularity]);
 
   const years = useMemo(
     () => Array.from(new Set(months.map(({ value }) => value.slice(0, 4)))),

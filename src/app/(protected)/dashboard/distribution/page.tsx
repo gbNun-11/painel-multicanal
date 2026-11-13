@@ -170,7 +170,11 @@ const DistributionDashboardPage = async ({
               ))}
             </div>
           </details>
-          <PeriodFilter period={data.period} months={monthOptions} />
+          <PeriodFilter
+            key={[data.period.granularity, data.period.label, company].join(":")}
+            period={data.period}
+            months={monthOptions}
+          />
         </PageActions>
       </PageHeader>
 
