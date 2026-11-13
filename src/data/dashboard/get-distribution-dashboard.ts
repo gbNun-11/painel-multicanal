@@ -99,8 +99,8 @@ export const normalizeDashboardMonth = (value?: string) =>
     ? value
     : currentMonth();
 
-// Exibe somente meses com oportunidades efetivamente criadas no banco.
-// Um mês sem registros não entra no filtro, mesmo que esteja no intervalo.
+// Exibe somente meses com data de chegada informada pela Porto.
+// Registros sem sourceCreatedAt não entram no filtro mensal.
 export const getDashboardMonthOptions = async (
   company: DashboardCompany = "all",
 ) => {
@@ -108,7 +108,7 @@ export const getDashboardMonthOptions = async (
 
   const creationMonth = sql<string>`
     to_char(
-      ${opportunitiesTable.createdAt} AT TIME ZONE 'America/Sao_Paulo',
+      ${opportunitiesTable.sourceCreatedAt} AT TIME ZONE 'America/Sao_Paulo',
       'YYYY-MM'
     )
   `;
