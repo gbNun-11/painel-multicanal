@@ -1,5 +1,8 @@
+import { sql } from "drizzle-orm";
 import {
+  check,
   index,
+  integer,
   pgTable,
   timestamp,
   uniqueIndex,
@@ -37,6 +40,10 @@ export const multichannelAssignmentsTable = pgTable(
         onUpdate: "cascade",
       }),
 
+    // Limite de LEAD da Porto para este vínculo SUSEP / produto / CPF.
+    // NULL indica configuração antiga ainda sem capacidade informada.
+    leadCapacity: integer("lead_capacity"),
+
     status: statusEnum("status").default("ativo").notNull(),
 
     createdAt: timestamp("created_at", {
@@ -53,6 +60,11 @@ export const multichannelAssignmentsTable = pgTable(
   },
 
   (table) => [
+    check(
+      "multichannel_assignments_lead_capacity_check",
+      sql`${table.leadCapacity} IS NULL OR ${table.leadCapacity} >= 0`,
+    ),
+
     uniqueIndex("multichannel_assignments_susep_product_unique_idx").on(
       table.susepId,
       table.productId,
