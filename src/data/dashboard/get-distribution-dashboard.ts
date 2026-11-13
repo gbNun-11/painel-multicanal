@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { ENTERPRISE_IDS } from "@/src/constants/enterprises";
 import { INSURER_IDS } from "@/src/constants/insurers";
@@ -22,6 +22,45 @@ const PENDING_PAGE_SIZE = 10;
 
 type SalesModel = "LEAD" | "VINCULO" | "CONTINGENCIA";
 export type DashboardCompany = "all" | "ICX" | "INRI";
+export type DashboardPeriodMode = "day" | "month" | "year";
+
+export const normalizeDashboardPeriodMode = (
+  value?: string,
+): DashboardPeriodMode =>
+  value === "day" || value === "year" ? value : "month";
+
+const isValidDay = (value: string): boolean => {
+  if (!/^20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(value)) {
+    return false;
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+  return (
+    new Date(Date.UTC(year, month - 1, day)).toISOString().slice(0, 10) ===
+    value
+  );
+};
+
+export const normalizeDashboardDate = (
+  value: string | undefined,
+  selectedMonth: string,
+) => {
+  if (value && isValidDay(value)) return value;
+
+  const current = new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: TIME_ZONE,
+  }).format(new Date());
+
+  return current.startsWith(selectedMonth) ? current : selectedMonth + "-01";
+};
+
+export const normalizeDashboardYear = (
+  value: string | undefined,
+  selectedMonth: string,
+) => /^20\d{2}$/.test(value ?? "") ? value! : selectedMonth.slice(0, 4);
 
 const MODEL_MONTHLY_AVERAGES: Record<
   Exclude<DashboardCompany, "all">,
@@ -43,7 +82,14 @@ export const normalizeDashboardCompany = (value?: string): DashboardCompany =>
   value === "ICX" || value === "INRI" ? value : "all";
 
 export interface DistributionDashboardData {
-  period: { month: string; label: string; company: DashboardCompany };
+  period: {
+    month: string;
+    date: string;
+    year: string;
+    granularity: DashboardPeriodMode;
+    label: string;
+    company: DashboardCompany;
+  };
   summary: {
     received: number;
     distributed: number;
@@ -61,7 +107,7 @@ export interface DistributionDashboardData {
   models: {
     model: SalesModel;
     received: number;
-    progressPercent: number;
+    progressPercent: number | null;
   }[];
   capacities: {
     id: string;
@@ -71,7 +117,7 @@ export interface DistributionDashboardData {
     received: number;
     capacity: number | null;
     difference: number | null;
-    status: "below" | "met" | "over" | "unconfigured";
+    status: "below" | "met" | "over" | "unconfigured" | "reference";
   }[];
   pendingDates: {
     date: string | null;
@@ -159,12 +205,18 @@ export const getDashboardMonthOptions = async (
 
 export const getDistributionDashboard = async (input: {
   month?: string;
+  date?: string;
+  year?: string;
+  granularity?: DashboardPeriodMode;
   company?: DashboardCompany;
   pendingPage?: number;
 }): Promise<DistributionDashboardData> => {
   await requirePageAccess(PAGE_ACCESS.administrative);
 
   const month = normalizeDashboardMonth(input.month);
+  const granularity = normalizeDashboardPeriodMode(input.granularity);
+  const date = normalizeDashboardDate(input.date, month);
+  const year = normalizeDashboardYear(input.year, month);
   const company = normalizeDashboardCompany(input.company);
   const companyInsurers = db
     .select({ id: enterpriseInsurersTable.id })
@@ -186,11 +238,36 @@ export const getDistributionDashboard = async (input: {
     goalfyDistributionBatchItemsTable.enterpriseInsurerId,
     companyInsurers,
   );
-  const [year, monthNumber] = month.split("-").map(Number);
-  const start = month + "-01";
-  const end = new Date(Date.UTC(year, monthNumber, 1))
-    .toISOString()
-    .slice(0, 10);
+  const [monthYear, monthNumber] = month.split("-").map(Number);
+
+  const start =
+    granularity === "day"
+      ? date
+      : granularity === "year"
+        ? year + "-01-01"
+        : month + "-01";
+
+  const end = granularity === "day"
+    ? new Date(Date.parse(start + "T12:00:00Z") + 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10)
+    : granularity === "year"
+      ? String(Number(year) + 1) + "-01-01"
+      : new Date(Date.UTC(monthYear, monthNumber, 1))
+          .toISOString()
+          .slice(0, 10);
+
+  const periodLabel =
+    granularity === "day"
+      ? new Intl.DateTimeFormat("pt-BR", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+          timeZone: "UTC",
+        }).format(new Date(start + "T12:00:00Z"))
+      : granularity === "year"
+        ? year
+        : monthLabel(month);
 
   const pendingPage =
     input.pendingPage &&
@@ -208,15 +285,10 @@ export const getDistributionDashboard = async (input: {
     (${end}::date AT TIME ZONE 'America/Sao_Paulo')
   `;
 
-  const distributions = sql<boolean>`
-    ${opportunitiesTable.assignedAt} >=
-    (${start}::date AT TIME ZONE 'America/Sao_Paulo')
-    AND ${opportunitiesTable.assignedAt} <
-    (${end}::date AT TIME ZONE 'America/Sao_Paulo')
-  `;
-
+  // O período selecionado é sempre o da data informada pela Porto.
+  // Distribuídos representam oportunidades dessa safra já confirmadas.
   const distributionConfirmed = and(
-    distributions,
+    arrivals,
     eq(opportunitiesTable.distributionStatus, "distribuido"),
   )!;
 
@@ -255,7 +327,7 @@ export const getDistributionDashboard = async (input: {
           `,
         })
         .from(opportunitiesTable)
-        .where(and(or(arrivals, distributions), opportunityCompanyCondition)),
+        .where(and(arrivals, opportunityCompanyCondition)),
 
       // Um lote só é problemático se mantém criações não confirmadas.
       db
@@ -401,7 +473,7 @@ export const getDistributionDashboard = async (input: {
   const modelCounts = new Map(modelRows.map((item) => [item.model, item.received]));
 
   return {
-    period: { month, label: monthLabel(month), company },
+    period: { month, date, year, granularity, label: periodLabel, company },
     summary: {
       received: summary?.received ?? 0,
       distributed: summary?.distributed ?? 0,
@@ -428,12 +500,17 @@ export const getDistributionDashboard = async (input: {
         model,
         received,
         // Valores acima da média preenchem a barra, sem ultrapassar 100%.
-        progressPercent: Math.min(100, Math.round((received / average) * 100)),
+        progressPercent: granularity === "month"
+          ? Math.min(100, Math.round((received / average) * 100))
+          : null,
       };
     }),
     capacities: capacityRows.map((row) => {
       const capacity = row.capacity;
-      const difference = capacity === null ? null : row.received - capacity;
+      const difference =
+        capacity === null || granularity !== "month"
+          ? null
+          : row.received - capacity;
 
       return {
         id: row.id,
@@ -443,8 +520,10 @@ export const getDistributionDashboard = async (input: {
         received: row.received,
         capacity,
         difference,
-        status: difference === null
+        status: capacity === null
           ? "unconfigured" as const
+          : granularity !== "month"
+            ? "reference" as const
           : difference < 0
             ? "below" as const
             : difference === 0
