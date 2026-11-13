@@ -159,18 +159,19 @@ export const prepareGoalfyBatchReconciliation = async (input: {
         continue;
       }
 
-      // Resposta com cards sem UUID não é considerada
-      // completa para confirmação automática.
-      if (snapshot.unidentifiedCards > 0) {
+      const matches =
+        byOpportunity.get(normalizeId(item.opportunityId)) ?? [];
+
+      // Cards com UUID correto podem ser confirmados mesmo quando
+      // outros cards do relatório não têm UUID. Porém, NÃO é seguro
+      // presumir ausência e reenviar quando há itens não identificados.
+      if (matches.length === 0 && snapshot.unidentifiedCards > 0) {
         results.push({
           ...base,
           decision: "incomplete_response",
         });
         continue;
       }
-
-      const matches =
-        byOpportunity.get(normalizeId(item.opportunityId)) ?? [];
 
       if (matches.length > 1) {
         results.push({
