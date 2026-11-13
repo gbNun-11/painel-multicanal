@@ -87,9 +87,15 @@ const buildPeriodHref = (
 const PeriodFilter = ({
   period,
   months,
+  open,
+  onToggle,
+  onClose,
 }: {
   period: Period;
   months: MonthOption[];
+  open: boolean;
+  onToggle: () => void;
+  onClose: () => void;
 }) => {
   const router = useRouter();
 
@@ -148,6 +154,7 @@ const PeriodFilter = ({
   const applyDayRange = () => {
     if (!range?.from) return;
 
+    onClose();
     router.push(
       buildPeriodHref(
         "day",
@@ -173,8 +180,14 @@ const PeriodFilter = ({
   };
 
   return (
-    <details className="group relative">
-      <summary className="flex h-9 cursor-pointer list-none items-center gap-2 rounded-md border border-input bg-card px-3 text-xs font-medium select-none hover:bg-accent [&::-webkit-details-marker]:hidden">
+    <details open={open} className="group relative">
+      <summary
+        onClick={(event) => {
+          event.preventDefault();
+          onToggle();
+        }}
+        className="flex h-9 cursor-pointer list-none items-center gap-2 rounded-md border border-input bg-card px-3 text-xs font-medium select-none hover:bg-accent [&::-webkit-details-marker]:hidden"
+      >
         <CalendarDaysIcon className="size-4" aria-hidden="true" />
         {months.length > 0 ? period.label : "Sem datas da Porto"}
         <ChevronDownIcon
@@ -281,9 +294,10 @@ const PeriodFilter = ({
                     variant={selected ? "secondary" : "ghost"}
                     disabled={!active}
                     aria-pressed={selected}
-                    onClick={() =>
-                      router.push(buildPeriodHref("month", month, period.company))
-                    }
+                    onClick={() => {
+                      onClose();
+                      router.push(buildPeriodHref("month", month, period.company));
+                    }}
                     className="w-full"
                   >
                     {name}
@@ -334,11 +348,12 @@ const PeriodFilter = ({
                     size="lg"
                     variant={selected ? "secondary" : "ghost"}
                     aria-pressed={selected}
-                    onClick={() =>
+                    onClick={() => {
+                      onClose();
                       router.push(
                         buildPeriodHref("year", String(year), period.company),
-                      )
-                    }
+                      );
+                    }}
                     className="w-full"
                   >
                     {year}
