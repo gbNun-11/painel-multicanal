@@ -26,7 +26,7 @@ const ProductsChart = ({ products }: { products: Products }) => {
           Produtos
         </CardTitle>
         <CardDescription>
-          Recebidos no mês e quantos desses já foram distribuídos.
+          Recebidos no período e quantos desses já foram distribuídos.
         </CardDescription>
         <div className="flex flex-wrap items-center gap-4 pt-2 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
@@ -42,7 +42,7 @@ const ProductsChart = ({ products }: { products: Products }) => {
       <CardContent>
         {products.length === 0 ? (
           <p className="flex min-h-64 items-center justify-center text-sm text-muted-foreground">
-            Nenhum produto recebido neste mês.
+            Nenhum produto recebido neste período.
           </p>
         ) : (
           <div className="overflow-x-auto pb-2">

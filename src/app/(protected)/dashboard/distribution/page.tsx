@@ -1,7 +1,6 @@
 import {
   AlertTriangleIcon,
   Building2Icon,
-  CalendarDaysIcon,
   ChevronDownIcon,
   Clock3Icon,
   InboxIcon,
@@ -22,11 +21,15 @@ import {
   getDashboardMonthOptions,
   getDistributionDashboard,
   normalizeDashboardCompany,
+  normalizeDashboardDate,
   normalizeDashboardMonth,
+  normalizeDashboardPeriodMode,
+  normalizeDashboardYear,
 } from "@/src/data/dashboard/get-distribution-dashboard";
 
 import CapacityTable from "./components/capacity-table";
 import PendingDates from "./components/pending-dates";
+import PeriodFilter from "./components/period-filter";
 import ProductsChart from "./components/products-chart";
 import SalesModels from "./components/sales-models";
 import SalespeopleRanking from "./components/salespeople-ranking";
@@ -35,6 +38,9 @@ import SummaryCard from "./components/summary-card";
 interface DashboardPageProps {
   searchParams: Promise<{
     month?: string | string[];
+    date?: string | string[];
+    year?: string | string[];
+    period?: string | string[];
     company?: string | string[];
     pendingPage?: string | string[];
   }>;
@@ -65,6 +71,11 @@ const DistributionDashboardPage = async ({
 }: DashboardPageProps) => {
   const params = await searchParams;
   const month = typeof params.month === "string" ? params.month : undefined;
+  const rawDate = typeof params.date === "string" ? params.date : undefined;
+  const rawYear = typeof params.year === "string" ? params.year : undefined;
+  const granularity = normalizeDashboardPeriodMode(
+    typeof params.period === "string" ? params.period : undefined,
+  );
   const company = normalizeDashboardCompany(
     typeof params.company === "string" ? params.company : undefined,
   );
@@ -74,18 +85,49 @@ const DistributionDashboardPage = async ({
       : undefined;
 
   const monthOptions = await getDashboardMonthOptions(company);
-  const requestedMonth = normalizeDashboardMonth(month);
+
+  const requestedMonth = normalizeDashboardMonth(
+    granularity === "day" && rawDate
+      ? rawDate.slice(0, 7)
+      : granularity === "year" && rawYear
+        ? monthOptions.find((option) => option.value.startsWith(rawYear))?.value
+        : month,
+  );
+
   const selectedMonth = monthOptions.some(
     (option) => option.value === requestedMonth,
   )
     ? requestedMonth
     : (monthOptions[0]?.value ?? requestedMonth);
 
+  const selectedDate = normalizeDashboardDate(rawDate, selectedMonth);
+  const selectedYear = normalizeDashboardYear(rawYear, selectedMonth);
+
   const data = await getDistributionDashboard({
     month: selectedMonth,
+    date: selectedDate,
+    year: selectedYear,
+    granularity,
     company,
     pendingPage,
   });
+
+  const companyHref = (selectedCompany: "all" | "ICX" | "INRI") => {
+    const query = new URLSearchParams();
+    if (selectedCompany !== "all") query.set("company", selectedCompany);
+
+    if (granularity === "day") {
+      query.set("period", "day");
+      query.set("date", data.period.date);
+    } else if (granularity === "year") {
+      query.set("period", "year");
+      query.set("year", data.period.year);
+    } else {
+      query.set("month", data.period.month);
+    }
+
+    return "/dashboard/distribution?" + query.toString();
+  };
 
   return (
     <PageContainer>
@@ -115,11 +157,7 @@ const DistributionDashboardPage = async ({
               ] as const).map((option) => (
                 <Link
                   key={option.value}
-                  href={
-                    "/dashboard/distribution?month=" +
-                    encodeURIComponent(data.period.month) +
-                    (option.value === "all" ? "" : "&company=" + option.value)
-                  }
+                  href={companyHref(option.value)}
                   aria-current={option.value === company ? "page" : undefined}
                   className={
                     option.value === company
@@ -132,45 +170,7 @@ const DistributionDashboardPage = async ({
               ))}
             </div>
           </details>
-          <details className="group relative">
-            <summary className="flex h-9 cursor-pointer list-none items-center gap-2 rounded-md border border-input bg-card px-3 text-xs font-medium select-none hover:bg-accent [&::-webkit-details-marker]:hidden">
-              <CalendarDaysIcon className="size-4" aria-hidden="true" />
-              {monthOptions.length > 0
-                ? data.period.label
-                : "Sem meses com oportunidades"}
-              <ChevronDownIcon
-                className="size-4 text-muted-foreground transition-transform group-open:rotate-180"
-                aria-hidden="true"
-              />
-            </summary>
-            <div className="absolute right-0 z-30 mt-1 max-h-72 min-w-48 overflow-y-auto rounded-md border bg-popover p-1 shadow-md">
-              {monthOptions.length === 0 && (
-                <p className="px-3 py-2 text-xs text-muted-foreground">
-                  Nenhuma oportunidade cadastrada.
-                </p>
-              )}
-              {monthOptions.map((option) => (
-                <Link
-                  key={option.value}
-                  href={
-                    "/dashboard/distribution?month=" +
-                    encodeURIComponent(option.value) +
-                    (company === "all" ? "" : "&company=" + company)
-                  }
-                  aria-current={
-                    option.value === data.period.month ? "page" : undefined
-                  }
-                  className={
-                    option.value === data.period.month
-                      ? "block rounded-sm bg-primary/10 px-3 py-2 text-xs font-medium text-primary"
-                      : "block rounded-sm px-3 py-2 text-xs hover:bg-accent"
-                  }
-                >
-                  {option.label}
-                </Link>
-              ))}
-            </div>
-          </details>
+          <PeriodFilter period={data.period} months={monthOptions} />
         </PageActions>
       </PageHeader>
 
@@ -180,13 +180,13 @@ const DistributionDashboardPage = async ({
             title="Recebidos"
             value={formatNumber.format(data.summary.received)}
             icon={InboxIcon}
-            description="Chegadas no mês"
+            description="Chegadas da Porto no período"
           />
           <SummaryCard
             title="Distribuídos"
             value={formatNumber.format(data.summary.distributed)}
             icon={SendIcon}
-            description="Distribuições no mês"
+            description="Recebidas no período, já distribuídas"
           />
           <SummaryCard
             title="Lotes com erro"
@@ -222,6 +222,9 @@ const DistributionDashboardPage = async ({
           >
             <PendingDates
               month={data.period.month}
+              date={data.period.date}
+              year={data.period.year}
+              granularity={data.period.granularity}
               company={company}
               pendingDates={data.pendingDates}
               pendingPage={data.pendingPage}
@@ -237,6 +240,7 @@ const DistributionDashboardPage = async ({
           <CapacityTable
             capacities={data.capacities}
             periodLabel={data.period.label}
+            granularity={data.period.granularity}
           />
         </section>
       </PageContent>

@@ -37,12 +37,12 @@ const SalespeopleRanking = ({ salespeople }: { salespeople: Salespeople }) => (
         />
         Ranking de vendedores
       </CardTitle>
-      <CardDescription>Distribuições confirmadas no mês.</CardDescription>
+      <CardDescription>Recebidos no período e já distribuídos.</CardDescription>
     </CardHeader>
     <CardContent className="max-h-80 space-y-3 overflow-y-auto">
       {salespeople.length === 0 ? (
         <p className="py-10 text-center text-sm text-muted-foreground">
-          Nenhuma distribuição confirmada neste mês.
+          Nenhuma distribuição confirmada para o período de chegada.
         </p>
       ) : (
         salespeople.map((user) => (

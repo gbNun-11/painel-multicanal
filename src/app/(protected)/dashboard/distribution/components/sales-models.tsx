@@ -22,7 +22,7 @@ const SalesModels = ({ models }: { models: Models }) => (
   <Card className="h-full">
     <CardHeader>
       <CardTitle>Modelos de venda</CardTitle>
-      <CardDescription>Oportunidades recebidas no mês.</CardDescription>
+      <CardDescription>Oportunidades recebidas no período.</CardDescription>
     </CardHeader>
     <CardContent className="space-y-5">
       {models.map((item) => {
