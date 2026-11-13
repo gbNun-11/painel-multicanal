@@ -307,7 +307,7 @@ const UpsertMultichannelAssignmentForm = ({
 
             <div className="grid gap-2">
               <Label htmlFor="multichannel-lead-capacity">
-                Capacity de LEAD
+                Capacity diário de LEAD
               </Label>
 
               <Input
@@ -331,7 +331,7 @@ const UpsertMultichannelAssignmentForm = ({
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  Limite informado pela Porto para o CPF e produto lógico
+                  Limite diário informado pela Porto para o CPF e produto lógico
                   deste vínculo. Configurações antigas permanecem sem limite
                   até serem preenchidas.
                 </p>

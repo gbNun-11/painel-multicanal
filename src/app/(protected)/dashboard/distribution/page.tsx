@@ -203,7 +203,8 @@ const DistributionDashboardPage = async ({
           <CapacityTable
             capacities={data.capacities}
             periodLabel={data.period.label}
-            granularity={data.period.granularity}
+            singleDay={data.period.granularity === "day" &&
+              data.period.date === data.period.dateEnd}
           />
         </section>
       </PageContent>

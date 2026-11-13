@@ -49,7 +49,7 @@ const statusStyle: Record<
     className: "border-border bg-muted/50 text-muted-foreground",
   },
   reference: {
-    label: "REFERÊNCIA MENSAL",
+    label: "REFERÊNCIA DIÁRIA",
     className: "border-border bg-muted/50 text-muted-foreground",
   },
 };
@@ -64,11 +64,11 @@ const normalizeSearch = (value: string) =>
 const CapacityTable = ({
   capacities,
   periodLabel,
-  granularity,
+  singleDay,
 }: {
   capacities: DistributionDashboardData["capacities"];
   periodLabel: string;
-  granularity: DistributionDashboardData["period"]["granularity"];
+  singleDay: boolean;
 }) => {
   const [search, setSearch] = useState("");
   const filtered = useMemo(() => {
@@ -94,7 +94,7 @@ const CapacityTable = ({
               Capacidade de recebimento — Porto
             </CardTitle>
             <CardDescription>
-              LEAD recebido em {periodLabel}; limite mensal cadastrado por
+              LEAD recebido em {periodLabel}; limite diário cadastrado por
               empresa, produto lógico e vínculo multicanal.
             </CardDescription>
           </div>
@@ -176,11 +176,11 @@ const CapacityTable = ({
             })}
           </TableBody>
         </Table>
-        {granularity !== "month" && capacities.length > 0 && (
+        {!singleDay && capacities.length > 0 && (
           <p className="pt-3 text-xs text-muted-foreground">
-            A diferença e o status de cumprimento são mensais. Para evitar
-            comparar um dia ou um ano com uma capacidade mensal, esses
-            indicadores ficam indisponíveis neste período.
+            O Capacity exibido é diário. A diferença e o status são calculados
+            apenas para um único dia; em intervalos, meses e anos, o limite
+            diário aparece somente como referência.
           </p>
         )}
         {filtered.length === 0 && (

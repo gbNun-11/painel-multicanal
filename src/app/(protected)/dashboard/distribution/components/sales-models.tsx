@@ -48,8 +48,13 @@ const SalesModels = ({ models }: { models: Models }) => (
                 aria-valuemin={item.progressPercent === null ? undefined : 0}
                 aria-valuemax={item.progressPercent === null ? undefined : 100}
                 title={item.progressPercent === null
-                  ? "Referência mensal; sem comparação neste período."
-                  : item.progressPercent + "% da média mensal"}
+                  ? "Referência " +
+                    (item.referencePeriod === "daily" ? "diária" : "mensal") +
+                    "; sem comparação neste período."
+                  : item.progressPercent + "% da referência " +
+                    (item.referencePeriod === "daily" ? "diária" : "mensal") +
+                    " (" + formatNumber.format(item.received) +
+                    " de " + formatNumber.format(item.referenceTotal ?? 0) + ")"}
               >
                 {item.progressPercent !== null && (
                   <div
@@ -63,7 +68,8 @@ const SalesModels = ({ models }: { models: Models }) => (
         );
       })}
       <p className="text-[11px] text-muted-foreground">
-        As barras comparam apenas períodos mensais com a média mensal de chegadas.
+        LEAD: referência diária (proporcional aos dias selecionados). Vínculo
+        e Contingência: referências mensais.
       </p>
     </CardContent>
   </Card>

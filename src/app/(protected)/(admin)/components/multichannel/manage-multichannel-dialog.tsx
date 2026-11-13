@@ -143,7 +143,7 @@ const ManageMultichannelDialog = ({
       },
       {
         accessorKey: "leadCapacity",
-        header: "Capacity (LEAD)",
+        header: "Capacity diário (LEAD)",
         cell: ({ row }) =>
           row.original.leadCapacity === null ? (
             <span className="text-muted-foreground">Não configurado</span>
@@ -221,7 +221,7 @@ const ManageMultichannelDialog = ({
 
                 <p className="text-sm text-muted-foreground">
                   Cada produto lógico pode possuir somente um usuário
-                  multicanal e uma capacidade de LEAD.
+                  multicanal e uma capacidade diária de LEAD.
                 </p>
               </div>
 

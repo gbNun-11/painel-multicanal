@@ -65,7 +65,9 @@ export const normalizeDashboardYear = (
   selectedMonth: string,
 ) => /^20\d{2}$/.test(value ?? "") ? value! : selectedMonth.slice(0, 4);
 
-const MODEL_MONTHLY_AVERAGES: Record<
+// A referência de LEAD é diária; VÍNCULO e CONTINGÊNCIA são mensais.
+// Os valores cadastrados no código permanecem inalterados.
+const MODEL_REFERENCE_VALUES: Record<
   Exclude<DashboardCompany, "all">,
   Record<SalesModel, number>
 > = {
@@ -73,13 +75,13 @@ const MODEL_MONTHLY_AVERAGES: Record<
   INRI: { LEAD: 311, VINCULO: 473, CONTINGENCIA: 594 },
 };
 
-const getModelMonthlyAverage = (
+const getModelReference = (
   company: DashboardCompany,
   model: SalesModel,
 ) =>
   company === "all"
-    ? MODEL_MONTHLY_AVERAGES.ICX[model] + MODEL_MONTHLY_AVERAGES.INRI[model]
-    : MODEL_MONTHLY_AVERAGES[company][model];
+    ? MODEL_REFERENCE_VALUES.ICX[model] + MODEL_REFERENCE_VALUES.INRI[model]
+    : MODEL_REFERENCE_VALUES[company][model];
 
 export const normalizeDashboardCompany = (value?: string): DashboardCompany =>
   value === "ICX" || value === "INRI" ? value : "all";
@@ -112,6 +114,8 @@ export interface DistributionDashboardData {
     model: SalesModel;
     received: number;
     progressPercent: number | null;
+    referencePeriod: "daily" | "monthly";
+    referenceTotal: number | null;
   }[];
   capacities: {
     id: string;
@@ -287,6 +291,16 @@ export const getDistributionDashboard = async (input: {
       : granularity === "year"
         ? year
         : monthLabel(month);
+
+  // A seleção por intervalo é inclusiva; referência diária × dias corridos.
+  const selectedDays =
+    granularity === "day"
+      ? Math.round(
+          (Date.parse(dateEnd + "T00:00:00Z") -
+            Date.parse(date + "T00:00:00Z")) /
+            86400000,
+        ) + 1
+      : 0;
 
   const pendingPage =
     input.pendingPage &&
@@ -514,20 +528,30 @@ export const getDistributionDashboard = async (input: {
     })),
     models: (["LEAD", "VINCULO", "CONTINGENCIA"] as const).map((model) => {
       const received = modelCounts.get(model) ?? 0;
-      const average = getModelMonthlyAverage(company, model);
+      const referencePeriod = model === "LEAD" ? "daily" as const : "monthly" as const;
+      const comparable = model === "LEAD"
+        ? granularity === "day"
+        : granularity === "month";
+      const referenceTotal = comparable
+        ? getModelReference(company, model) * (model === "LEAD" ? selectedDays : 1)
+        : null;
+
       return {
         model,
         received,
-        // Valores acima da média preenchem a barra, sem ultrapassar 100%.
-        progressPercent: granularity === "month"
-          ? Math.min(100, Math.round((received / average) * 100))
+        referencePeriod,
+        referenceTotal,
+        // Nunca compara referência diária a volume mensal, nem o contrário.
+        progressPercent: referenceTotal && referenceTotal > 0
+          ? Math.min(100, Math.round((received / referenceTotal) * 100))
           : null,
       };
     }),
     capacities: capacityRows.map((row) => {
       const capacity = row.capacity;
+      // Capacity de LEAD é diário. A comparação é válida para um único dia.
       const difference =
-        capacity === null || granularity !== "month"
+        capacity === null || granularity !== "day" || date !== dateEnd
           ? null
           : row.received - capacity;
 
