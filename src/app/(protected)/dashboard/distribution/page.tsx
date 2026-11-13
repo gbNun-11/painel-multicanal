@@ -20,6 +20,7 @@ import {
 import {
   getDashboardMonthOptions,
   getDistributionDashboard,
+  normalizeDashboardMonth,
 } from "@/src/data/dashboard/get-distribution-dashboard";
 
 import PendingDates from "./components/pending-dates";
@@ -65,8 +66,18 @@ const DistributionDashboardPage = async ({
       ? Number(params.pendingPage)
       : undefined;
 
-  const data = await getDistributionDashboard({ month, pendingPage });
-  const monthOptions = getDashboardMonthOptions(data.period.month);
+  const monthOptions = await getDashboardMonthOptions();
+  const requestedMonth = normalizeDashboardMonth(month);
+  const selectedMonth = monthOptions.some(
+    (option) => option.value === requestedMonth,
+  )
+    ? requestedMonth
+    : (monthOptions[0]?.value ?? requestedMonth);
+
+  const data = await getDistributionDashboard({
+    month: selectedMonth,
+    pendingPage,
+  });
 
   return (
     <PageContainer>
@@ -82,13 +93,20 @@ const DistributionDashboardPage = async ({
           <details className="group relative">
             <summary className="flex h-9 cursor-pointer list-none items-center gap-2 rounded-md border border-input bg-card px-3 text-xs font-medium select-none hover:bg-accent [&::-webkit-details-marker]:hidden">
               <CalendarDaysIcon className="size-4" aria-hidden="true" />
-              {data.period.label}
+              {monthOptions.length > 0
+                ? data.period.label
+                : "Sem meses com oportunidades"}
               <ChevronDownIcon
                 className="size-4 text-muted-foreground transition-transform group-open:rotate-180"
                 aria-hidden="true"
               />
             </summary>
             <div className="absolute right-0 z-30 mt-1 max-h-72 min-w-48 overflow-y-auto rounded-md border bg-popover p-1 shadow-md">
+              {monthOptions.length === 0 && (
+                <p className="px-3 py-2 text-xs text-muted-foreground">
+                  Nenhuma oportunidade cadastrada.
+                </p>
+              )}
               {monthOptions.map((option) => (
                 <Link
                   key={option.value}

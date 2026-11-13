@@ -70,20 +70,27 @@ export const normalizeDashboardMonth = (value?: string) =>
     ? value
     : currentMonth();
 
-export const getDashboardMonthOptions = (selected: string) => {
-  const [year, month] = currentMonth().split("-").map(Number);
-  const options = Array.from({ length: 36 }, (_, offset) => {
-    const value = new Date(Date.UTC(year, month - 1 - offset, 1))
-      .toISOString()
-      .slice(0, 7);
-    return { value, label: monthLabel(value) };
-  });
+// Exibe somente meses com oportunidades efetivamente criadas no banco.
+// Um mês sem registros não entra no filtro, mesmo que esteja no intervalo.
+export const getDashboardMonthOptions = async () => {
+  await requirePageAccess(PAGE_ACCESS.administrative);
 
-  if (!options.some((option) => option.value === selected)) {
-    options.push({ value: selected, label: monthLabel(selected) });
-  }
+  const creationMonth = sql<string>`
+    to_char(
+      ${opportunitiesTable.createdAt} AT TIME ZONE 'America/Sao_Paulo',
+      'YYYY-MM'
+    )
+  `;
 
-  return options;
+  const months = await db
+    .selectDistinct({ value: creationMonth })
+    .from(opportunitiesTable)
+    .orderBy(desc(creationMonth));
+
+  return months.map(({ value }) => ({
+    value,
+    label: monthLabel(value),
+  }));
 };
 
 export const getDistributionDashboard = async (input: {
