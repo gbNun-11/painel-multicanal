@@ -10,6 +10,7 @@ import { cn } from "@/src/lib/utils";
 function Calendar({
   className,
   classNames,
+  components,
   ...props
 }: React.ComponentProps<typeof DayPicker>) {
   const defaults = getDefaultClassNames();
@@ -56,7 +57,7 @@ function Calendar({
           ) : (
             <ChevronRightIcon {...chevronProps} />
           ),
-        ...props.components,
+        ...components,
       }}
       {...props}
     />

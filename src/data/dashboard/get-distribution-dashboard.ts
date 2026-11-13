@@ -47,12 +47,15 @@ export const normalizeDashboardDate = (
 ) => {
   if (value && isValidDay(value)) return value;
 
-  const current = new Intl.DateTimeFormat("en-CA", {
+  const parts = new Intl.DateTimeFormat("en-US", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
     timeZone: TIME_ZONE,
-  }).format(new Date());
+  }).formatToParts(new Date());
+  const read = (type: string) =>
+    parts.find((part) => part.type === type)!.value;
+  const current = [read("year"), read("month"), read("day")].join("-");
 
   return current.startsWith(selectedMonth) ? current : selectedMonth + "-01";
 };
@@ -166,7 +169,7 @@ export const getDashboardMonthOptions = async (
 ) => {
   await requirePageAccess(PAGE_ACCESS.administrative);
 
-  const creationMonth = sql<string>`
+  const arrivalMonth = sql<string>`
     to_char(
       ${opportunitiesTable.sourceCreatedAt} AT TIME ZONE 'America/Sao_Paulo',
       'YYYY-MM'
@@ -187,7 +190,7 @@ export const getDashboardMonthOptions = async (
     );
 
   const months = await db
-    .selectDistinct({ value: creationMonth })
+    .selectDistinct({ value: arrivalMonth })
     .from(opportunitiesTable)
     .where(
       and(
@@ -195,7 +198,7 @@ export const getDashboardMonthOptions = async (
         sql`${opportunitiesTable.sourceCreatedAt} IS NOT NULL`,
       ),
     )
-    .orderBy(desc(creationMonth));
+    .orderBy(desc(arrivalMonth));
 
   return months.map(({ value }) => ({
     value,
@@ -392,7 +395,7 @@ export const getDistributionDashboard = async (input: {
         .where(and(arrivals, opportunityCompanyCondition))
         .groupBy(opportunitiesTable.salesModel),
 
-      // Backlog global: datas antigas não desaparecem com o filtro mensal.
+      // Backlog global: datas antigas não desaparecem com o filtro selecionado.
       db
         .select({
           date: arrivalDate,

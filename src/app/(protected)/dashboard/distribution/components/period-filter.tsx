@@ -126,6 +126,7 @@ const PeriodFilter = ({
           <div className="flex justify-center">
             <Calendar
               mode="single"
+              required
               selected={selectedDay}
               defaultMonth={selectedDay}
               locale={ptBR}
