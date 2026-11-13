@@ -59,7 +59,7 @@ export const prepareGoalfyBatchReconciliation = async (input: {
 
   if (
     !batch ||
-    !["running", "reconciling", "interrupted"].includes(batch.status)
+    !["reconciling", "interrupted"].includes(batch.status)
   ) {
     throw new Error(
       "Lote inexistente, encerrado ou não autorizado.",
@@ -181,8 +181,8 @@ export const prepareGoalfyBatchReconciliation = async (input: {
       }
 
       if (matches.length === 0) {
-        // A ausência não comprova que o POST falhou.
-        // O filtro TODAY/fase/proprietário tem escopo limitado.
+        // A ausência é válida apenas com paginação integral
+        // do AdvancedFilter. Um resultado incompleto não autoriza reenvio.
         results.push({
           ...base,
           decision: "not_found",
