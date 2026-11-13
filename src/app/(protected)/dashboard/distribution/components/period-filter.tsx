@@ -145,7 +145,7 @@ const PeriodFilter = ({
           </div>
         ) : mode === "month" ? (
           <div className="grid max-h-64 grid-cols-2 gap-1 overflow-y-auto">
-            {months.map(({ value, label }) => (
+            {[...months].reverse().map(({ value, label }) => (
               <Link
                 key={value}
                 href={buildPeriodHref("month", value, period.company)}
