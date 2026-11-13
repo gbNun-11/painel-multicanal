@@ -173,6 +173,13 @@ export const getCreatedGoalfyCardsPage = async (
     title: "Filtro",
     conditionals: [
       {
+        firstField: "card_createdAt",
+        logic: "DATETIME_IS",
+        secondField: "TODAY",
+        groupOperator: "AND",
+        fieldType: "datetime-local",
+      },
+      {
         firstField: "card_owner",
         logic: "LIST_IS",
         secondField: GOALFY_OWNER_ID,
@@ -186,7 +193,7 @@ export const getCreatedGoalfyCardsPage = async (
 
   const response = await goalfyFetch({
     url: url.toString(),
-    operation: "Consultar cards no Goalfy",
+    operation: "Consultar cards criados hoje no Goalfy",
     init: {
       method: "POST",
       headers: {
