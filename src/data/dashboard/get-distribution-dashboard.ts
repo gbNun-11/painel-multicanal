@@ -3,12 +3,16 @@ import "server-only";
 import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 
 import { ENTERPRISE_IDS } from "@/src/constants/enterprises";
+import { INSURER_IDS } from "@/src/constants/insurers";
 import { db } from "@/src/db";
 import {
   enterpriseInsurersTable,
   goalfyDistributionBatchesTable,
   goalfyDistributionBatchItemsTable,
+  multichannelAssignmentsTable,
   opportunitiesTable,
+  productsTable,
+  susepsTable,
   usersTable,
 } from "@/src/db/schema";
 import { PAGE_ACCESS, requirePageAccess } from "@/src/lib/require-page-access";
@@ -58,6 +62,16 @@ export interface DistributionDashboardData {
     model: SalesModel;
     received: number;
     progressPercent: number;
+  }[];
+  capacities: {
+    id: string;
+    product: string;
+    company: "ICX" | "INRI";
+    susepCode: string;
+    received: number;
+    capacity: number | null;
+    difference: number | null;
+    status: "below" | "met" | "over" | "unconfigured";
   }[];
   pendingDates: {
     date: string | null;
@@ -220,7 +234,7 @@ export const getDistributionDashboard = async (input: {
     )
   `;
 
-  const [summaryRows, batchRows, productRows, salespersonRows, modelRows, pendingRows] =
+  const [summaryRows, batchRows, productRows, salespersonRows, modelRows, pendingRows, capacityRows] =
     await Promise.all([
       db
         .select({
@@ -322,6 +336,65 @@ export const getDistributionDashboard = async (input: {
         .orderBy(sql`${arrivalDate} DESC NULLS LAST`)
         .limit(PENDING_PAGE_SIZE + 1)
         .offset((pendingPage - 1) * PENDING_PAGE_SIZE),
+
+      // A capacidade pertence a cada vínculo SUSEP / produto lógico / CPF.
+      // LEFT JOIN mantém produtos configurados mesmo sem LEAD recebido.
+      db
+        .select({
+          id: multichannelAssignmentsTable.id,
+          enterpriseId: enterpriseInsurersTable.enterpriseId,
+          product: productsTable.name,
+          susepCode: susepsTable.code,
+          capacity: multichannelAssignmentsTable.leadCapacity,
+          received: sql<number>`count(${opportunitiesTable.id})::integer`,
+        })
+        .from(multichannelAssignmentsTable)
+        .innerJoin(
+          susepsTable,
+          eq(multichannelAssignmentsTable.susepId, susepsTable.id),
+        )
+        .innerJoin(
+          enterpriseInsurersTable,
+          eq(susepsTable.enterpriseInsurerId, enterpriseInsurersTable.id),
+        )
+        .innerJoin(
+          productsTable,
+          eq(multichannelAssignmentsTable.productId, productsTable.id),
+        )
+        .leftJoin(
+          opportunitiesTable,
+          and(
+            eq(opportunitiesTable.susepId, susepsTable.id),
+            eq(opportunitiesTable.enterpriseInsurerId, enterpriseInsurersTable.id),
+            eq(opportunitiesTable.product, productsTable.name),
+            eq(opportunitiesTable.salesModel, "LEAD"),
+            eq(opportunitiesTable.externalSource, "PORTO"),
+            arrivals,
+          ),
+        )
+        .where(
+          and(
+            eq(enterpriseInsurersTable.insurerId, INSURER_IDS.PORTO),
+            company === "all"
+              ? inArray(enterpriseInsurersTable.enterpriseId, [
+                  ENTERPRISE_IDS.ICX,
+                  ENTERPRISE_IDS.INRI,
+                ])
+              : eq(
+                  enterpriseInsurersTable.enterpriseId,
+                  ENTERPRISE_IDS[company],
+                ),
+            eq(susepsTable.multichannel, true),
+            eq(multichannelAssignmentsTable.status, "ativo"),
+          ),
+        )
+        .groupBy(
+          multichannelAssignmentsTable.id,
+          enterpriseInsurersTable.enterpriseId,
+          productsTable.name,
+          susepsTable.code,
+        )
+        .orderBy(asc(productsTable.name), asc(enterpriseInsurersTable.enterpriseId)),
     ]);
 
   const summary = summaryRows[0];
@@ -356,6 +429,27 @@ export const getDistributionDashboard = async (input: {
         received,
         // Valores acima da média preenchem a barra, sem ultrapassar 100%.
         progressPercent: Math.min(100, Math.round((received / average) * 100)),
+      };
+    }),
+    capacities: capacityRows.map((row) => {
+      const capacity = row.capacity;
+      const difference = capacity === null ? null : row.received - capacity;
+
+      return {
+        id: row.id,
+        product: row.product,
+        company: row.enterpriseId === ENTERPRISE_IDS.ICX ? "ICX" as const : "INRI" as const,
+        susepCode: row.susepCode,
+        received: row.received,
+        capacity,
+        difference,
+        status: difference === null
+          ? "unconfigured" as const
+          : difference < 0
+            ? "below" as const
+            : difference === 0
+              ? "met" as const
+              : "over" as const,
       };
     }),
     pendingDates: pendingRows.slice(0, PENDING_PAGE_SIZE),
