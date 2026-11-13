@@ -220,7 +220,6 @@ const PeriodFilter = ({
               <Calendar
                 {...rangeCalendarProps}
                 numberOfMonths={twoMonths ? 2 : 1}
-                pagedNavigation
               />
             </div>
 
