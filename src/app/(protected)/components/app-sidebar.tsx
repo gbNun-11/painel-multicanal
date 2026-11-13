@@ -293,7 +293,7 @@ export function AppSidebar({ role }: { role: string }) {
                                   <SidebarMenuButton
                                     className={
                                       isActive
-                                        ? "w-[calc(100%+0.5rem)] rounded-r-none"
+                                        ? "relative z-20 w-[calc(100%+0.5rem)] rounded-r-none data-active:bg-background data-active:hover:bg-background data-active:active:bg-background data-active:shadow-[4px_0_0_0_var(--background)]"
                                         : undefined
                                     }
                                     isActive={isActive}

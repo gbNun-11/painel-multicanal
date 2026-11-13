@@ -103,7 +103,7 @@ export const clientsTableColumns: ColumnDef<
     cell: ({ row }) => (
       <Link
         href={`/clients/${row.original.clientId}`}
-        className="font-medium hover:underline focus-visible:underline"
+        className="font-medium focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         aria-label={`Abrir cadastro 360 de ${row.original.name}`}
       >
         {row.original.name}
