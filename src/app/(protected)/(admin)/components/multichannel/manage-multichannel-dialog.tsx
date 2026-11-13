@@ -142,6 +142,16 @@ const ManageMultichannelDialog = ({
         },
       },
       {
+        accessorKey: "leadCapacity",
+        header: "Capacity (LEAD)",
+        cell: ({ row }) =>
+          row.original.leadCapacity === null ? (
+            <span className="text-muted-foreground">Não configurado</span>
+          ) : (
+            new Intl.NumberFormat("pt-BR").format(row.original.leadCapacity)
+          ),
+      },
+      {
         accessorKey: "status",
         header: "Status",
         cell: ({ row }) => <StatusBadge status={row.original.status} />,
@@ -211,7 +221,7 @@ const ManageMultichannelDialog = ({
 
                 <p className="text-sm text-muted-foreground">
                   Cada produto lógico pode possuir somente um usuário
-                  multicanal.
+                  multicanal e uma capacidade de LEAD.
                 </p>
               </div>
 

@@ -98,7 +98,7 @@ const MultichannelAssignmentActions = ({
           }}
         >
           <PencilIcon className="size-4" />
-          Alterar usuário
+          Editar configuração
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />

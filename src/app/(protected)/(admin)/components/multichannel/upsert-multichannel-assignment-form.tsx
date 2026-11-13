@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/src/components/ui/dialog";
 import { FormSubmitButton } from "@/src/components/ui/form-submit-button";
+import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
 import {
   Select,
@@ -59,6 +60,8 @@ const getDefaultValues = (
   productId: assignment?.productId ?? "",
 
   userId: assignment?.userId ?? "",
+
+  leadCapacity: assignment?.leadCapacity ?? null,
 });
 
 const UpsertMultichannelAssignmentForm = ({
@@ -76,6 +79,7 @@ const UpsertMultichannelAssignmentForm = ({
     control,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<UpsertMultichannelAssignmentFormData>({
     resolver: zodResolver(upsertMultichannelAssignmentSchema),
@@ -254,6 +258,15 @@ const UpsertMultichannelAssignmentForm = ({
                     onValueChange={(value) => {
                       if (value !== null) {
                         field.onChange(value);
+
+                        // A capacidade pertence ao CPF configurado.
+                        // Ao trocar o usuário, solicitar o novo limite.
+                        if (assignment && value !== assignment.userId) {
+                          setValue("leadCapacity", null, {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                          });
+                        }
                       }
                     }}
                   >
@@ -288,6 +301,39 @@ const UpsertMultichannelAssignmentForm = ({
                 <p className="text-xs text-muted-foreground">
                   Este usuário é a configuração multicanal. Ele não será
                   definido como vendedor da oportunidade.
+                </p>
+              )}
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="multichannel-lead-capacity">
+                Capacity de LEAD
+              </Label>
+
+              <Input
+                id="multichannel-lead-capacity"
+                type="number"
+                min={0}
+                max={2147483647}
+                step={1}
+                inputMode="numeric"
+                placeholder="Informe o limite de LEAD"
+                aria-invalid={!!errors.leadCapacity}
+                {...register("leadCapacity", {
+                  setValueAs: (value: string | number | null) =>
+                    value === "" || value === null ? null : Number(value),
+                })}
+              />
+
+              {errors.leadCapacity ? (
+                <p className="text-xs text-destructive">
+                  {errors.leadCapacity.message}
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Limite informado pela Porto para o CPF e produto lógico
+                  deste vínculo. Configurações antigas permanecem sem limite
+                  até serem preenchidas.
                 </p>
               )}
             </div>
