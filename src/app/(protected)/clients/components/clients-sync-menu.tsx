@@ -38,10 +38,6 @@ interface ClientsSyncMenuProps {
   goalfyOptions: GoalfyImportOptions;
 }
 
-// Permite que o índice do Goalfy reflita os cards recém-criados.
-const waitForGoalfyIndex = () =>
-  new Promise<void>((resolve) => setTimeout(resolve, 5_000));
-
 const getErrorMessage = (error: unknown, fallback: string) => {
   return error instanceof Error ? error.message : fallback;
 };
@@ -282,10 +278,6 @@ const ClientsSyncMenu = ({
       }
     }
 
-    // Aguardar a atualização do Goalfy após o último POST.
-    // Não reenviar nenhum card durante a espera.
-    await waitForGoalfyIndex();
-
     // Todas as ações individuais terminaram.
     // Somente agora executamos a conciliação consolidada.
     let finishedResult;
@@ -314,29 +306,6 @@ const ClientsSyncMenu = ({
     }
 
     const reconciliation = finishedResult.data;
-    const recoveredIds = new Set<string>();
-
-    for (const item of reconciliation.confirmed) {
-      recoveredIds.add(item.opportunityId);
-
-      if (rememberConfirmed(item)) {
-        successfulImports += 1;
-      }
-    }
-
-    // Uma falha recuperada não deve continuar sendo apresentada
-    // como falha de criação no relatório final.
-    for (let index = importFailures.length - 1; index >= 0; index -= 1) {
-      const failure = importFailures[index];
-
-      if (
-        failure.stage === "goalfy" &&
-        failure.clientIds.some((id) => recoveredIds.has(id))
-      ) {
-        importFailures.splice(index, 1);
-        failedImports = Math.max(0, failedImports - 1);
-      }
-    }
 
     // Todas as notificações confirmadas são controladas
     // pelo despachante compartilhado, nunca por envio direto.
@@ -494,6 +463,7 @@ const ClientsSyncMenu = ({
     const importFailures: GoalfyImportFailure[] = [];
 
     let completedImports = 0;
+    const confirmedIds = new Set<string>();
 
     onProgress(0, payload.clientIds.length);
 
@@ -517,7 +487,9 @@ const ClientsSyncMenu = ({
           continue;
         }
 
-        if (result?.success === false && result.failure) {
+        if (result?.success === true && result.client) {
+          confirmedIds.add(result.client.id);
+        } else if (result?.success === false && result.failure) {
           failedIds.add(clientId);
 
           const failure = result.failure;
@@ -552,10 +524,6 @@ const ClientsSyncMenu = ({
       }
     }
 
-    // Aguardar a atualização do Goalfy após o último POST.
-    // Não reenviar nenhum card durante a espera.
-    await waitForGoalfyIndex();
-
     // Conciliação única após todos os POSTs individuais.
     // O fechamento nunca cria um novo card.
     let finished;
@@ -585,19 +553,7 @@ const ClientsSyncMenu = ({
 
     const reconciliation = finished.data;
 
-    const confirmedIds = new Set(
-      reconciliation.confirmed.map((item) => item.opportunityId),
-    );
-
-    // Remover falhas de criação posteriormente recuperadas.
-    for (const opportunityId of confirmedIds) {
-      failedIds.delete(opportunityId);
-    }
-
-    const finalFailures = importFailures.filter(
-      (failure) =>
-        !failure.clientIds.some((id) => confirmedIds.has(id)),
-    );
+    const finalFailures = importFailures;
 
     let notificationsPending = false;
     let notificationMessage = "";

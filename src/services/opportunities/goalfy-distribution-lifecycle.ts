@@ -109,7 +109,7 @@ export const confirmTrackedGoalfyDistribution = async (
       .limit(1)
       .for("update");
 
-    if (!batch || batch.status !== "reconciling") {
+    if (!batch || !["running", "reconciling"].includes(batch.status)) {
       throw new Error(
         "Lote indisponível para confirmação transacional.",
       );

@@ -11,7 +11,6 @@ import {
   goalfyDistributionBatchItemsTable,
   insurersTable,
   opportunitiesTable,
-  productCodesTable,
   usersTable,
 } from "@/src/db/schema";
 import {
@@ -30,10 +29,12 @@ import {
 } from "@/src/integrations/goalfy/report";
 
 import {
+  confirmTrackedGoalfyDistribution,
   markGoalfyDistributionInconclusive,
   markGoalfyRequestStarted,
   releaseUnsentGoalfyDistribution,
 } from "./goalfy-distribution-lifecycle";
+import { prepareGoalfyCardForOpportunity } from "./prepare-goalfy-card-from-opportunity";
 
 type SalesModel = "LEAD" | "VINCULO" | "CONTINGENCIA";
 
@@ -552,67 +553,12 @@ export const distributeGoalfyOpportunity = async (
   };
 
   let cardInput: GoalfyCreateCardData;
-
   try {
-    if (!opportunity.productCodeId) {
-      throw new Error("Oportunidade sem variação de produto vinculada.");
-    }
-
-    const [variant] = await db
-      .select({
-        name: productCodesTable.name,
-      })
-      .from(productCodesTable)
-      .where(eq(productCodesTable.id, opportunity.productCodeId))
-      .limit(1);
-
-    if (!variant?.name?.trim()) {
-      throw new Error("Variação de produto não encontrada.");
-    }
-
-    cardInput = {
-      id: opportunityId,
+    cardInput = await prepareGoalfyCardForOpportunity({
+      opportunityId,
+      salespersonId,
       distributionAt,
-      externalId: opportunity.externalId,
-      opportunityNumber: opportunity.opportunityNumber,
-      goalfyResponsibleValue,
-
-      name: opportunity.name,
-      document: opportunity.document,
-      email: opportunity.email,
-      phone: opportunity.phone,
-      birthDate: opportunity.birthDate,
-
-      product: opportunity.product,
-      productSubcategory: variant.name,
-
-      salesModel:
-        request.kind === "automatic"
-          ? request.salesModel
-          : (opportunity.salesModel ?? "LEAD"),
-
-      sourceCreatedAt: opportunity.sourceCreatedAt,
-      propensity: opportunity.propensity,
-
-      model: opportunity.model,
-      modelYear: opportunity.modelYear,
-      licensePlate: opportunity.licensePlate,
-      assetValue: opportunity.assetValue,
-
-      zipCode: opportunity.zipCode,
-      address: opportunity.address,
-      addressNumber: opportunity.addressNumber,
-      addressComplement: opportunity.addressComplement,
-      state: opportunity.state,
-      city: opportunity.city,
-      neighborhood: opportunity.neighborhood,
-
-      observation: opportunity.observation,
-      externalStatusReason: opportunity.externalStatusReason,
-
-      insurerName: enterprise.insurerName,
-      enterpriseName: enterprise.enterpriseName,
-    };
+    });
 
     // Detecta payload inválido antes de qualquer POST.
     buildGoalfyCardBody(cardInput);
@@ -698,21 +644,14 @@ export const distributeGoalfyOpportunity = async (
       );
     }
 
-    // O HTTP de sucesso não comprova a presença do card
-    // na consulta consolidada do Goalfy.
-    // O registro permanece em status "sent" até a conciliação.
-    // Somente finishGoalfyDistributionBatchAction poderá
-    // confirmar e excluir o controle temporário.
-    // POST aceito: resultado intermediário, não uma falha.
-    // A oportunidade continua bloqueada até a conciliação.
-    // O sucesso definitivo será retornado pelo fechamento
-    // do lote após validação dos identificadores no Goalfy.
-    return {
-      success: false as const,
-      awaitingReconciliation: true as const,
-      opportunityId,
-      failure: null,
-    };
+    // Sucesso do POST: marcar distribuído e remover o item temporário.
+    // Falha de gravação após o POST mantém controle para conferência manual.
+    try {
+      await confirmTrackedGoalfyDistribution(tracked, distributionAt);
+      return confirmedResult();
+    } catch (error) {
+      return pending("goalfy_confirmation_pending", errorDetails(error), 1);
+    }
   }
 
   // Conferência anterior à primeira tentativa.
