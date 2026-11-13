@@ -9,7 +9,7 @@ import {
   goalfyDistributionBatchItemsTable,
   goalfyDistributionNotificationItemsTable,
 } from "@/src/db/schema";
-import { createGoalfyCard, buildGoalfyCardBody } from "@/src/integrations/goalfy/create-card";
+import { buildGoalfyCardBody, createGoalfyCard } from "@/src/integrations/goalfy/create-card";
 import { getGoalfyErrorDetails } from "@/src/integrations/goalfy/goalfy-fetch";
 import { ActionError, protectedActionClient } from "@/src/lib/safe-action";
 import { confirmTrackedGoalfyDistribution } from "@/src/services/opportunities/goalfy-distribution-lifecycle";

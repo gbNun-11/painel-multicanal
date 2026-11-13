@@ -134,9 +134,8 @@ export const goalfyFetch = async ({
 }: GoalfyFetchParams) => {
   const method = (init.method ?? "GET").toUpperCase();
 
-  // POST nunca é repetido automaticamente aqui.
-  // O serviço de distribuição controla as 5
-  // tentativas e consulta o XLSX entre elas.
+  // POST nunca é repetido automaticamente nesta integração.
+  // Um novo envio exige uma nova ação explícita do operador.
   const maxAttempts =
     method === "GET" || method === "HEAD" ? GOALFY_MAX_ATTEMPTS : 1;
 
