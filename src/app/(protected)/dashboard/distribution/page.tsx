@@ -25,6 +25,7 @@ import {
   normalizeDashboardMonth,
 } from "@/src/data/dashboard/get-distribution-dashboard";
 
+import CapacityTable from "./components/capacity-table";
 import PendingDates from "./components/pending-dates";
 import ProductsChart from "./components/products-chart";
 import SalesModels from "./components/sales-models";
@@ -231,6 +232,13 @@ const DistributionDashboardPage = async ({
             <SalesModels models={data.models} />
           </section>
         </div>
+
+        <section aria-label="Capacidade de LEAD da Porto">
+          <CapacityTable
+            capacities={data.capacities}
+            periodLabel={data.period.label}
+          />
+        </section>
       </PageContent>
     </PageContainer>
   );
