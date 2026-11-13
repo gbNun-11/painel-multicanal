@@ -1,0 +1,276 @@
+import "server-only";
+
+import { and, asc, desc, eq, isNull, or, sql } from "drizzle-orm";
+
+import { db } from "@/src/db";
+import {
+  goalfyDistributionBatchesTable,
+  goalfyDistributionBatchItemsTable,
+  opportunitiesTable,
+  usersTable,
+} from "@/src/db/schema";
+import { PAGE_ACCESS, requirePageAccess } from "@/src/lib/require-page-access";
+
+const TIME_ZONE = "America/Sao_Paulo";
+const PENDING_PAGE_SIZE = 10;
+
+type SalesModel = "LEAD" | "VINCULO" | "CONTINGENCIA";
+
+export interface DistributionDashboardData {
+  period: { month: string; label: string };
+  summary: {
+    received: number;
+    distributed: number;
+    errorBatches: number;
+    averageDistributionMinutes: number | null;
+  };
+  products: { product: string; received: number; distributed: number }[];
+  salespeople: {
+    id: string;
+    name: string;
+    role: string;
+    avatarUrl: string | null;
+    distributed: number;
+  }[];
+  models: {
+    model: SalesModel;
+    received: number;
+    progressPercent: number | null;
+  }[];
+  pendingDates: { date: string | null; pending: number }[];
+  pendingPage: number;
+  pendingDatesHasMore: boolean;
+}
+
+const monthLabel = (month: string) => {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const formatted = new Intl.DateTimeFormat("pt-BR", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(year, monthNumber - 1, 1)));
+
+  return formatted.charAt(0).toLocaleUpperCase("pt-BR") + formatted.slice(1);
+};
+
+const currentMonth = () => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "2-digit",
+    timeZone: TIME_ZONE,
+  }).formatToParts(new Date());
+
+  const year = parts.find((part) => part.type === "year")!.value;
+  const month = parts.find((part) => part.type === "month")!.value;
+  return year + "-" + month;
+};
+
+export const normalizeDashboardMonth = (value?: string) =>
+  value && /^20\d{2}-(0[1-9]|1[0-2])$/.test(value)
+    ? value
+    : currentMonth();
+
+export const getDashboardMonthOptions = (selected: string) => {
+  const [year, month] = currentMonth().split("-").map(Number);
+  const options = Array.from({ length: 36 }, (_, offset) => {
+    const value = new Date(Date.UTC(year, month - 1 - offset, 1))
+      .toISOString()
+      .slice(0, 7);
+    return { value, label: monthLabel(value) };
+  });
+
+  if (!options.some((option) => option.value === selected)) {
+    options.push({ value: selected, label: monthLabel(selected) });
+  }
+
+  return options;
+};
+
+export const getDistributionDashboard = async (input: {
+  month?: string;
+  pendingPage?: number;
+}): Promise<DistributionDashboardData> => {
+  await requirePageAccess(PAGE_ACCESS.administrative);
+
+  const month = normalizeDashboardMonth(input.month);
+  const [year, monthNumber] = month.split("-").map(Number);
+  const start = month + "-01";
+  const end = new Date(Date.UTC(year, monthNumber, 1))
+    .toISOString()
+    .slice(0, 10);
+
+  const pendingPage =
+    input.pendingPage &&
+    Number.isSafeInteger(input.pendingPage) &&
+    input.pendingPage >= 1 &&
+    input.pendingPage <= 100000
+      ? input.pendingPage
+      : 1;
+
+  // Mesmos limites (inclusivo/exclusivo) e fuso para todos os blocos.
+  const arrivals = sql<boolean>`
+    ${opportunitiesTable.sourceCreatedAt} >=
+    (${start}::date AT TIME ZONE 'America/Sao_Paulo')
+    AND ${opportunitiesTable.sourceCreatedAt} <
+    (${end}::date AT TIME ZONE 'America/Sao_Paulo')
+  `;
+
+  const distributions = sql<boolean>`
+    ${opportunitiesTable.assignedAt} >=
+    (${start}::date AT TIME ZONE 'America/Sao_Paulo')
+    AND ${opportunitiesTable.assignedAt} <
+    (${end}::date AT TIME ZONE 'America/Sao_Paulo')
+  `;
+
+  const distributionConfirmed = and(
+    distributions,
+    eq(opportunitiesTable.distributionStatus, "distribuido"),
+  )!;
+
+  // Mantém a mesma definição de elegibilidade da tela de distribuição.
+  const backlogCondition = and(
+    eq(opportunitiesTable.distributionStatus, "novo"),
+    eq(opportunitiesTable.salesStatus, "aberto"),
+    isNull(opportunitiesTable.salespersonId),
+  )!;
+
+  const arrivalDate = sql<string | null>`
+    to_char(
+      ${opportunitiesTable.sourceCreatedAt} AT TIME ZONE 'America/Sao_Paulo',
+      'YYYY-MM-DD'
+    )
+  `;
+
+  const [summaryRows, batchRows, productRows, salespersonRows, modelRows, pendingRows] =
+    await Promise.all([
+      db
+        .select({
+          received: sql<number>`
+            count(*) FILTER (WHERE ${arrivals})::integer
+          `,
+          distributed: sql<number>`
+            count(*) FILTER (WHERE ${distributionConfirmed})::integer
+          `,
+          averageSeconds: sql<number | null>`
+            avg(extract(epoch from (
+              ${opportunitiesTable.assignedAt} - ${opportunitiesTable.sourceCreatedAt}
+            ))) FILTER (
+              WHERE ${distributionConfirmed}
+                AND ${opportunitiesTable.sourceCreatedAt} IS NOT NULL
+                AND ${opportunitiesTable.assignedAt} >= ${opportunitiesTable.sourceCreatedAt}
+            )::double precision
+          `,
+        })
+        .from(opportunitiesTable)
+        .where(or(arrivals, distributions)),
+
+      // Um lote só é problemático se mantém criações não confirmadas.
+      db
+        .select({
+          total: sql<number>`
+            count(DISTINCT ${goalfyDistributionBatchItemsTable.batchId})::integer
+          `,
+        })
+        .from(goalfyDistributionBatchItemsTable)
+        .innerJoin(
+          goalfyDistributionBatchesTable,
+          eq(
+            goalfyDistributionBatchItemsTable.batchId,
+            goalfyDistributionBatchesTable.id,
+          ),
+        )
+        .where(
+          and(
+            sql`${goalfyDistributionBatchItemsTable.status} IN ('sent', 'inconclusive')`,
+            sql`${goalfyDistributionBatchesTable.status} IN ('reconciling', 'interrupted')`,
+          ),
+        ),
+
+      // Barras: ambas as quantidades pertencem à mesma safra recebida.
+      db
+        .select({
+          product: opportunitiesTable.product,
+          received: sql<number>`count(*)::integer`,
+          distributed: sql<number>`
+            count(*) FILTER (
+              WHERE ${opportunitiesTable.distributionStatus} = 'distribuido'
+            )::integer
+          `,
+        })
+        .from(opportunitiesTable)
+        .where(arrivals)
+        .groupBy(opportunitiesTable.product)
+        .orderBy(desc(sql`count(*)`), asc(opportunitiesTable.product)),
+
+      db
+        .select({
+          id: usersTable.id,
+          name: usersTable.name,
+          role: usersTable.role,
+          avatarUrl: usersTable.image,
+          distributed: sql<number>`count(*)::integer`,
+        })
+        .from(opportunitiesTable)
+        .innerJoin(usersTable, eq(opportunitiesTable.salespersonId, usersTable.id))
+        .where(distributionConfirmed)
+        .groupBy(usersTable.id, usersTable.name, usersTable.role, usersTable.image)
+        .orderBy(desc(sql`count(*)`), asc(usersTable.name))
+        .limit(10),
+
+      db
+        .select({
+          model: opportunitiesTable.salesModel,
+          received: sql<number>`count(*)::integer`,
+        })
+        .from(opportunitiesTable)
+        .where(arrivals)
+        .groupBy(opportunitiesTable.salesModel),
+
+      // Backlog global: datas antigas não desaparecem com o filtro mensal.
+      db
+        .select({
+          date: arrivalDate,
+          pending: sql<number>`count(*)::integer`,
+        })
+        .from(opportunitiesTable)
+        .where(backlogCondition)
+        .groupBy(arrivalDate)
+        .orderBy(sql`${arrivalDate} DESC NULLS LAST`)
+        .limit(PENDING_PAGE_SIZE + 1)
+        .offset((pendingPage - 1) * PENDING_PAGE_SIZE),
+    ]);
+
+  const summary = summaryRows[0];
+  const modelCounts = new Map(modelRows.map((item) => [item.model, item.received]));
+
+  return {
+    period: { month, label: monthLabel(month) },
+    summary: {
+      received: summary?.received ?? 0,
+      distributed: summary?.distributed ?? 0,
+      errorBatches: batchRows[0]?.total ?? 0,
+      averageDistributionMinutes:
+        summary?.averageSeconds === null ||
+        summary?.averageSeconds === undefined
+          ? null
+          : Math.round(Number(summary.averageSeconds) / 60),
+    },
+    products: productRows.map((row) => ({
+      product: row.product.trim() || "Não informado",
+      received: row.received,
+      distributed: row.distributed,
+    })),
+    salespeople: salespersonRows.map((row) => ({
+      ...row,
+      avatarUrl: row.avatarUrl?.trim() || null,
+    })),
+    models: (["LEAD", "VINCULO", "CONTINGENCIA"] as const).map((model) => ({
+      model,
+      received: modelCounts.get(model) ?? 0,
+      progressPercent: null, // Base de 100% ainda não definida.
+    })),
+    pendingDates: pendingRows.slice(0, PENDING_PAGE_SIZE),
+    pendingPage,
+    pendingDatesHasMore: pendingRows.length > PENDING_PAGE_SIZE,
+  };
+};
