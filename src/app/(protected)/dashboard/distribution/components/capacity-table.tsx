@@ -48,6 +48,10 @@ const statusStyle: Record<
     label: "NÃO CONFIGURADO",
     className: "border-border bg-muted/50 text-muted-foreground",
   },
+  reference: {
+    label: "REFERÊNCIA MENSAL",
+    className: "border-border bg-muted/50 text-muted-foreground",
+  },
 };
 
 const normalizeSearch = (value: string) =>
@@ -60,9 +64,11 @@ const normalizeSearch = (value: string) =>
 const CapacityTable = ({
   capacities,
   periodLabel,
+  granularity,
 }: {
   capacities: DistributionDashboardData["capacities"];
   periodLabel: string;
+  granularity: DistributionDashboardData["period"]["granularity"];
 }) => {
   const [search, setSearch] = useState("");
   const filtered = useMemo(() => {
@@ -88,8 +94,8 @@ const CapacityTable = ({
               Capacidade de recebimento — Porto
             </CardTitle>
             <CardDescription>
-              LEAD recebido em {periodLabel}; limite cadastrado por empresa,
-              produto lógico e vínculo multicanal.
+              LEAD recebido em {periodLabel}; limite mensal cadastrado por
+              empresa, produto lógico e vínculo multicanal.
             </CardDescription>
           </div>
           <Badge variant="outline">LEAD</Badge>
@@ -170,6 +176,13 @@ const CapacityTable = ({
             })}
           </TableBody>
         </Table>
+        {granularity !== "month" && capacities.length > 0 && (
+          <p className="pt-3 text-xs text-muted-foreground">
+            A diferença e o status de cumprimento são mensais. Para evitar
+            comparar um dia ou um ano com uma capacidade mensal, esses
+            indicadores ficam indisponíveis neste período.
+          </p>
+        )}
         {filtered.length === 0 && (
           <p className="py-10 text-center text-sm text-muted-foreground">
             {capacities.length === 0

@@ -12,6 +12,7 @@ import {
 } from "@/src/components/ui/card";
 import type {
   DashboardCompany,
+  DashboardPeriodMode,
   DistributionDashboardData,
 } from "@/src/data/dashboard/get-distribution-dashboard";
 import { formatDate } from "@/src/utils/date-formatters";
@@ -28,12 +29,35 @@ const PendingDates = ({
   pendingDatesHasMore,
   pendingPage,
   month,
+  date,
+  year,
+  granularity,
   company,
-}: Pending & { month: string; company: DashboardCompany }) => {
-  const urlFor = (page: number) =>
-    "/dashboard/distribution?month=" + encodeURIComponent(month) +
-    (company === "all" ? "" : "&company=" + company) +
-    "&pendingPage=" + page;
+}: Pending & {
+  month: string;
+  date: string;
+  year: string;
+  granularity: DashboardPeriodMode;
+  company: DashboardCompany;
+}) => {
+  const urlFor = (page: number) => {
+    const query = new URLSearchParams();
+
+    if (company !== "all") query.set("company", company);
+
+    if (granularity === "day") {
+      query.set("period", "day");
+      query.set("date", date);
+    } else if (granularity === "year") {
+      query.set("period", "year");
+      query.set("year", year);
+    } else {
+      query.set("month", month);
+    }
+
+    query.set("pendingPage", String(page));
+    return "/dashboard/distribution?" + query.toString();
+  };
 
   return (
     <Card className="h-full">
