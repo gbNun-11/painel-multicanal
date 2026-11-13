@@ -62,7 +62,7 @@ const menuGroups: MenuGroup[] = [
     items: [
       {
         title: "Dashboard de Distribuição",
-        url: "/dashboard",
+        url: "/dashboard/distribution",
         icon: ChartColumnIcon,
       },
       {
