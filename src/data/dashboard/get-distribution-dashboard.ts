@@ -1,9 +1,11 @@
 import "server-only";
 
-import { and, asc, desc, eq, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 
+import { ENTERPRISE_IDS } from "@/src/constants/enterprises";
 import { db } from "@/src/db";
 import {
+  enterpriseInsurersTable,
   goalfyDistributionBatchesTable,
   goalfyDistributionBatchItemsTable,
   opportunitiesTable,
@@ -15,9 +17,29 @@ const TIME_ZONE = "America/Sao_Paulo";
 const PENDING_PAGE_SIZE = 10;
 
 type SalesModel = "LEAD" | "VINCULO" | "CONTINGENCIA";
+export type DashboardCompany = "all" | "ICX" | "INRI";
+
+const MODEL_MONTHLY_AVERAGES: Record<
+  Exclude<DashboardCompany, "all">,
+  Record<SalesModel, number>
+> = {
+  ICX: { LEAD: 105, VINCULO: 30, CONTINGENCIA: 238 },
+  INRI: { LEAD: 311, VINCULO: 473, CONTINGENCIA: 594 },
+};
+
+const getModelMonthlyAverage = (
+  company: DashboardCompany,
+  model: SalesModel,
+) =>
+  company === "all"
+    ? MODEL_MONTHLY_AVERAGES.ICX[model] + MODEL_MONTHLY_AVERAGES.INRI[model]
+    : MODEL_MONTHLY_AVERAGES[company][model];
+
+export const normalizeDashboardCompany = (value?: string): DashboardCompany =>
+  value === "ICX" || value === "INRI" ? value : "all";
 
 export interface DistributionDashboardData {
-  period: { month: string; label: string };
+  period: { month: string; label: string; company: DashboardCompany };
   summary: {
     received: number;
     distributed: number;
@@ -35,9 +57,16 @@ export interface DistributionDashboardData {
   models: {
     model: SalesModel;
     received: number;
-    progressPercent: number | null;
+    progressPercent: number;
   }[];
-  pendingDates: { date: string | null; pending: number }[];
+  pendingDates: {
+    date: string | null;
+    pending: number;
+    lead: number;
+    vinculo: number;
+    contingencia: number;
+    withoutModel: number;
+  }[];
   pendingPage: number;
   pendingDatesHasMore: boolean;
 }
@@ -72,7 +101,9 @@ export const normalizeDashboardMonth = (value?: string) =>
 
 // Exibe somente meses com oportunidades efetivamente criadas no banco.
 // Um mês sem registros não entra no filtro, mesmo que esteja no intervalo.
-export const getDashboardMonthOptions = async () => {
+export const getDashboardMonthOptions = async (
+  company: DashboardCompany = "all",
+) => {
   await requirePageAccess(PAGE_ACCESS.administrative);
 
   const creationMonth = sql<string>`
@@ -82,9 +113,28 @@ export const getDashboardMonthOptions = async () => {
     )
   `;
 
+  const selectedCompany = normalizeDashboardCompany(company);
+  const companyInsurers =
+    selectedCompany === "all"
+      ? null
+      : db
+          .select({ id: enterpriseInsurersTable.id })
+          .from(enterpriseInsurersTable)
+          .where(
+            eq(
+              enterpriseInsurersTable.enterpriseId,
+              ENTERPRISE_IDS[selectedCompany],
+            ),
+          );
+
   const months = await db
     .selectDistinct({ value: creationMonth })
     .from(opportunitiesTable)
+    .where(
+      companyInsurers
+        ? inArray(opportunitiesTable.enterpriseInsurerId, companyInsurers)
+        : undefined,
+    )
     .orderBy(desc(creationMonth));
 
   return months.map(({ value }) => ({
@@ -95,11 +145,27 @@ export const getDashboardMonthOptions = async () => {
 
 export const getDistributionDashboard = async (input: {
   month?: string;
+  company?: DashboardCompany;
   pendingPage?: number;
 }): Promise<DistributionDashboardData> => {
   await requirePageAccess(PAGE_ACCESS.administrative);
 
   const month = normalizeDashboardMonth(input.month);
+  const company = normalizeDashboardCompany(input.company);
+  const companyInsurers =
+    company === "all"
+      ? null
+      : db
+          .select({ id: enterpriseInsurersTable.id })
+          .from(enterpriseInsurersTable)
+          .where(eq(enterpriseInsurersTable.enterpriseId, ENTERPRISE_IDS[company]));
+
+  const opportunityCompanyCondition = companyInsurers
+    ? inArray(opportunitiesTable.enterpriseInsurerId, companyInsurers)
+    : undefined;
+  const batchCompanyCondition = companyInsurers
+    ? inArray(goalfyDistributionBatchItemsTable.enterpriseInsurerId, companyInsurers)
+    : undefined;
   const [year, monthNumber] = month.split("-").map(Number);
   const start = month + "-01";
   const end = new Date(Date.UTC(year, monthNumber, 1))
@@ -169,7 +235,7 @@ export const getDistributionDashboard = async (input: {
           `,
         })
         .from(opportunitiesTable)
-        .where(or(arrivals, distributions)),
+        .where(and(or(arrivals, distributions), opportunityCompanyCondition)),
 
       // Um lote só é problemático se mantém criações não confirmadas.
       db
@@ -190,6 +256,7 @@ export const getDistributionDashboard = async (input: {
           and(
             sql`${goalfyDistributionBatchItemsTable.status} IN ('sent', 'inconclusive')`,
             sql`${goalfyDistributionBatchesTable.status} IN ('reconciling', 'interrupted')`,
+            batchCompanyCondition,
           ),
         ),
 
@@ -205,7 +272,7 @@ export const getDistributionDashboard = async (input: {
           `,
         })
         .from(opportunitiesTable)
-        .where(arrivals)
+        .where(and(arrivals, opportunityCompanyCondition))
         .groupBy(opportunitiesTable.product)
         .orderBy(desc(sql`count(*)`), asc(opportunitiesTable.product)),
 
@@ -219,7 +286,7 @@ export const getDistributionDashboard = async (input: {
         })
         .from(opportunitiesTable)
         .innerJoin(usersTable, eq(opportunitiesTable.salespersonId, usersTable.id))
-        .where(distributionConfirmed)
+        .where(and(distributionConfirmed, opportunityCompanyCondition))
         .groupBy(usersTable.id, usersTable.name, usersTable.role, usersTable.image)
         .orderBy(desc(sql`count(*)`), asc(usersTable.name))
         .limit(10),
@@ -230,7 +297,7 @@ export const getDistributionDashboard = async (input: {
           received: sql<number>`count(*)::integer`,
         })
         .from(opportunitiesTable)
-        .where(arrivals)
+        .where(and(arrivals, opportunityCompanyCondition))
         .groupBy(opportunitiesTable.salesModel),
 
       // Backlog global: datas antigas não desaparecem com o filtro mensal.
@@ -238,9 +305,13 @@ export const getDistributionDashboard = async (input: {
         .select({
           date: arrivalDate,
           pending: sql<number>`count(*)::integer`,
+          lead: sql<number>`count(*) FILTER (WHERE ${opportunitiesTable.salesModel} = 'LEAD')::integer`,
+          vinculo: sql<number>`count(*) FILTER (WHERE ${opportunitiesTable.salesModel} = 'VINCULO')::integer`,
+          contingencia: sql<number>`count(*) FILTER (WHERE ${opportunitiesTable.salesModel} = 'CONTINGENCIA')::integer`,
+          withoutModel: sql<number>`count(*) FILTER (WHERE ${opportunitiesTable.salesModel} IS NULL)::integer`,
         })
         .from(opportunitiesTable)
-        .where(backlogCondition)
+        .where(and(backlogCondition, opportunityCompanyCondition))
         .groupBy(arrivalDate)
         .orderBy(sql`${arrivalDate} DESC NULLS LAST`)
         .limit(PENDING_PAGE_SIZE + 1)
@@ -251,7 +322,7 @@ export const getDistributionDashboard = async (input: {
   const modelCounts = new Map(modelRows.map((item) => [item.model, item.received]));
 
   return {
-    period: { month, label: monthLabel(month) },
+    period: { month, label: monthLabel(month), company },
     summary: {
       received: summary?.received ?? 0,
       distributed: summary?.distributed ?? 0,
@@ -271,11 +342,16 @@ export const getDistributionDashboard = async (input: {
       ...row,
       avatarUrl: row.avatarUrl?.trim() || null,
     })),
-    models: (["LEAD", "VINCULO", "CONTINGENCIA"] as const).map((model) => ({
-      model,
-      received: modelCounts.get(model) ?? 0,
-      progressPercent: null, // Base de 100% ainda não definida.
-    })),
+    models: (["LEAD", "VINCULO", "CONTINGENCIA"] as const).map((model) => {
+      const received = modelCounts.get(model) ?? 0;
+      const average = getModelMonthlyAverage(company, model);
+      return {
+        model,
+        received,
+        // Valores acima da média preenchem a barra, sem ultrapassar 100%.
+        progressPercent: Math.min(100, Math.round((received / average) * 100)),
+      };
+    }),
     pendingDates: pendingRows.slice(0, PENDING_PAGE_SIZE),
     pendingPage,
     pendingDatesHasMore: pendingRows.length > PENDING_PAGE_SIZE,
