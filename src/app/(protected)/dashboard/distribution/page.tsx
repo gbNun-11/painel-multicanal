@@ -1,5 +1,6 @@
 import {
   AlertTriangleIcon,
+  Building2Icon,
   CalendarDaysIcon,
   ChevronDownIcon,
   Clock3Icon,
@@ -20,6 +21,7 @@ import {
 import {
   getDashboardMonthOptions,
   getDistributionDashboard,
+  normalizeDashboardCompany,
   normalizeDashboardMonth,
 } from "@/src/data/dashboard/get-distribution-dashboard";
 
@@ -32,6 +34,7 @@ import SummaryCard from "./components/summary-card";
 interface DashboardPageProps {
   searchParams: Promise<{
     month?: string | string[];
+    company?: string | string[];
     pendingPage?: string | string[];
   }>;
 }
@@ -61,12 +64,15 @@ const DistributionDashboardPage = async ({
 }: DashboardPageProps) => {
   const params = await searchParams;
   const month = typeof params.month === "string" ? params.month : undefined;
+  const company = normalizeDashboardCompany(
+    typeof params.company === "string" ? params.company : undefined,
+  );
   const pendingPage =
     typeof params.pendingPage === "string"
       ? Number(params.pendingPage)
       : undefined;
 
-  const monthOptions = await getDashboardMonthOptions();
+  const monthOptions = await getDashboardMonthOptions(company);
   const requestedMonth = normalizeDashboardMonth(month);
   const selectedMonth = monthOptions.some(
     (option) => option.value === requestedMonth,
@@ -76,6 +82,7 @@ const DistributionDashboardPage = async ({
 
   const data = await getDistributionDashboard({
     month: selectedMonth,
+    company,
     pendingPage,
   });
 
@@ -90,6 +97,40 @@ const DistributionDashboardPage = async ({
         </PageHeaderContent>
 
         <PageActions>
+          <details className="group relative">
+            <summary className="flex h-9 cursor-pointer list-none items-center gap-2 rounded-md border border-input bg-card px-3 text-xs font-medium select-none hover:bg-accent [&::-webkit-details-marker]:hidden">
+              <Building2Icon className="size-4" aria-hidden="true" />
+              {company === "all" ? "Ambas as empresas" : company}
+              <ChevronDownIcon
+                className="size-4 text-muted-foreground transition-transform group-open:rotate-180"
+                aria-hidden="true"
+              />
+            </summary>
+            <div className="absolute right-0 z-30 mt-1 min-w-48 rounded-md border bg-popover p-1 shadow-md">
+              {([
+                { value: "all", label: "Ambas as empresas" },
+                { value: "ICX", label: "ICX" },
+                { value: "INRI", label: "INRI" },
+              ] as const).map((option) => (
+                <Link
+                  key={option.value}
+                  href={
+                    "/dashboard/distribution?month=" +
+                    encodeURIComponent(data.period.month) +
+                    (option.value === "all" ? "" : "&company=" + option.value)
+                  }
+                  aria-current={option.value === company ? "page" : undefined}
+                  className={
+                    option.value === company
+                      ? "block rounded-sm bg-primary/10 px-3 py-2 text-xs font-medium text-primary"
+                      : "block rounded-sm px-3 py-2 text-xs hover:bg-accent"
+                  }
+                >
+                  {option.label}
+                </Link>
+              ))}
+            </div>
+          </details>
           <details className="group relative">
             <summary className="flex h-9 cursor-pointer list-none items-center gap-2 rounded-md border border-input bg-card px-3 text-xs font-medium select-none hover:bg-accent [&::-webkit-details-marker]:hidden">
               <CalendarDaysIcon className="size-4" aria-hidden="true" />
@@ -112,7 +153,8 @@ const DistributionDashboardPage = async ({
                   key={option.value}
                   href={
                     "/dashboard/distribution?month=" +
-                    encodeURIComponent(option.value)
+                    encodeURIComponent(option.value) +
+                    (company === "all" ? "" : "&company=" + company)
                   }
                   aria-current={
                     option.value === data.period.month ? "page" : undefined
@@ -179,6 +221,7 @@ const DistributionDashboardPage = async ({
           >
             <PendingDates
               month={data.period.month}
+              company={company}
               pendingDates={data.pendingDates}
               pendingPage={data.pendingPage}
               pendingDatesHasMore={data.pendingDatesHasMore}

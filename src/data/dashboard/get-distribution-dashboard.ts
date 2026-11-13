@@ -114,27 +114,22 @@ export const getDashboardMonthOptions = async (
   `;
 
   const selectedCompany = normalizeDashboardCompany(company);
-  const companyInsurers =
-    selectedCompany === "all"
-      ? null
-      : db
-          .select({ id: enterpriseInsurersTable.id })
-          .from(enterpriseInsurersTable)
-          .where(
-            eq(
-              enterpriseInsurersTable.enterpriseId,
-              ENTERPRISE_IDS[selectedCompany],
-            ),
-          );
+  const companyInsurers = db
+    .select({ id: enterpriseInsurersTable.id })
+    .from(enterpriseInsurersTable)
+    .where(
+      selectedCompany === "all"
+        ? inArray(enterpriseInsurersTable.enterpriseId, [
+            ENTERPRISE_IDS.ICX,
+            ENTERPRISE_IDS.INRI,
+          ])
+        : eq(enterpriseInsurersTable.enterpriseId, ENTERPRISE_IDS[selectedCompany]),
+    );
 
   const months = await db
     .selectDistinct({ value: creationMonth })
     .from(opportunitiesTable)
-    .where(
-      companyInsurers
-        ? inArray(opportunitiesTable.enterpriseInsurerId, companyInsurers)
-        : undefined,
-    )
+    .where(inArray(opportunitiesTable.enterpriseInsurerId, companyInsurers))
     .orderBy(desc(creationMonth));
 
   return months.map(({ value }) => ({
@@ -152,20 +147,26 @@ export const getDistributionDashboard = async (input: {
 
   const month = normalizeDashboardMonth(input.month);
   const company = normalizeDashboardCompany(input.company);
-  const companyInsurers =
-    company === "all"
-      ? null
-      : db
-          .select({ id: enterpriseInsurersTable.id })
-          .from(enterpriseInsurersTable)
-          .where(eq(enterpriseInsurersTable.enterpriseId, ENTERPRISE_IDS[company]));
+  const companyInsurers = db
+    .select({ id: enterpriseInsurersTable.id })
+    .from(enterpriseInsurersTable)
+    .where(
+      company === "all"
+        ? inArray(enterpriseInsurersTable.enterpriseId, [
+            ENTERPRISE_IDS.ICX,
+            ENTERPRISE_IDS.INRI,
+          ])
+        : eq(enterpriseInsurersTable.enterpriseId, ENTERPRISE_IDS[company]),
+    );
 
-  const opportunityCompanyCondition = companyInsurers
-    ? inArray(opportunitiesTable.enterpriseInsurerId, companyInsurers)
-    : undefined;
-  const batchCompanyCondition = companyInsurers
-    ? inArray(goalfyDistributionBatchItemsTable.enterpriseInsurerId, companyInsurers)
-    : undefined;
+  const opportunityCompanyCondition = inArray(
+    opportunitiesTable.enterpriseInsurerId,
+    companyInsurers,
+  );
+  const batchCompanyCondition = inArray(
+    goalfyDistributionBatchItemsTable.enterpriseInsurerId,
+    companyInsurers,
+  );
   const [year, monthNumber] = month.split("-").map(Number);
   const start = month + "-01";
   const end = new Date(Date.UTC(year, monthNumber, 1))

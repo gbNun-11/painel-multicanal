@@ -42,31 +42,24 @@ const SalesModels = ({ models }: { models: Models }) => (
               </div>
               <div
                 className="h-1.5 overflow-hidden rounded-full bg-muted"
-                role={item.progressPercent === null ? undefined : "progressbar"}
-                aria-label={
-                  item.progressPercent === null ? undefined : label
-                }
-                aria-valuenow={item.progressPercent ?? undefined}
-                aria-valuemin={
-                  item.progressPercent === null ? undefined : 0
-                }
-                aria-valuemax={
-                  item.progressPercent === null ? undefined : 100
-                }
+                role="progressbar"
+                aria-label={label}
+                aria-valuenow={item.progressPercent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                title={item.progressPercent + "% da média mensal"}
               >
-                {item.progressPercent !== null && (
-                  <div
-                    className="h-full rounded-full bg-primary"
-                    style={{ width: item.progressPercent + "%" }}
-                  />
-                )}
+                <div
+                  className="h-full rounded-full bg-primary"
+                  style={{ width: item.progressPercent + "%" }}
+                />
               </div>
             </div>
           </div>
         );
       })}
       <p className="text-[11px] text-muted-foreground">
-        A base de 100% da barra de progresso será definida posteriormente.
+        Progresso em relação à média mensal de chegadas.
       </p>
     </CardContent>
   </Card>
