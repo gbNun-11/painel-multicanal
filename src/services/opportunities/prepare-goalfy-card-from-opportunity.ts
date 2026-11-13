@@ -1,13 +1,19 @@
 import "server-only";
+
 import { and, eq } from "drizzle-orm";
+
 import { db } from "@/src/db";
 import {
-  clientsTable, enterpriseInsurersTable, enterprisesTable, insurersTable,
-  opportunitiesTable, productCodesTable, usersTable,
+  clientsTable,
+  enterpriseInsurersTable,
+  enterprisesTable,
+  insurersTable,
+  opportunitiesTable,
+  productCodesTable,
+  usersTable,
 } from "@/src/db/schema";
 import type { GoalfyCreateCardData } from "@/src/integrations/goalfy/create-card";
 
-// Única origem do payload tanto no primeiro envio como no reenvio manual.
 export const prepareGoalfyCardForOpportunity = async (input: {
   opportunityId: string;
   salespersonId: string;
@@ -48,19 +54,34 @@ export const prepareGoalfyCardForOpportunity = async (input: {
     })
     .from(opportunitiesTable)
     .innerJoin(clientsTable, eq(opportunitiesTable.clientId, clientsTable.id))
-    .innerJoin(enterpriseInsurersTable, eq(opportunitiesTable.enterpriseInsurerId, enterpriseInsurersTable.id))
-    .innerJoin(insurersTable, eq(enterpriseInsurersTable.insurerId, insurersTable.id))
-    .innerJoin(enterprisesTable, eq(enterpriseInsurersTable.enterpriseId, enterprisesTable.id))
+    .innerJoin(
+      enterpriseInsurersTable,
+      eq(opportunitiesTable.enterpriseInsurerId, enterpriseInsurersTable.id),
+    )
+    .innerJoin(
+      insurersTable,
+      eq(enterpriseInsurersTable.insurerId, insurersTable.id),
+    )
+    .innerJoin(
+      enterprisesTable,
+      eq(enterpriseInsurersTable.enterpriseId, enterprisesTable.id),
+    )
     .innerJoin(usersTable, eq(opportunitiesTable.salespersonId, usersTable.id))
-    .leftJoin(productCodesTable, eq(opportunitiesTable.productCodeId, productCodesTable.id))
-    .where(and(
-      eq(opportunitiesTable.id, input.opportunityId),
-      eq(opportunitiesTable.salespersonId, input.salespersonId),
-      eq(opportunitiesTable.distributionStatus, "distribuindo"),
-    ))
+    .leftJoin(
+      productCodesTable,
+      eq(opportunitiesTable.productCodeId, productCodesTable.id),
+    )
+    .where(
+      and(
+        eq(opportunitiesTable.id, input.opportunityId),
+        eq(opportunitiesTable.salespersonId, input.salespersonId),
+        eq(opportunitiesTable.distributionStatus, "distribuindo"),
+      ),
+    )
     .limit(1);
 
-  if (!card) throw new Error("Oportunidade não está reservada ao vendedor esperado.");
+  if (!card)
+    throw new Error("Oportunidade não está reservada ao vendedor esperado.");
   if (!card.productCodeId || !card.productSubcategory?.trim()) {
     throw new Error("Variação de produto não encontrada.");
   }

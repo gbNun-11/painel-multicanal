@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 
 import { dispatchGoalfyBatchNotificationsAction } from "@/src/actions/clients/dispatch-goalfy-batch-notifications";
-import { reconcileGoalfyDistributionBatchAction } from "@/src/actions/clients/reconcile-goalfy-distribution-batch";
 import { getGoalfyBatchClientsAction } from "@/src/actions/clients/get-goalfy-batch-clients";
 import { getPendingGoalfyDistributionBatchesAction } from "@/src/actions/clients/get-pending-goalfy-distribution-batches";
+import { reconcileGoalfyDistributionBatchAction } from "@/src/actions/clients/reconcile-goalfy-distribution-batch";
 import { Button } from "@/src/components/ui/button";
 import {
   Dialog,
@@ -78,18 +78,20 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
   const [clientsLoading, setClientsLoading] = useState(false);
   const [clientsMore, setClientsMore] = useState(false);
   const [clientsError, setClientsError] = useState<string | null>(null);
-  const [clients, setClients] = useState<Array<{
-    opportunityId: string;
-    name: string;
-    product: string;
-    salesModel: string | null;
-    distributionStatus: string;
-    batchStatus: string;
-    attemptCount: number;
-    errorCode: string | null;
-    lastHttpStatus: number | null;
-    salespersonName: string;
-  }>>([]);
+  const [clients, setClients] = useState<
+    Array<{
+      opportunityId: string;
+      name: string;
+      product: string;
+      salesModel: string | null;
+      distributionStatus: string;
+      batchStatus: string;
+      attemptCount: number;
+      errorCode: string | null;
+      lastHttpStatus: number | null;
+      salespersonName: string;
+    }>
+  >([]);
   const [reconcileMessage, setReconcileMessage] = useState<string | null>(null);
 
   const [view, setView] = useState<ViewState>({
@@ -207,12 +209,7 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
   };
 
   const dispatchBatch = async (batchId: string) => {
-    if (
-      reconcilingId ||
-      dispatchingId ||
-      view.loading ||
-      view.loadingMore
-    ) {
+    if (reconcilingId || dispatchingId || view.loading || view.loadingMore) {
       return;
     }
 
@@ -226,9 +223,7 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
       });
 
       if (!response?.data) {
-        throw new Error(
-          "Não foi possível processar as notificações.",
-        );
+        throw new Error("Não foi possível processar as notificações.");
       }
 
       const result = response.data;
@@ -298,7 +293,9 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
       if (!result?.data) throw new Error("Consulta de clientes indisponível.");
 
       setClients((current) =>
-        nextPage === 0 ? result.data.clients : [...current, ...result.data.clients],
+        nextPage === 0
+          ? result.data.clients
+          : [...current, ...result.data.clients],
       );
       setClientsPage(nextPage);
       setClientsMore(result.data.hasMore);
@@ -320,26 +317,30 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
     try {
       // Uma ação = uma consulta consolidada ao AdvancedFilter por empresa,
       // com um único reenvio por oportunidade ausente.
-      const response = await reconcileGoalfyDistributionBatchAction({ batchId });
+      const response = await reconcileGoalfyDistributionBatchAction({
+        batchId,
+      });
 
       if (!response?.data) {
         throw new Error("Conferência sem resposta válida.");
       }
 
       const result = response.data;
-      const message = result.remaining === 0
-        ? `${result.confirmed.length} oportunidade(s) confirmada(s). ` +
-          "Nenhuma criação pendente neste lote."
-        : `${result.confirmed.length} oportunidade(s) confirmada(s), ` +
-          `${result.remaining} ainda pendente(s). ` +
-          "As pendências permanecem disponíveis para a próxima conferência.";
+      const message =
+        result.remaining === 0
+          ? `${result.confirmed.length} oportunidade(s) confirmada(s). ` +
+            "Nenhuma criação pendente neste lote."
+          : `${result.confirmed.length} oportunidade(s) confirmada(s), ` +
+            `${result.remaining} ainda pendente(s). ` +
+            "As pendências permanecem disponíveis para a próxima conferência.";
 
       setReconcileMessage(message);
       toast.add({
         type: result.remaining === 0 ? "success" : "error",
-        title: result.remaining === 0
-          ? "Conferência concluída"
-          : "Conferência com pendências",
+        title:
+          result.remaining === 0
+            ? "Conferência concluída"
+            : "Conferência com pendências",
         description: message,
       });
 
@@ -394,8 +395,8 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
             {view.canViewAll
               ? "Visualização de todos os lotes pendentes."
               : "Visualização dos seus lotes pendentes."}{" "}
-            Conferir novamente consulta o AdvancedFilter e tenta criar
-            somente os cards ausentes. As notificações permanecem separadas.
+            Conferir novamente consulta o AdvancedFilter e tenta criar somente
+            os cards ausentes. As notificações permanecem separadas.
           </DialogDescription>
         </DialogHeader>
 
@@ -483,9 +484,7 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
                         variant="outline"
                         onClick={() => {
                           setReviewBatchId((current) =>
-                            current === batch.batchId
-                              ? null
-                              : batch.batchId,
+                            current === batch.batchId ? null : batch.batchId,
                           );
                         }}
                       >
@@ -499,7 +498,11 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
                     <Button
                       type="button"
                       variant="outline"
-                      disabled={clientsLoading || reconcilingId !== null || dispatchingId !== null}
+                      disabled={
+                        clientsLoading ||
+                        reconcilingId !== null ||
+                        dispatchingId !== null
+                      }
                       onClick={() => {
                         if (clientsBatchId === batch.batchId) {
                           setClientsBatchId(null);
@@ -526,7 +529,9 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
                         view.loading ||
                         view.loadingMore
                       }
-                      onClick={() => { void reconcileBatch(batch.batchId); }}
+                      onClick={() => {
+                        void reconcileBatch(batch.batchId);
+                      }}
                     >
                       {reconcilingId === batch.batchId
                         ? "Conferindo..."
@@ -558,29 +563,46 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
 
                 {clientsBatchId === batch.batchId && (
                   <div className="space-y-2 rounded-md border p-3">
-                    <strong className="text-sm">Clientes problemáticos deste lote</strong>
+                    <strong className="text-sm">
+                      Clientes problemáticos deste lote
+                    </strong>
                     {clientsLoading && (
-                      <p className="text-muted-foreground text-xs">Consultando clientes...</p>
-                    )}
-                    {clientsError && (
-                      <p role="alert" className="text-destructive text-xs">{clientsError}</p>
-                    )}
-                    {!clientsLoading && clients.length === 0 && !clientsError && (
                       <p className="text-muted-foreground text-xs">
-                        Nenhuma oportunidade pendente.
+                        Consultando clientes...
                       </p>
                     )}
+                    {clientsError && (
+                      <p role="alert" className="text-destructive text-xs">
+                        {clientsError}
+                      </p>
+                    )}
+                    {!clientsLoading &&
+                      clients.length === 0 &&
+                      !clientsError && (
+                        <p className="text-muted-foreground text-xs">
+                          Nenhuma oportunidade pendente.
+                        </p>
+                      )}
                     {clients.map((item) => (
-                      <div key={item.opportunityId} className="space-y-1 border-t py-2 text-xs">
-                        <p><strong>{item.name}</strong> · {item.product} · {item.salesModel ?? "Sem modelo"}</p>
+                      <div
+                        key={item.opportunityId}
+                        className="space-y-1 border-t py-2 text-xs"
+                      >
+                        <p>
+                          <strong>{item.name}</strong> · {item.product} ·{" "}
+                          {item.salesModel ?? "Sem modelo"}
+                        </p>
                         <p>Vendedor: {item.salespersonName}</p>
-                        <p>Status: {item.distributionStatus} / {item.batchStatus}
+                        <p>
+                          Status: {item.distributionStatus} / {item.batchStatus}
                           {" · "}Tentativas: {item.attemptCount}
                         </p>
                         {item.errorCode && (
                           <p className="text-muted-foreground">
                             Último erro: {item.errorCode}
-                            {item.lastHttpStatus ? ` (HTTP ${item.lastHttpStatus})` : ""}
+                            {item.lastHttpStatus
+                              ? ` (HTTP ${item.lastHttpStatus})`
+                              : ""}
                           </p>
                         )}
                         <p className="text-muted-foreground break-all">
@@ -593,7 +615,9 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
                         type="button"
                         variant="outline"
                         disabled={clientsLoading}
-                        onClick={() => { void consultClients(batch.batchId, clientsPage + 1); }}
+                        onClick={() => {
+                          void consultClients(batch.batchId, clientsPage + 1);
+                        }}
                       >
                         Carregar mais clientes
                       </Button>
@@ -601,15 +625,14 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
                   </div>
                 )}
 
-                {view.canViewAll &&
-                  reviewBatchId === batch.batchId && (
-                    <GoalfyNotificationReview
-                      batchId={batch.batchId}
-                      onResolved={() => {
-                        void refresh();
-                      }}
-                    />
-                  )}
+                {view.canViewAll && reviewBatchId === batch.batchId && (
+                  <GoalfyNotificationReview
+                    batchId={batch.batchId}
+                    onResolved={() => {
+                      void refresh();
+                    }}
+                  />
+                )}
               </div>
             ))}
           </div>

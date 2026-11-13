@@ -9,12 +9,15 @@ import {
   goalfyDistributionBatchItemsTable,
   goalfyDistributionNotificationItemsTable,
 } from "@/src/db/schema";
-import { buildGoalfyCardBody, createGoalfyCard } from "@/src/integrations/goalfy/create-card";
+import {
+  buildGoalfyCardBody,
+  createGoalfyCard,
+} from "@/src/integrations/goalfy/create-card";
 import { getGoalfyErrorDetails } from "@/src/integrations/goalfy/goalfy-fetch";
 import { ActionError, protectedActionClient } from "@/src/lib/safe-action";
 import { confirmTrackedGoalfyDistribution } from "@/src/services/opportunities/goalfy-distribution-lifecycle";
-import { prepareGoalfyCardForOpportunity } from "@/src/services/opportunities/prepare-goalfy-card-from-opportunity";
 import { prepareGoalfyBatchReconciliation } from "@/src/services/opportunities/prepare-goalfy-batch-reconciliation";
+import { prepareGoalfyCardForOpportunity } from "@/src/services/opportunities/prepare-goalfy-card-from-opportunity";
 
 const schema = z.object({ batchId: z.uuid() });
 const STALE_INITIAL_MS = 30 * 60 * 1000;
@@ -47,14 +50,17 @@ export const reconcileGoalfyDistributionBatchAction = protectedActionClient
             updatedAt: goalfyDistributionBatchesTable.updatedAt,
           })
           .from(goalfyDistributionBatchesTable)
-          .where(and(
-            eq(goalfyDistributionBatchesTable.id, batchId),
-            eq(goalfyDistributionBatchesTable.initiatedByUserId, userId),
-          ))
+          .where(
+            and(
+              eq(goalfyDistributionBatchesTable.id, batchId),
+              eq(goalfyDistributionBatchesTable.initiatedByUserId, userId),
+            ),
+          )
           .limit(1)
           .for("update");
 
-        if (!batch) throw new ActionError("Lote inexistente ou não autorizado.");
+        if (!batch)
+          throw new ActionError("Lote inexistente ou não autorizado.");
 
         if (batch.status === "running") {
           const [activity] = await tx
@@ -77,7 +83,8 @@ export const reconcileGoalfyDistributionBatchAction = protectedActionClient
         }
 
         if (batch.status !== "reconciling") {
-          await tx.update(goalfyDistributionBatchesTable)
+          await tx
+            .update(goalfyDistributionBatchesTable)
             .set({ status: "reconciling", updatedAt: new Date() })
             .where(eq(goalfyDistributionBatchesTable.id, batchId));
         }
@@ -113,7 +120,10 @@ export const reconcileGoalfyDistributionBatchAction = protectedActionClient
         const item = byId.get(decision.opportunityId);
 
         if (!item || !["sent", "inconclusive"].includes(item.status)) {
-          unresolved.push({ opportunityId: decision.opportunityId, reason: "state_changed" });
+          unresolved.push({
+            opportunityId: decision.opportunityId,
+            reason: "state_changed",
+          });
           continue;
         }
 
@@ -131,7 +141,10 @@ export const reconcileGoalfyDistributionBatchAction = protectedActionClient
             );
             confirmed.push(result);
           } catch {
-            unresolved.push({ opportunityId: item.opportunityId, reason: "confirmation_failed" });
+            unresolved.push({
+              opportunityId: item.opportunityId,
+              reason: "confirmation_failed",
+            });
           }
           continue;
         }
@@ -139,7 +152,10 @@ export const reconcileGoalfyDistributionBatchAction = protectedActionClient
         if (decision.decision !== "not_found") {
           // Resposta incompleta, UUID duplicado ou dados divergentes:
           // preservar a oportunidade sem enviar POST.
-          unresolved.push({ opportunityId: item.opportunityId, reason: decision.decision });
+          unresolved.push({
+            opportunityId: item.opportunityId,
+            reason: decision.decision,
+          });
           continue;
         }
 
@@ -154,11 +170,15 @@ export const reconcileGoalfyDistributionBatchAction = protectedActionClient
           });
           buildGoalfyCardBody(payload);
         } catch {
-          unresolved.push({ opportunityId: item.opportunityId, reason: "payload_invalid" });
+          unresolved.push({
+            opportunityId: item.opportunityId,
+            reason: "payload_invalid",
+          });
           continue;
         }
 
-        const [claimed] = await db.update(goalfyDistributionBatchItemsTable)
+        const [claimed] = await db
+          .update(goalfyDistributionBatchItemsTable)
           .set({
             status: "sent",
             attemptCount: sql`${goalfyDistributionBatchItemsTable.attemptCount} + 1`,
@@ -168,15 +188,26 @@ export const reconcileGoalfyDistributionBatchAction = protectedActionClient
             lastHttpStatus: null,
             updatedAt: new Date(),
           })
-          .where(and(
-            eq(goalfyDistributionBatchItemsTable.batchId, batchId),
-            eq(goalfyDistributionBatchItemsTable.opportunityId, item.opportunityId),
-            inArray(goalfyDistributionBatchItemsTable.status, ["sent", "inconclusive"]),
-          ))
+          .where(
+            and(
+              eq(goalfyDistributionBatchItemsTable.batchId, batchId),
+              eq(
+                goalfyDistributionBatchItemsTable.opportunityId,
+                item.opportunityId,
+              ),
+              inArray(goalfyDistributionBatchItemsTable.status, [
+                "sent",
+                "inconclusive",
+              ]),
+            ),
+          )
           .returning({ id: goalfyDistributionBatchItemsTable.id });
 
         if (!claimed) {
-          unresolved.push({ opportunityId: item.opportunityId, reason: "state_changed" });
+          unresolved.push({
+            opportunityId: item.opportunityId,
+            reason: "state_changed",
+          });
           continue;
         }
 
@@ -185,27 +216,41 @@ export const reconcileGoalfyDistributionBatchAction = protectedActionClient
           await createGoalfyCard(payload);
         } catch (error) {
           const details = getGoalfyErrorDetails(error);
-          await db.update(goalfyDistributionBatchItemsTable)
+          await db
+            .update(goalfyDistributionBatchItemsTable)
             .set({
               status: "inconclusive",
               errorCode: "goalfy_create_unconfirmed",
               lastHttpStatus: details.status,
               updatedAt: new Date(),
             })
-            .where(and(
-              eq(goalfyDistributionBatchItemsTable.batchId, batchId),
-              eq(goalfyDistributionBatchItemsTable.opportunityId, item.opportunityId),
-              eq(goalfyDistributionBatchItemsTable.status, "sent"),
-            ));
-          unresolved.push({ opportunityId: item.opportunityId, reason: "post_unconfirmed" });
+            .where(
+              and(
+                eq(goalfyDistributionBatchItemsTable.batchId, batchId),
+                eq(
+                  goalfyDistributionBatchItemsTable.opportunityId,
+                  item.opportunityId,
+                ),
+                eq(goalfyDistributionBatchItemsTable.status, "sent"),
+              ),
+            );
+          unresolved.push({
+            opportunityId: item.opportunityId,
+            reason: "post_unconfirmed",
+          });
           continue;
         }
 
         try {
-          confirmed.push(await confirmTrackedGoalfyDistribution(tracking, new Date()));
+          confirmed.push(
+            await confirmTrackedGoalfyDistribution(tracking, new Date()),
+          );
         } catch {
           // POST aceito; preservar controle para consulta na próxima execução.
-          unresolved.push({ opportunityId: item.opportunityId, reason: "confirmation_failed" });
+          unresolved.push({
+            opportunityId: item.opportunityId,
+            reason: "confirmation_failed",
+          });
         }
       }
 
@@ -215,11 +260,13 @@ export const reconcileGoalfyDistributionBatchAction = protectedActionClient
         const [batch] = await tx
           .select({ id: goalfyDistributionBatchesTable.id })
           .from(goalfyDistributionBatchesTable)
-          .where(and(
-            eq(goalfyDistributionBatchesTable.id, batchId),
-            eq(goalfyDistributionBatchesTable.initiatedByUserId, userId),
-            eq(goalfyDistributionBatchesTable.status, "reconciling"),
-          ))
+          .where(
+            and(
+              eq(goalfyDistributionBatchesTable.id, batchId),
+              eq(goalfyDistributionBatchesTable.initiatedByUserId, userId),
+              eq(goalfyDistributionBatchesTable.status, "reconciling"),
+            ),
+          )
           .limit(1)
           .for("update");
 
@@ -239,7 +286,8 @@ export const reconcileGoalfyDistributionBatchAction = protectedActionClient
         const notificationRemaining = notificationCount?.total ?? 0;
 
         if (remaining === 0 && notificationRemaining === 0) {
-          await tx.delete(goalfyDistributionBatchesTable)
+          await tx
+            .delete(goalfyDistributionBatchesTable)
             .where(eq(goalfyDistributionBatchesTable.id, batchId));
           return { remaining, completed: true };
         }
@@ -249,7 +297,9 @@ export const reconcileGoalfyDistributionBatchAction = protectedActionClient
 
       return {
         batchId,
-        status: final.completed ? ("completed" as const) : ("reconciling" as const),
+        status: final.completed
+          ? ("completed" as const)
+          : ("reconciling" as const),
         confirmed,
         unresolved,
         remaining: final.remaining,
