@@ -1,12 +1,9 @@
 import {
   AlertTriangleIcon,
-  Building2Icon,
-  ChevronDownIcon,
   Clock3Icon,
   InboxIcon,
   SendIcon,
 } from "lucide-react";
-import Link from "next/link";
 
 import {
   PageActions,
@@ -28,8 +25,8 @@ import {
 } from "@/src/data/dashboard/get-distribution-dashboard";
 
 import CapacityTable from "./components/capacity-table";
+import DashboardFilters from "./components/dashboard-filters";
 import PendingDates from "./components/pending-dates";
-import PeriodFilter from "./components/period-filter";
 import ProductsChart from "./components/products-chart";
 import SalesModels from "./components/sales-models";
 import SalespeopleRanking from "./components/salespeople-ranking";
@@ -123,23 +120,6 @@ const DistributionDashboardPage = async ({
     pendingPage,
   });
 
-  const companyHref = (selectedCompany: "all" | "ICX" | "INRI") => {
-    const query = new URLSearchParams();
-    if (selectedCompany !== "all") query.set("company", selectedCompany);
-
-    if (granularity === "day") {
-      query.set("period", "day");
-      query.set("from", data.period.date);
-      query.set("to", data.period.dateEnd);
-    } else if (granularity === "year") {
-      query.set("period", "year");
-      query.set("year", data.period.year);
-    } else {
-      query.set("month", data.period.month);
-    }
-
-    return "/dashboard/distribution?" + query.toString();
-  };
 
   return (
     <PageContainer>
@@ -152,41 +132,7 @@ const DistributionDashboardPage = async ({
         </PageHeaderContent>
 
         <PageActions>
-          <details className="group relative">
-            <summary className="flex h-9 cursor-pointer list-none items-center gap-2 rounded-md border border-input bg-card px-3 text-xs font-medium select-none hover:bg-accent [&::-webkit-details-marker]:hidden">
-              <Building2Icon className="size-4" aria-hidden="true" />
-              {company === "all" ? "Ambas as empresas" : company}
-              <ChevronDownIcon
-                className="size-4 text-muted-foreground transition-transform group-open:rotate-180"
-                aria-hidden="true"
-              />
-            </summary>
-            <div className="absolute right-0 z-30 mt-1 min-w-48 rounded-md border bg-popover p-1 shadow-md">
-              {([
-                { value: "all", label: "Ambas as empresas" },
-                { value: "ICX", label: "ICX" },
-                { value: "INRI", label: "INRI" },
-              ] as const).map((option) => (
-                <Link
-                  key={option.value}
-                  href={companyHref(option.value)}
-                  aria-current={option.value === company ? "page" : undefined}
-                  className={
-                    option.value === company
-                      ? "block rounded-sm bg-primary/10 px-3 py-2 text-xs font-medium text-primary"
-                      : "block rounded-sm px-3 py-2 text-xs hover:bg-accent"
-                  }
-                >
-                  {option.label}
-                </Link>
-              ))}
-            </div>
-          </details>
-          <PeriodFilter
-            key={[data.period.granularity, data.period.label, company].join(":")}
-            period={data.period}
-            months={monthOptions}
-          />
+          <DashboardFilters period={data.period} months={monthOptions} />
         </PageActions>
       </PageHeader>
 
