@@ -13,6 +13,8 @@ export type MultichannelAssignmentTableRow = {
 
   userName: string;
 
+  leadCapacity: number | null;
+
   userStatus: Status;
 
   status: Status;

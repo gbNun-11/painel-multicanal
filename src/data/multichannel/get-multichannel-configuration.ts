@@ -66,6 +66,8 @@ export const getMultichannelConfiguration = async (susepId: string) => {
 
         userName: usersTable.name,
 
+        leadCapacity: multichannelAssignmentsTable.leadCapacity,
+
         userRole: usersTable.role,
 
         userStatus: usersTable.status,

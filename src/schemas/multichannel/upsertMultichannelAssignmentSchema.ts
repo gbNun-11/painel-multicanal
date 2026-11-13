@@ -8,7 +8,16 @@ const upsertMultichannelAssignmentSchema = z.object({
   productId: z.uuid(),
 
   userId: z.uuid(),
-});
+
+  // NULL preserva vínculos antigos que ainda não têm capacidade informada.
+  leadCapacity: z.number().int().min(0).max(2147483647).nullable(),
+}).refine(
+  (input) => Boolean(input.id) || input.leadCapacity !== null,
+  {
+    message: "Informe a capacidade de LEAD para uma nova configuração.",
+    path: ["leadCapacity"],
+  },
+);
 
 export type UpsertMultichannelAssignmentFormData = z.infer<
   typeof upsertMultichannelAssignmentSchema

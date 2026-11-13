@@ -113,6 +113,8 @@ export const upsertMultichannelAssignmentAction = adminActionClient
           susepId: multichannelAssignmentsTable.susepId,
 
           productId: multichannelAssignmentsTable.productId,
+
+          userId: multichannelAssignmentsTable.userId,
         })
         .from(multichannelAssignmentsTable)
         .where(eq(multichannelAssignmentsTable.id, parsedInput.id))
@@ -131,6 +133,15 @@ export const upsertMultichannelAssignmentAction = adminActionClient
       if (existingAssignment.productId !== parsedInput.productId) {
         throw new ActionError(
           "Não é permitido alterar o produto de uma configuração existente.",
+        );
+      }
+
+      if (
+        existingAssignment.userId !== parsedInput.userId &&
+        parsedInput.leadCapacity === null
+      ) {
+        throw new ActionError(
+          "Informe a capacidade de LEAD para o novo CPF multicanal.",
         );
       }
     }
@@ -170,6 +181,8 @@ export const upsertMultichannelAssignmentAction = adminActionClient
           .set({
             userId: parsedInput.userId,
 
+            leadCapacity: parsedInput.leadCapacity,
+
             updatedAt: new Date(),
           })
           .where(eq(multichannelAssignmentsTable.id, parsedInput.id))
@@ -198,6 +211,8 @@ export const upsertMultichannelAssignmentAction = adminActionClient
           productId: parsedInput.productId,
 
           userId: parsedInput.userId,
+
+          leadCapacity: parsedInput.leadCapacity,
         })
         .returning({
           id: multichannelAssignmentsTable.id,

@@ -32,6 +32,8 @@ export const getMultichannelConfigurationAction = adminActionClient
 
           userName: assignment.userName,
 
+          leadCapacity: assignment.leadCapacity,
+
           userStatus: assignment.userStatus,
 
           status: assignment.status,
