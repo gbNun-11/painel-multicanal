@@ -18,14 +18,14 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays
-      className={cn("p-3 text-sm", className)}
+      className={cn("relative p-3 text-sm", className)}
       classNames={{
         ...defaults,
-        months: "flex flex-col gap-4",
+        months: "flex flex-col gap-4 sm:flex-row sm:gap-6",
         month: "space-y-3",
         month_caption: "relative flex min-h-8 items-center justify-center",
         caption_label: "text-xs font-medium",
-        nav: "absolute top-0 right-0 flex items-center gap-1",
+        nav: "pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center justify-between [&>button]:pointer-events-auto",
         button_previous:
           "inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30",
         button_next:
@@ -44,6 +44,12 @@ function Calendar({
           "inline-flex size-9 items-center justify-center rounded-md font-normal hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         selected:
           "[&>button]:bg-primary [&>button]:text-primary-foreground [&>button]:hover:bg-primary/90",
+        range_start:
+          "rounded-l-md bg-primary/10 [&>button]:bg-primary [&>button]:text-primary-foreground",
+        range_middle:
+          "bg-primary/10 [&>button]:!bg-transparent [&>button]:!text-foreground",
+        range_end:
+          "rounded-r-md bg-primary/10 [&>button]:bg-primary [&>button]:text-primary-foreground",
         today: "[&>button]:font-bold [&>button]:ring-1 [&>button]:ring-primary/40",
         outside: "text-muted-foreground/40",
         disabled: "pointer-events-none opacity-30",
