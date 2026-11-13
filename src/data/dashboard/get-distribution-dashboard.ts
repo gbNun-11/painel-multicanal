@@ -523,10 +523,10 @@ export const getDistributionDashboard = async (input: {
         received: row.received,
         capacity,
         difference,
-        status: capacity === null
-          ? "unconfigured" as const
-          : granularity !== "month"
-            ? "reference" as const
+        status: difference === null
+          ? capacity === null
+            ? "unconfigured" as const
+            : "reference" as const
           : difference < 0
             ? "below" as const
             : difference === 0
