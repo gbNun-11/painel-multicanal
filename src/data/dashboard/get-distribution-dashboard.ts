@@ -129,7 +129,12 @@ export const getDashboardMonthOptions = async (
   const months = await db
     .selectDistinct({ value: creationMonth })
     .from(opportunitiesTable)
-    .where(inArray(opportunitiesTable.enterpriseInsurerId, companyInsurers))
+    .where(
+      and(
+        inArray(opportunitiesTable.enterpriseInsurerId, companyInsurers),
+        sql`${opportunitiesTable.sourceCreatedAt} IS NOT NULL`,
+      ),
+    )
     .orderBy(desc(creationMonth));
 
   return months.map(({ value }) => ({
