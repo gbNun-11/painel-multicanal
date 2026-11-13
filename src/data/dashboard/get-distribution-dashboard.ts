@@ -88,6 +88,7 @@ export interface DistributionDashboardData {
   period: {
     month: string;
     date: string;
+    dateEnd: string;
     year: string;
     granularity: DashboardPeriodMode;
     label: string;
@@ -209,6 +210,7 @@ export const getDashboardMonthOptions = async (
 export const getDistributionDashboard = async (input: {
   month?: string;
   date?: string;
+  dateEnd?: string;
   year?: string;
   granularity?: DashboardPeriodMode;
   company?: DashboardCompany;
@@ -218,7 +220,16 @@ export const getDistributionDashboard = async (input: {
 
   const month = normalizeDashboardMonth(input.month);
   const granularity = normalizeDashboardPeriodMode(input.granularity);
-  const date = normalizeDashboardDate(input.date, month);
+  const requestedDate = normalizeDashboardDate(input.date, month);
+  const requestedDateEnd = input.dateEnd && isValidDay(input.dateEnd)
+    ? input.dateEnd
+    : requestedDate;
+  const date = requestedDate <= requestedDateEnd
+    ? requestedDate
+    : requestedDateEnd;
+  const dateEnd = requestedDate <= requestedDateEnd
+    ? requestedDateEnd
+    : requestedDate;
   const year = normalizeDashboardYear(input.year, month);
   const company = normalizeDashboardCompany(input.company);
   const companyInsurers = db
@@ -251,7 +262,7 @@ export const getDistributionDashboard = async (input: {
         : month + "-01";
 
   const end = granularity === "day"
-    ? new Date(Date.parse(start + "T12:00:00Z") + 24 * 60 * 60 * 1000)
+    ? new Date(Date.parse(dateEnd + "T12:00:00Z") + 24 * 60 * 60 * 1000)
         .toISOString()
         .slice(0, 10)
     : granularity === "year"
@@ -260,14 +271,19 @@ export const getDistributionDashboard = async (input: {
           .toISOString()
           .slice(0, 10);
 
+  const dayLabel = (value: string) =>
+    new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(new Date(value + "T12:00:00Z"));
+
   const periodLabel =
     granularity === "day"
-      ? new Intl.DateTimeFormat("pt-BR", {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-          timeZone: "UTC",
-        }).format(new Date(start + "T12:00:00Z"))
+      ? date === dateEnd
+        ? dayLabel(date)
+        : dayLabel(date) + " – " + dayLabel(dateEnd)
       : granularity === "year"
         ? year
         : monthLabel(month);
@@ -476,7 +492,7 @@ export const getDistributionDashboard = async (input: {
   const modelCounts = new Map(modelRows.map((item) => [item.model, item.received]));
 
   return {
-    period: { month, date, year, granularity, label: periodLabel, company },
+    period: { month, date, dateEnd, year, granularity, label: periodLabel, company },
     summary: {
       received: summary?.received ?? 0,
       distributed: summary?.distributed ?? 0,

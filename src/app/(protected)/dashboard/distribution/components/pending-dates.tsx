@@ -30,12 +30,14 @@ const PendingDates = ({
   pendingPage,
   month,
   date,
+  dateEnd,
   year,
   granularity,
   company,
 }: Pending & {
   month: string;
   date: string;
+  dateEnd: string;
   year: string;
   granularity: DashboardPeriodMode;
   company: DashboardCompany;
@@ -47,7 +49,8 @@ const PendingDates = ({
 
     if (granularity === "day") {
       query.set("period", "day");
-      query.set("date", date);
+      query.set("from", date);
+      query.set("to", dateEnd);
     } else if (granularity === "year") {
       query.set("period", "year");
       query.set("year", year);

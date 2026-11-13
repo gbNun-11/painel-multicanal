@@ -39,6 +39,8 @@ interface DashboardPageProps {
   searchParams: Promise<{
     month?: string | string[];
     date?: string | string[];
+    from?: string | string[];
+    to?: string | string[];
     year?: string | string[];
     period?: string | string[];
     company?: string | string[];
@@ -71,7 +73,12 @@ const DistributionDashboardPage = async ({
 }: DashboardPageProps) => {
   const params = await searchParams;
   const month = typeof params.month === "string" ? params.month : undefined;
-  const rawDate = typeof params.date === "string" ? params.date : undefined;
+  const rawDate = typeof params.from === "string"
+    ? params.from
+    : typeof params.date === "string"
+      ? params.date
+      : undefined;
+  const rawDateEnd = typeof params.to === "string" ? params.to : undefined;
   const rawYear = typeof params.year === "string" ? params.year : undefined;
   const granularity = normalizeDashboardPeriodMode(
     typeof params.period === "string" ? params.period : undefined,
@@ -101,11 +108,15 @@ const DistributionDashboardPage = async ({
     : (monthOptions[0]?.value ?? requestedMonth);
 
   const selectedDate = normalizeDashboardDate(rawDate, selectedMonth);
+  const selectedDateEnd = rawDateEnd
+    ? normalizeDashboardDate(rawDateEnd, selectedMonth)
+    : selectedDate;
   const selectedYear = normalizeDashboardYear(rawYear, selectedMonth);
 
   const data = await getDistributionDashboard({
     month: selectedMonth,
     date: selectedDate,
+    dateEnd: selectedDateEnd,
     year: selectedYear,
     granularity,
     company,
@@ -118,7 +129,8 @@ const DistributionDashboardPage = async ({
 
     if (granularity === "day") {
       query.set("period", "day");
-      query.set("date", data.period.date);
+      query.set("from", data.period.date);
+      query.set("to", data.period.dateEnd);
     } else if (granularity === "year") {
       query.set("period", "year");
       query.set("year", data.period.year);
@@ -227,6 +239,7 @@ const DistributionDashboardPage = async ({
             <PendingDates
               month={data.period.month}
               date={data.period.date}
+              dateEnd={data.period.dateEnd}
               year={data.period.year}
               granularity={data.period.granularity}
               company={company}
