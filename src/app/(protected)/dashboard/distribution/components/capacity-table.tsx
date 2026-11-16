@@ -85,7 +85,7 @@ const CapacityTable = ({
                 className="size-4 text-muted-foreground"
                 aria-hidden="true"
               />
-              Capacidade de recebimento — Porto
+              Recebimento de LEADs — Porto
             </CardTitle>
             <CardDescription>
               LEAD recebido em {periodLabel}; capacidade diária multiplicada
@@ -148,7 +148,9 @@ const CapacityTable = ({
                       "—"
                     ) : (
                       <div className="space-y-1">
-                        <span>{numberFormatter.format(item.periodCapacity)}</span>
+                        <span>
+                          {numberFormatter.format(item.periodCapacity)}
+                        </span>
                         <p className="text-[11px] text-muted-foreground">
                           {numberFormatter.format(item.capacity ?? 0)}/dia
                         </p>
