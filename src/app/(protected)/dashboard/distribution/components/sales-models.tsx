@@ -48,13 +48,15 @@ const SalesModels = ({ models }: { models: Models }) => (
                 aria-valuemin={item.progressPercent === null ? undefined : 0}
                 aria-valuemax={item.progressPercent === null ? undefined : 100}
                 title={
-                  "Meta de 100% para o período: " +
-                  formatNumber.format(item.referenceTotal) +
-                  " (" +
-                  (item.referencePeriod === "daily"
-                    ? "base diária"
-                    : "média mensal proporcional") +
-                  ")"
+                  item.referenceTotal === null
+                    ? "Configure o Capacity de todos os produtos para calcular a meta de LEAD."
+                    : "Meta de 100% para o período: " +
+                      formatNumber.format(item.referenceTotal) +
+                      " (" +
+                      (item.referencePeriod === "daily"
+                        ? "soma dos Capacity diários cadastrados"
+                        : "média mensal proporcional") +
+                      ")"
                 }
               >
                 {item.progressPercent !== null && (
@@ -65,15 +67,19 @@ const SalesModels = ({ models }: { models: Models }) => (
                 )}
               </div>
               <p className="text-[11px] text-muted-foreground tabular-nums">
-                Meta 100%: {formatNumber.format(item.referenceTotal)} no período
+                {item.referenceTotal === null
+                  ? "Meta 100%: Capacity de LEAD incompleto"
+                  : "Meta 100%: " +
+                    formatNumber.format(item.referenceTotal) +
+                    " no período"}
               </p>
             </div>
           </div>
         );
       })}
       <p className="text-[11px] text-muted-foreground">
-        LEAD: meta diária × dias corridos. Vínculo e Contingência: média
-        mensal proporcional aos dias corridos de cada mês.
+        LEAD: soma dos Capacity diários por produto e empresa × dias
+        corridos. Vínculo e Contingência: médias mensais proporcionais.
       </p>
     </CardContent>
   </Card>

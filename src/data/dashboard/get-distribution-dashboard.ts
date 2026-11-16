@@ -65,19 +65,19 @@ export const normalizeDashboardYear = (
   selectedMonth: string,
 ) => /^20\d{2}$/.test(value ?? "") ? value! : selectedMonth.slice(0, 4);
 
-// A referência de LEAD é diária; VÍNCULO e CONTINGÊNCIA são mensais.
-// Os valores cadastrados no código permanecem inalterados.
+// VÍNCULO e CONTINGÊNCIA mantêm as médias mensais originais.
+// LEAD obtém sua meta exclusivamente dos Capacity diários cadastrados.
 const MODEL_REFERENCE_VALUES: Record<
   Exclude<DashboardCompany, "all">,
-  Record<SalesModel, number>
+  Record<Exclude<SalesModel, "LEAD">, number>
 > = {
-  ICX: { LEAD: 105, VINCULO: 30, CONTINGENCIA: 238 },
-  INRI: { LEAD: 311, VINCULO: 473, CONTINGENCIA: 594 },
+  ICX: { VINCULO: 30, CONTINGENCIA: 238 },
+  INRI: { VINCULO: 473, CONTINGENCIA: 594 },
 };
 
 const getModelReference = (
   company: DashboardCompany,
-  model: SalesModel,
+  model: Exclude<SalesModel, "LEAD">,
 ) =>
   company === "all"
     ? MODEL_REFERENCE_VALUES.ICX[model] + MODEL_REFERENCE_VALUES.INRI[model]
@@ -92,18 +92,15 @@ const countDays = (start: string, endExclusive: string) =>
   );
 
 // Os períodos são [início, fim), para corresponder ao filtro do PostgreSQL.
-// LEAD: limite diário × dias corridos.
 // VÍNCULO/CONTINGÊNCIA: média mensal proporcional aos dias de cada mês
 // (inclusive quando o intervalo cruza meses de durações diferentes).
 const getReferenceForPeriod = (
   company: DashboardCompany,
-  model: SalesModel,
+  model: Exclude<SalesModel, "LEAD">,
   start: string,
   endExclusive: string,
 ): number => {
   const base = getModelReference(company, model);
-  if (model === "LEAD") return base * countDays(start, endExclusive);
-
   const endAt = utcDay(endExclusive);
   let cursor = utcDay(start);
   let total = 0;
@@ -158,7 +155,7 @@ export interface DistributionDashboardData {
     received: number;
     progressPercent: number | null;
     referencePeriod: "daily" | "monthly";
-    referenceTotal: number;
+    referenceTotal: number | null;
   }[];
   capacities: {
     id: string;
@@ -542,6 +539,20 @@ export const getDistributionDashboard = async (input: {
   const summary = summaryRows[0];
   const modelCounts = new Map(modelRows.map((item) => [item.model, item.received]));
 
+  // Uma única fonte de capacidade de LEAD: os mesmos vínculos ativos
+  // que alimentam a tabela "Capacidade de recebimento — Porto".
+  // Sem vínculo ou com Capacity não configurado, não há meta completa
+  // de 100%: evita exibir percentual calculado sobre uma meta parcial.
+  const leadCapacityConfigured =
+    capacityRows.length > 0 &&
+    capacityRows.every((row) => row.capacity !== null);
+  const leadCapacityDaily = leadCapacityConfigured
+    ? capacityRows.reduce((total, row) => total + (row.capacity ?? 0), 0)
+    : null;
+  const leadPeriodTarget = leadCapacityDaily === null
+    ? null
+    : leadCapacityDaily * selectedDays;
+
   return {
     period: { month, date, dateEnd, year, granularity, label: periodLabel, company },
     summary: {
@@ -566,15 +577,19 @@ export const getDistributionDashboard = async (input: {
     models: (["LEAD", "VINCULO", "CONTINGENCIA"] as const).map((model) => {
       const received = modelCounts.get(model) ?? 0;
       const referencePeriod = model === "LEAD" ? "daily" as const : "monthly" as const;
-      const referenceTotal = getReferenceForPeriod(company, model, start, end);
+      const referenceTotal = model === "LEAD"
+        ? leadPeriodTarget
+        : getReferenceForPeriod(company, model, start, end);
 
       return {
         model,
         received,
         referencePeriod,
         referenceTotal,
-        // Cada meta de 100% corresponde exatamente às datas filtradas.
-        progressPercent: referenceTotal > 0
+        // Para LEAD, o 100% é a soma dos Capacity de produtos e empresa
+        // multiplicada pelos dias selecionados; os demais modelos mantêm
+        // a média mensal proporcional.
+        progressPercent: referenceTotal !== null && referenceTotal > 0
           ? Math.min(100, Math.round((received / referenceTotal) * 100))
           : null,
       };
