@@ -48,10 +48,6 @@ const statusStyle: Record<
     label: "NÃO CONFIGURADO",
     className: "border-border bg-muted/50 text-muted-foreground",
   },
-  reference: {
-    label: "REFERÊNCIA DIÁRIA",
-    className: "border-border bg-muted/50 text-muted-foreground",
-  },
 };
 
 const normalizeSearch = (value: string) =>
@@ -64,11 +60,9 @@ const normalizeSearch = (value: string) =>
 const CapacityTable = ({
   capacities,
   periodLabel,
-  singleDay,
 }: {
   capacities: DistributionDashboardData["capacities"];
   periodLabel: string;
-  singleDay: boolean;
 }) => {
   const [search, setSearch] = useState("");
   const filtered = useMemo(() => {
@@ -94,8 +88,8 @@ const CapacityTable = ({
               Capacidade de recebimento — Porto
             </CardTitle>
             <CardDescription>
-              LEAD recebido em {periodLabel}; limite diário cadastrado por
-              empresa, produto lógico e vínculo multicanal.
+              LEAD recebido em {periodLabel}; capacidade diária multiplicada
+              pelos dias corridos do período, por empresa e produto lógico.
             </CardDescription>
           </div>
           <Badge variant="outline">LEAD</Badge>
@@ -150,9 +144,16 @@ const CapacityTable = ({
                     {numberFormatter.format(item.received)}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {item.capacity === null
-                      ? "—"
-                      : numberFormatter.format(item.capacity)}
+                    {item.periodCapacity === null ? (
+                      "—"
+                    ) : (
+                      <div className="space-y-1">
+                        <span>{numberFormatter.format(item.periodCapacity)}</span>
+                        <p className="text-[11px] text-muted-foreground">
+                          {numberFormatter.format(item.capacity ?? 0)}/dia
+                        </p>
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell
                     className={
@@ -176,13 +177,6 @@ const CapacityTable = ({
             })}
           </TableBody>
         </Table>
-        {!singleDay && capacities.length > 0 && (
-          <p className="pt-3 text-xs text-muted-foreground">
-            O Capacity exibido é diário. A diferença e o status são calculados
-            apenas para um único dia; em intervalos, meses e anos, o limite
-            diário aparece somente como referência.
-          </p>
-        )}
         {filtered.length === 0 && (
           <p className="py-10 text-center text-sm text-muted-foreground">
             {capacities.length === 0

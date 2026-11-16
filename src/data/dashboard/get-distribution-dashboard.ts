@@ -83,6 +83,49 @@ const getModelReference = (
     ? MODEL_REFERENCE_VALUES.ICX[model] + MODEL_REFERENCE_VALUES.INRI[model]
     : MODEL_REFERENCE_VALUES[company][model];
 
+const MILLISECONDS_PER_DAY = 86_400_000;
+const utcDay = (value: string) => Date.parse(value + "T00:00:00Z");
+
+const countDays = (start: string, endExclusive: string) =>
+  Math.round(
+    (utcDay(endExclusive) - utcDay(start)) / MILLISECONDS_PER_DAY,
+  );
+
+// Os períodos são [início, fim), para corresponder ao filtro do PostgreSQL.
+// LEAD: limite diário × dias corridos.
+// VÍNCULO/CONTINGÊNCIA: média mensal proporcional aos dias de cada mês
+// (inclusive quando o intervalo cruza meses de durações diferentes).
+const getReferenceForPeriod = (
+  company: DashboardCompany,
+  model: SalesModel,
+  start: string,
+  endExclusive: string,
+): number => {
+  const base = getModelReference(company, model);
+  if (model === "LEAD") return base * countDays(start, endExclusive);
+
+  const endAt = utcDay(endExclusive);
+  let cursor = utcDay(start);
+  let total = 0;
+
+  while (cursor < endAt) {
+    const date = new Date(cursor);
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth();
+    const monthStart = Date.UTC(year, month, 1);
+    const nextMonth = Date.UTC(year, month + 1, 1);
+    const daysInMonth = (nextMonth - monthStart) / MILLISECONDS_PER_DAY;
+    const overlapEnd = Math.min(nextMonth, endAt);
+    const coveredDays = (overlapEnd - cursor) / MILLISECONDS_PER_DAY;
+
+    total += (base * coveredDays) / daysInMonth;
+    cursor = overlapEnd;
+  }
+
+  // A meta de oportunidades precisa ser apresentada como número inteiro.
+  return Math.round(total);
+};
+
 export const normalizeDashboardCompany = (value?: string): DashboardCompany =>
   value === "ICX" || value === "INRI" ? value : "all";
 
@@ -115,7 +158,7 @@ export interface DistributionDashboardData {
     received: number;
     progressPercent: number | null;
     referencePeriod: "daily" | "monthly";
-    referenceTotal: number | null;
+    referenceTotal: number;
   }[];
   capacities: {
     id: string;
@@ -124,8 +167,9 @@ export interface DistributionDashboardData {
     susepCode: string;
     received: number;
     capacity: number | null;
+    periodCapacity: number | null;
     difference: number | null;
-    status: "below" | "met" | "over" | "unconfigured" | "reference";
+    status: "below" | "met" | "over" | "unconfigured";
   }[];
   pendingDates: {
     date: string | null;
@@ -292,15 +336,8 @@ export const getDistributionDashboard = async (input: {
         ? year
         : monthLabel(month);
 
-  // A seleção por intervalo é inclusiva; referência diária × dias corridos.
-  const selectedDays =
-    granularity === "day"
-      ? Math.round(
-          (Date.parse(dateEnd + "T00:00:00Z") -
-            Date.parse(date + "T00:00:00Z")) /
-            86400000,
-        ) + 1
-      : 0;
+  // O fim é exclusivo: assim dias, meses e anos usam o mesmo cálculo.
+  const selectedDays = countDays(start, end);
 
   const pendingPage =
     input.pendingPage &&
@@ -529,31 +566,25 @@ export const getDistributionDashboard = async (input: {
     models: (["LEAD", "VINCULO", "CONTINGENCIA"] as const).map((model) => {
       const received = modelCounts.get(model) ?? 0;
       const referencePeriod = model === "LEAD" ? "daily" as const : "monthly" as const;
-      const comparable = model === "LEAD"
-        ? granularity === "day"
-        : granularity === "month";
-      const referenceTotal = comparable
-        ? getModelReference(company, model) * (model === "LEAD" ? selectedDays : 1)
-        : null;
+      const referenceTotal = getReferenceForPeriod(company, model, start, end);
 
       return {
         model,
         received,
         referencePeriod,
         referenceTotal,
-        // Nunca compara referência diária a volume mensal, nem o contrário.
-        progressPercent: referenceTotal && referenceTotal > 0
+        // Cada meta de 100% corresponde exatamente às datas filtradas.
+        progressPercent: referenceTotal > 0
           ? Math.min(100, Math.round((received / referenceTotal) * 100))
           : null,
       };
     }),
     capacities: capacityRows.map((row) => {
       const capacity = row.capacity;
-      // Capacity de LEAD é diário. A comparação é válida para um único dia.
+      const periodCapacity =
+        capacity === null ? null : capacity * selectedDays;
       const difference =
-        capacity === null || granularity !== "day" || date !== dateEnd
-          ? null
-          : row.received - capacity;
+        periodCapacity === null ? null : row.received - periodCapacity;
 
       return {
         id: row.id,
@@ -562,11 +593,10 @@ export const getDistributionDashboard = async (input: {
         susepCode: row.susepCode,
         received: row.received,
         capacity,
+        periodCapacity,
         difference,
         status: difference === null
-          ? capacity === null
-            ? "unconfigured" as const
-            : "reference" as const
+          ? "unconfigured" as const
           : difference < 0
             ? "below" as const
             : difference === 0

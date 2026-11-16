@@ -47,14 +47,15 @@ const SalesModels = ({ models }: { models: Models }) => (
                 aria-valuenow={item.progressPercent ?? undefined}
                 aria-valuemin={item.progressPercent === null ? undefined : 0}
                 aria-valuemax={item.progressPercent === null ? undefined : 100}
-                title={item.progressPercent === null
-                  ? "Referência " +
-                    (item.referencePeriod === "daily" ? "diária" : "mensal") +
-                    "; sem comparação neste período."
-                  : item.progressPercent + "% da referência " +
-                    (item.referencePeriod === "daily" ? "diária" : "mensal") +
-                    " (" + formatNumber.format(item.received) +
-                    " de " + formatNumber.format(item.referenceTotal ?? 0) + ")"}
+                title={
+                  "Meta de 100% para o período: " +
+                  formatNumber.format(item.referenceTotal) +
+                  " (" +
+                  (item.referencePeriod === "daily"
+                    ? "base diária"
+                    : "média mensal proporcional") +
+                  ")"
+                }
               >
                 {item.progressPercent !== null && (
                   <div
@@ -63,13 +64,16 @@ const SalesModels = ({ models }: { models: Models }) => (
                   />
                 )}
               </div>
+              <p className="text-[11px] text-muted-foreground tabular-nums">
+                Meta 100%: {formatNumber.format(item.referenceTotal)} no período
+              </p>
             </div>
           </div>
         );
       })}
       <p className="text-[11px] text-muted-foreground">
-        LEAD: referência diária (proporcional aos dias selecionados). Vínculo
-        e Contingência: referências mensais.
+        LEAD: meta diária × dias corridos. Vínculo e Contingência: média
+        mensal proporcional aos dias corridos de cada mês.
       </p>
     </CardContent>
   </Card>
