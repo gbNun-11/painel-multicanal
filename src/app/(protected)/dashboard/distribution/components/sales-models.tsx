@@ -53,9 +53,9 @@ const SalesModels = ({ models }: { models: Models }) => (
                     : "Meta de 100% para o período: " +
                       formatNumber.format(item.referenceTotal) +
                       " (" +
-                      (item.referencePeriod === "daily"
+                      (item.model === "LEAD"
                         ? "soma dos Capacity diários cadastrados"
-                        : "média mensal proporcional") +
+                        : "referência média diária da empresa") +
                       ")"
                 }
               >
@@ -66,21 +66,10 @@ const SalesModels = ({ models }: { models: Models }) => (
                   />
                 )}
               </div>
-              <p className="text-[11px] text-muted-foreground tabular-nums">
-                {item.referenceTotal === null
-                  ? "Meta 100%: Capacity de LEAD incompleto"
-                  : "Meta 100%: " +
-                    formatNumber.format(item.referenceTotal) +
-                    " no período"}
-              </p>
             </div>
           </div>
         );
       })}
-      <p className="text-[11px] text-muted-foreground">
-        LEAD: soma dos Capacity diários por produto e empresa × dias
-        corridos. Vínculo e Contingência: médias mensais proporcionais.
-      </p>
     </CardContent>
   </Card>
 );

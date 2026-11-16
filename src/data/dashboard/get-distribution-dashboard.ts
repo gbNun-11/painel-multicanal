@@ -65,14 +65,14 @@ export const normalizeDashboardYear = (
   selectedMonth: string,
 ) => /^20\d{2}$/.test(value ?? "") ? value! : selectedMonth.slice(0, 4);
 
-// VÍNCULO e CONTINGÊNCIA mantêm as médias mensais originais.
+// VÍNCULO e CONTINGÊNCIA usam referências médias diárias por empresa.
 // LEAD obtém sua meta exclusivamente dos Capacity diários cadastrados.
 const MODEL_REFERENCE_VALUES: Record<
   Exclude<DashboardCompany, "all">,
   Record<Exclude<SalesModel, "LEAD">, number>
 > = {
-  ICX: { VINCULO: 30, CONTINGENCIA: 238 },
-  INRI: { VINCULO: 473, CONTINGENCIA: 594 },
+  ICX: { VINCULO: 1, CONTINGENCIA: 8 },
+  INRI: { VINCULO: 16, CONTINGENCIA: 20 },
 };
 
 const getModelReference = (
@@ -90,38 +90,6 @@ const countDays = (start: string, endExclusive: string) =>
   Math.round(
     (utcDay(endExclusive) - utcDay(start)) / MILLISECONDS_PER_DAY,
   );
-
-// Os períodos são [início, fim), para corresponder ao filtro do PostgreSQL.
-// VÍNCULO/CONTINGÊNCIA: média mensal proporcional aos dias de cada mês
-// (inclusive quando o intervalo cruza meses de durações diferentes).
-const getReferenceForPeriod = (
-  company: DashboardCompany,
-  model: Exclude<SalesModel, "LEAD">,
-  start: string,
-  endExclusive: string,
-): number => {
-  const base = getModelReference(company, model);
-  const endAt = utcDay(endExclusive);
-  let cursor = utcDay(start);
-  let total = 0;
-
-  while (cursor < endAt) {
-    const date = new Date(cursor);
-    const year = date.getUTCFullYear();
-    const month = date.getUTCMonth();
-    const monthStart = Date.UTC(year, month, 1);
-    const nextMonth = Date.UTC(year, month + 1, 1);
-    const daysInMonth = (nextMonth - monthStart) / MILLISECONDS_PER_DAY;
-    const overlapEnd = Math.min(nextMonth, endAt);
-    const coveredDays = (overlapEnd - cursor) / MILLISECONDS_PER_DAY;
-
-    total += (base * coveredDays) / daysInMonth;
-    cursor = overlapEnd;
-  }
-
-  // A meta de oportunidades precisa ser apresentada como número inteiro.
-  return Math.round(total);
-};
 
 export const normalizeDashboardCompany = (value?: string): DashboardCompany =>
   value === "ICX" || value === "INRI" ? value : "all";
@@ -154,7 +122,7 @@ export interface DistributionDashboardData {
     model: SalesModel;
     received: number;
     progressPercent: number | null;
-    referencePeriod: "daily" | "monthly";
+    referencePeriod: "daily";
     referenceTotal: number | null;
   }[];
   capacities: {
@@ -576,19 +544,18 @@ export const getDistributionDashboard = async (input: {
     })),
     models: (["LEAD", "VINCULO", "CONTINGENCIA"] as const).map((model) => {
       const received = modelCounts.get(model) ?? 0;
-      const referencePeriod = model === "LEAD" ? "daily" as const : "monthly" as const;
+      const referencePeriod = "daily" as const;
       const referenceTotal = model === "LEAD"
         ? leadPeriodTarget
-        : getReferenceForPeriod(company, model, start, end);
+        : getModelReference(company, model) * selectedDays;
 
       return {
         model,
         received,
         referencePeriod,
         referenceTotal,
-        // Para LEAD, o 100% é a soma dos Capacity de produtos e empresa
-        // multiplicada pelos dias selecionados; os demais modelos mantêm
-        // a média mensal proporcional.
+        // Todas as referências são diárias e acompanham os dias do filtro.
+        // LEAD permanece vinculado aos Capacity multicanal cadastrados.
         progressPercent: referenceTotal !== null && referenceTotal > 0
           ? Math.min(100, Math.round((received / referenceTotal) * 100))
           : null,
