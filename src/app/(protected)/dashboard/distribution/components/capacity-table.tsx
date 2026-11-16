@@ -110,13 +110,15 @@ const CapacityTable = ({
         </div>
       </CardHeader>
       <CardContent>
-        <Table>
+        <Table className="min-w-[760px] table-fixed">
           <TableHeader>
             <TableRow>
-              <TableHead>Produto</TableHead>
-              <TableHead className="text-right">Recebidos</TableHead>
-              <TableHead className="text-right">Capacity</TableHead>
-              <TableHead className="text-right">Diferença</TableHead>
+              <TableHead className="w-[23%]">Produto</TableHead>
+              <TableHead className="w-[13%]">Empresa</TableHead>
+              <TableHead className="w-[21%]">Status</TableHead>
+              <TableHead className="w-[14%] text-right">Recebidos</TableHead>
+              <TableHead className="w-[15%] text-right">Capacity</TableHead>
+              <TableHead className="w-[14%] text-right">Diferença</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -124,21 +126,16 @@ const CapacityTable = ({
               const appearance = statusStyle[item.status];
               return (
                 <TableRow key={item.id}>
-                  <TableCell className="min-w-48 py-3">
-                    <div className="space-y-2">
-                      <span className="font-medium">{item.product}</span>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs text-muted-foreground">
-                          {item.company}
-                        </span>
-                        <Badge
-                          variant="outline"
-                          className={appearance.className}
-                        >
-                          {appearance.label}
-                        </Badge>
-                      </div>
-                    </div>
+                  <TableCell className="py-3 font-medium">
+                    {item.product}
+                  </TableCell>
+                  <TableCell className="py-3 text-muted-foreground">
+                    {item.company}
+                  </TableCell>
+                  <TableCell className="py-3">
+                    <Badge variant="outline" className={appearance.className}>
+                      {appearance.label}
+                    </Badge>
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {numberFormatter.format(item.received)}
