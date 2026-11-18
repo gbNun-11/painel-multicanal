@@ -9,10 +9,8 @@ import {
   enterpriseInsurersTable,
   enterprisesTable,
   insurersTable,
-  multichannelAssignmentsTable,
   opportunitiesTable,
   productCodesTable,
-  productsTable,
   usersTable,
 } from "@/src/db/schema";
 import type { GoalfyCreateCardData } from "@/src/integrations/goalfy/create-card";
@@ -28,7 +26,6 @@ export const prepareGoalfyCardForOpportunity = async (input: {
       externalId: opportunitiesTable.externalId,
       opportunityNumber: opportunitiesTable.opportunityNumber,
       enterpriseId: enterpriseInsurersTable.enterpriseId,
-      susepId: opportunitiesTable.susepId,
       externalSource: opportunitiesTable.externalSource,
       sourcePayload: opportunitiesTable.sourcePayload,
       name: clientsTable.name,
@@ -114,28 +111,13 @@ export const prepareGoalfyCardForOpportunity = async (input: {
     card.product.trim().replace(/\s+/g, " ").toUpperCase() === "AUTOMOVEL BONIFICACAO" &&
     importedUserId
   ) {
-    // Confirma que a oportunidade saiu do vínculo SUSEP/produto do
-    // usuário multicanal identificado na importação. Não usa nome do
-    // cliente nem do vendedor que receberá a distribuição.
+    // O usuário é aquele validado pelo CPF da Porto na importação.
+    // Não depende da configuração multicanal atual, que pode mudar
+    // depois de uma oportunidade ser importada e antes da distribuição.
     const [owner] = await db
       .select({ name: usersTable.name })
-      .from(multichannelAssignmentsTable)
-      .innerJoin(
-        usersTable,
-        eq(multichannelAssignmentsTable.userId, usersTable.id),
-      )
-      .innerJoin(
-        productsTable,
-        eq(multichannelAssignmentsTable.productId, productsTable.id),
-      )
-      .where(
-        and(
-          eq(multichannelAssignmentsTable.susepId, card.susepId),
-          eq(multichannelAssignmentsTable.userId, importedUserId),
-          eq(multichannelAssignmentsTable.status, "ativo"),
-          eq(productsTable.name, "AUTOMOVEL BONIFICACAO"),
-        ),
-      )
+      .from(usersTable)
+      .where(eq(usersTable.id, importedUserId))
       .limit(1);
 
     const ownerName = owner?.name.trim().replace(/\s+/g, " ").toUpperCase();
