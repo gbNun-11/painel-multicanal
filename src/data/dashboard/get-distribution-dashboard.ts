@@ -20,7 +20,8 @@ import { PAGE_ACCESS, requirePageAccess } from "@/src/lib/require-page-access";
 const TIME_ZONE = "America/Sao_Paulo";
 const PENDING_PAGE_SIZE = 10;
 
-type SalesModel = "LEAD" | "VINCULO" | "CONTINGENCIA";
+export type DashboardSalesModel = "LEAD" | "VINCULO" | "CONTINGENCIA";
+type SalesModel = DashboardSalesModel;
 export type DashboardCompany = "all" | "ICX" | "INRI";
 export type DashboardPeriodMode = "day" | "month" | "year";
 
@@ -103,6 +104,10 @@ export interface DistributionDashboardData {
     granularity: DashboardPeriodMode;
     label: string;
     company: DashboardCompany;
+  };
+  filters: {
+    product: string | null;
+    model: DashboardSalesModel | null;
   };
   summary: {
     received: number;
@@ -227,6 +232,8 @@ export const getDistributionDashboard = async (input: {
   year?: string;
   granularity?: DashboardPeriodMode;
   company?: DashboardCompany;
+  product?: string;
+  model?: DashboardSalesModel;
   pendingPage?: number;
 }): Promise<DistributionDashboardData> => {
   await requirePageAccess(PAGE_ACCESS.administrative);
@@ -245,6 +252,14 @@ export const getDistributionDashboard = async (input: {
     : requestedDate;
   const year = normalizeDashboardYear(input.year, month);
   const company = normalizeDashboardCompany(input.company);
+  const product = input.product?.trim() || undefined;
+  const model = input.model;
+  const productCondition = product
+    ? eq(opportunitiesTable.product, product)
+    : undefined;
+  const modelCondition = model
+    ? eq(opportunitiesTable.salesModel, model)
+    : undefined;
   const companyInsurers = db
     .select({ id: enterpriseInsurersTable.id })
     .from(enterpriseInsurersTable)
@@ -362,7 +377,7 @@ export const getDistributionDashboard = async (input: {
           `,
         })
         .from(opportunitiesTable)
-        .where(and(arrivals, opportunityCompanyCondition)),
+        .where(and(arrivals, opportunityCompanyCondition, productCondition, modelCondition)),
 
       // Um lote só é problemático se mantém criações não confirmadas.
       db
@@ -372,6 +387,10 @@ export const getDistributionDashboard = async (input: {
           `,
         })
         .from(goalfyDistributionBatchItemsTable)
+        .innerJoin(
+          opportunitiesTable,
+          eq(goalfyDistributionBatchItemsTable.opportunityId, opportunitiesTable.id),
+        )
         .innerJoin(
           goalfyDistributionBatchesTable,
           eq(
@@ -384,6 +403,8 @@ export const getDistributionDashboard = async (input: {
             sql`${goalfyDistributionBatchItemsTable.status} IN ('sent', 'inconclusive')`,
             sql`${goalfyDistributionBatchesTable.status} IN ('reconciling', 'interrupted')`,
             batchCompanyCondition,
+            productCondition,
+            modelCondition,
           ),
         ),
 
@@ -399,7 +420,7 @@ export const getDistributionDashboard = async (input: {
           `,
         })
         .from(opportunitiesTable)
-        .where(and(arrivals, opportunityCompanyCondition))
+        .where(and(arrivals, opportunityCompanyCondition, productCondition, modelCondition))
         .groupBy(opportunitiesTable.product)
         .orderBy(desc(sql`count(*)`), asc(opportunitiesTable.product)),
 
@@ -413,7 +434,7 @@ export const getDistributionDashboard = async (input: {
         })
         .from(opportunitiesTable)
         .innerJoin(usersTable, eq(opportunitiesTable.salespersonId, usersTable.id))
-        .where(and(distributionConfirmed, opportunityCompanyCondition))
+        .where(and(distributionConfirmed, opportunityCompanyCondition, productCondition, modelCondition))
         .groupBy(usersTable.id, usersTable.name, usersTable.role, usersTable.image)
         .orderBy(desc(sql`count(*)`), asc(usersTable.name))
         .limit(10),
@@ -424,7 +445,7 @@ export const getDistributionDashboard = async (input: {
           received: sql<number>`count(*)::integer`,
         })
         .from(opportunitiesTable)
-        .where(and(arrivals, opportunityCompanyCondition))
+        .where(and(arrivals, opportunityCompanyCondition, productCondition, modelCondition))
         .groupBy(opportunitiesTable.salesModel),
 
       // Backlog global: datas antigas não desaparecem com o filtro selecionado.
@@ -438,7 +459,7 @@ export const getDistributionDashboard = async (input: {
           withoutModel: sql<number>`count(*) FILTER (WHERE ${opportunitiesTable.salesModel} IS NULL)::integer`,
         })
         .from(opportunitiesTable)
-        .where(and(backlogCondition, opportunityCompanyCondition))
+        .where(and(backlogCondition, opportunityCompanyCondition, productCondition, modelCondition))
         .groupBy(arrivalDate)
         .orderBy(sql`${arrivalDate} DESC NULLS LAST`)
         .limit(PENDING_PAGE_SIZE + 1)
@@ -493,6 +514,7 @@ export const getDistributionDashboard = async (input: {
                 ),
             eq(susepsTable.multichannel, true),
             eq(multichannelAssignmentsTable.status, "ativo"),
+            product ? eq(productsTable.name, product) : undefined,
           ),
         )
         .groupBy(
@@ -523,6 +545,7 @@ export const getDistributionDashboard = async (input: {
 
   return {
     period: { month, date, dateEnd, year, granularity, label: periodLabel, company },
+    filters: { product: product ?? null, model: model ?? null },
     summary: {
       received: summary?.received ?? 0,
       distributed: summary?.distributed ?? 0,
@@ -545,9 +568,12 @@ export const getDistributionDashboard = async (input: {
     models: (["LEAD", "VINCULO", "CONTINGENCIA"] as const).map((model) => {
       const received = modelCounts.get(model) ?? 0;
       const referencePeriod = "daily" as const;
+      // Não existe meta de Vínculo/Contingência por produto cadastrada.
       const referenceTotal = model === "LEAD"
         ? leadPeriodTarget
-        : getModelReference(company, model) * selectedDays;
+        : product
+          ? null
+          : getModelReference(company, model) * selectedDays;
 
       return {
         model,
