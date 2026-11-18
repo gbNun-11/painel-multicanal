@@ -25,6 +25,11 @@ type SalesModel = DashboardSalesModel;
 export type DashboardCompany = "all" | "ICX" | "INRI";
 export type DashboardPeriodMode = "day" | "month" | "year";
 
+const UUID_PATTERN = /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i;
+
+export const normalizeDashboardSalespersonId = (value?: string) =>
+  value && UUID_PATTERN.test(value) ? value.toLowerCase() : undefined;
+
 export const normalizeDashboardPeriodMode = (
   value?: string,
 ): DashboardPeriodMode =>
@@ -108,6 +113,8 @@ export interface DistributionDashboardData {
   filters: {
     product: string | null;
     model: DashboardSalesModel | null;
+    salespersonId: string | null;
+    salespersonName: string | null;
   };
   summary: {
     received: number;
@@ -234,6 +241,7 @@ export const getDistributionDashboard = async (input: {
   company?: DashboardCompany;
   product?: string;
   model?: DashboardSalesModel;
+  salespersonId?: string;
   pendingPage?: number;
 }): Promise<DistributionDashboardData> => {
   await requirePageAccess(PAGE_ACCESS.administrative);
@@ -254,6 +262,13 @@ export const getDistributionDashboard = async (input: {
   const company = normalizeDashboardCompany(input.company);
   const product = input.product?.trim() || undefined;
   const model = input.model;
+  const salespersonId = normalizeDashboardSalespersonId(input.salespersonId);
+  const salespersonCondition = salespersonId
+    ? eq(opportunitiesTable.salespersonId, salespersonId)
+    : undefined;
+  const batchSalespersonCondition = salespersonId
+    ? eq(goalfyDistributionBatchItemsTable.salespersonId, salespersonId)
+    : undefined;
   const productCondition = product
     ? eq(opportunitiesTable.product, product)
     : undefined;
@@ -356,6 +371,14 @@ export const getDistributionDashboard = async (input: {
     )
   `;
 
+  const selectedSalesperson = salespersonId
+    ? await db
+        .select({ name: usersTable.name })
+        .from(usersTable)
+        .where(eq(usersTable.id, salespersonId))
+        .limit(1)
+    : [];
+
   const [summaryRows, batchRows, productRows, salespersonRows, modelRows, pendingRows, capacityRows] =
     await Promise.all([
       db
@@ -377,7 +400,7 @@ export const getDistributionDashboard = async (input: {
           `,
         })
         .from(opportunitiesTable)
-        .where(and(arrivals, opportunityCompanyCondition, productCondition, modelCondition)),
+        .where(and(arrivals, opportunityCompanyCondition, productCondition, modelCondition, salespersonCondition)),
 
       // Um lote só é problemático se mantém criações não confirmadas.
       db
@@ -405,6 +428,7 @@ export const getDistributionDashboard = async (input: {
             batchCompanyCondition,
             productCondition,
             modelCondition,
+            batchSalespersonCondition,
           ),
         ),
 
@@ -420,7 +444,7 @@ export const getDistributionDashboard = async (input: {
           `,
         })
         .from(opportunitiesTable)
-        .where(and(arrivals, opportunityCompanyCondition, productCondition, modelCondition))
+        .where(and(arrivals, opportunityCompanyCondition, productCondition, modelCondition, salespersonCondition))
         .groupBy(opportunitiesTable.product)
         .orderBy(desc(sql`count(*)`), asc(opportunitiesTable.product)),
 
@@ -434,7 +458,7 @@ export const getDistributionDashboard = async (input: {
         })
         .from(opportunitiesTable)
         .innerJoin(usersTable, eq(opportunitiesTable.salespersonId, usersTable.id))
-        .where(and(distributionConfirmed, opportunityCompanyCondition, productCondition, modelCondition))
+        .where(and(distributionConfirmed, opportunityCompanyCondition, productCondition, modelCondition, salespersonCondition))
         .groupBy(usersTable.id, usersTable.name, usersTable.role, usersTable.image)
         .orderBy(desc(sql`count(*)`), asc(usersTable.name))
         .limit(10),
@@ -445,11 +469,12 @@ export const getDistributionDashboard = async (input: {
           received: sql<number>`count(*)::integer`,
         })
         .from(opportunitiesTable)
-        .where(and(arrivals, opportunityCompanyCondition, productCondition, modelCondition))
+        .where(and(arrivals, opportunityCompanyCondition, productCondition, modelCondition, salespersonCondition))
         .groupBy(opportunitiesTable.salesModel),
 
-      // Backlog global: datas antigas não desaparecem com o filtro selecionado.
-      db
+      // Sem atribuição, uma oportunidade pendente não pertence a vendedor.
+      // O card explica essa regra em vez de sugerir pendências individuais.
+      salespersonId ? Promise.resolve([]) : db
         .select({
           date: arrivalDate,
           pending: sql<number>`count(*)::integer`,
@@ -545,7 +570,12 @@ export const getDistributionDashboard = async (input: {
 
   return {
     period: { month, date, dateEnd, year, granularity, label: periodLabel, company },
-    filters: { product: product ?? null, model: model ?? null },
+    filters: {
+      product: product ?? null,
+      model: model ?? null,
+      salespersonId: salespersonId ?? null,
+      salespersonName: selectedSalesperson[0]?.name ?? null,
+    },
     summary: {
       received: summary?.received ?? 0,
       distributed: summary?.distributed ?? 0,
@@ -568,12 +598,15 @@ export const getDistributionDashboard = async (input: {
     models: (["LEAD", "VINCULO", "CONTINGENCIA"] as const).map((model) => {
       const received = modelCounts.get(model) ?? 0;
       const referencePeriod = "daily" as const;
-      // Não existe meta de Vínculo/Contingência por produto cadastrada.
-      const referenceTotal = model === "LEAD"
-        ? leadPeriodTarget
-        : product
-          ? null
-          : getModelReference(company, model) * selectedDays;
+      // Referências são da empresa/produto, nunca metas individuais.
+      // Também não existe meta cadastrada de Vínculo/Contingência por produto.
+      const referenceTotal = salespersonId
+        ? null
+        : model === "LEAD"
+          ? leadPeriodTarget
+          : product
+            ? null
+            : getModelReference(company, model) * selectedDays;
 
       return {
         model,
