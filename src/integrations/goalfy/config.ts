@@ -25,6 +25,7 @@ export interface GoalfyProfile {
     birthDate?: string;
     product: string;
     productSubcategory?: string;
+    bonificationType?: string;
     model: string;
     modelYear: string;
     licensePlate: string;
@@ -63,6 +64,7 @@ export const GOALFY_ICX_PROFILE: GoalfyProfile = {
     email: "19c87e07-1e60-45fd-98ce-df28e50afe47",
     product: "4104ae8f-953d-4e5d-a82b-68c58f17587b",
     productSubcategory: "fa379baf-a9ef-4148-9a69-e62257d17b5f",
+    bonificationType: "d5d76fb8-3371-4b95-ad0c-0df87f8ee9c2",
     salesperson: "fe49a7b9-a663-403f-b45e-56df874f2a3b",
     model: "bfb2dbf9-5ade-4823-af9a-2cd5be6ba128",
     modelYear: "a23636d9-e80e-4d4a-b706-b68d705845f2",

@@ -2,14 +2,17 @@ import "server-only";
 
 import { and, eq } from "drizzle-orm";
 
+import { ENTERPRISE_IDS } from "@/src/constants/enterprises";
 import { db } from "@/src/db";
 import {
   clientsTable,
   enterpriseInsurersTable,
   enterprisesTable,
   insurersTable,
+  multichannelAssignmentsTable,
   opportunitiesTable,
   productCodesTable,
+  productsTable,
   usersTable,
 } from "@/src/db/schema";
 import type { GoalfyCreateCardData } from "@/src/integrations/goalfy/create-card";
@@ -24,6 +27,10 @@ export const prepareGoalfyCardForOpportunity = async (input: {
       id: opportunitiesTable.id,
       externalId: opportunitiesTable.externalId,
       opportunityNumber: opportunitiesTable.opportunityNumber,
+      enterpriseId: enterpriseInsurersTable.enterpriseId,
+      susepId: opportunitiesTable.susepId,
+      externalSource: opportunitiesTable.externalSource,
+      sourcePayload: opportunitiesTable.sourcePayload,
       name: clientsTable.name,
       document: clientsTable.document,
       email: clientsTable.email,
@@ -89,10 +96,58 @@ export const prepareGoalfyCardForOpportunity = async (input: {
     throw new Error("Vendedor sem responsável Goalfy configurado.");
   }
 
+  // A importação Porto grava o ID do usuário identificado pelo CPF
+  // de entrada, que pode ser diferente do vendedor da distribuição.
+  const integration = card.sourcePayload?._integration;
+  const importedUserId =
+    integration &&
+    typeof integration === "object" &&
+    "multichannelUserId" in integration &&
+    typeof integration.multichannelUserId === "string"
+      ? integration.multichannelUserId
+      : null;
+
+  let icxAutomovelBonificacao = false;
+  if (
+    card.enterpriseId === ENTERPRISE_IDS.ICX &&
+    card.externalSource === "PORTO" &&
+    card.product.trim().replace(/\s+/g, " ").toUpperCase() === "AUTOMOVEL BONIFICACAO" &&
+    importedUserId
+  ) {
+    // Confirma que a oportunidade saiu do vínculo SUSEP/produto do
+    // usuário multicanal identificado na importação. Não usa nome do
+    // cliente nem do vendedor que receberá a distribuição.
+    const [owner] = await db
+      .select({ name: usersTable.name })
+      .from(multichannelAssignmentsTable)
+      .innerJoin(
+        usersTable,
+        eq(multichannelAssignmentsTable.userId, usersTable.id),
+      )
+      .innerJoin(
+        productsTable,
+        eq(multichannelAssignmentsTable.productId, productsTable.id),
+      )
+      .where(
+        and(
+          eq(multichannelAssignmentsTable.susepId, card.susepId),
+          eq(multichannelAssignmentsTable.userId, importedUserId),
+          eq(multichannelAssignmentsTable.status, "ativo"),
+          eq(productsTable.name, "AUTOMOVEL BONIFICACAO"),
+        ),
+      )
+      .limit(1);
+
+    const ownerName = owner?.name.trim().replace(/\s+/g, " ").toUpperCase();
+    icxAutomovelBonificacao =
+      ownerName === "MARCELLO REIS" || ownerName === "MARCELO REIS";
+  }
+
   return {
     ...card,
     salesModel: card.salesModel ?? "LEAD",
     productSubcategory: card.productSubcategory,
+    icxAutomovelBonificacao,
     goalfyResponsibleValue: card.goalfyResponsibleValue.trim(),
     distributionAt: input.distributionAt,
   };

@@ -22,6 +22,7 @@ export type GoalfyCreateCardData = GoalfyClientData & {
   addressNumber?: string | null;
   addressComplement?: string | null;
   goalfyResponsibleValue?: string | null;
+  icxAutomovelBonificacao?: boolean;
   distributionAt: Date;
 };
 
@@ -103,11 +104,22 @@ export const buildGoalfyCardBody = (client: GoalfyCreateCardData) => {
   addField(fields, fieldIds.phone, client.phone);
   addField(fields, fieldIds.email, client.email);
   addField(fields, fieldIds.birthDate, client.birthDate);
+  // O produto original permanece na oportunidade. Só o payload ICX
+  // usa AUTOMOVEL com o tipo BONIFICACAO no campo adicional.
+  if (client.icxAutomovelBonificacao && !fieldIds.bonificationType) {
+    throw new Error("Campo de bonificação não configurado no perfil Goalfy.");
+  }
   addField(
     fields,
     fieldIds.product,
-    required("produto lógico", client.product),
+    required(
+      "produto lógico",
+      client.icxAutomovelBonificacao ? "AUTOMOVEL" : client.product,
+    ),
   );
+  if (client.icxAutomovelBonificacao) {
+    addField(fields, fieldIds.bonificationType, "BONIFICACAO");
+  }
   addField(fields, fieldIds.productSubcategory, client.productSubcategory);
   addField(fields, fieldIds.model, client.model);
   addField(fields, fieldIds.modelYear, client.modelYear);
