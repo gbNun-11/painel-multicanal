@@ -19,7 +19,7 @@ const modelInfo = {
 const formatNumber = new Intl.NumberFormat("pt-BR");
 
 const SalesModels = ({ models }: { models: Models }) => (
-  <Card className="h-fit">
+  <Card className="h-[380px]">
     <CardHeader>
       <CardTitle>Modelos de venda</CardTitle>
       <CardDescription>Oportunidades recebidas no período.</CardDescription>

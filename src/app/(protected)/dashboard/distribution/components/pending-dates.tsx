@@ -63,7 +63,7 @@ const PendingDates = ({
   };
 
   return (
-    <Card className="h-full">
+    <Card className="h-[380px]">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <CalendarDaysIcon
@@ -76,13 +76,13 @@ const PendingDates = ({
           Oportunidades disponíveis para distribuir, de qualquer mês.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-1">
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-1">
         {pendingDates.length === 0 ? (
           <p className="py-10 text-center text-sm text-muted-foreground">
             Não há pendências nesta página.
           </p>
         ) : (
-          <div className="max-h-[340px] space-y-1 overflow-y-auto overscroll-contain pr-2">
+          <div className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain pr-2">
             {pendingDates.map((item) => (
               <div
                 key={item.date ?? "sem-data"}
