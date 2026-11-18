@@ -224,6 +224,8 @@ const DistributionDashboardPage = async ({
             <CapacityTable
               capacities={data.capacities}
               periodLabel={data.period.label}
+              period={data.period}
+              filters={data.filters}
             />
           )}
         </section>

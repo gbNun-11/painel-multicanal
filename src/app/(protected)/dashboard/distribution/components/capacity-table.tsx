@@ -2,6 +2,7 @@
 
 import { SearchIcon, SlidersHorizontalIcon } from "lucide-react";
 import { useMemo, useState } from "react";
+import Link from "next/link";
 
 import { Badge } from "@/src/components/ui/badge";
 import {
@@ -21,6 +22,8 @@ import {
   TableRow,
 } from "@/src/components/ui/table";
 import type { DistributionDashboardData } from "@/src/data/dashboard/get-distribution-dashboard";
+
+import { dashboardHref } from "./dashboard-links";
 
 type Capacity = DistributionDashboardData["capacities"][number];
 
@@ -60,9 +63,13 @@ const normalizeSearch = (value: string) =>
 const CapacityTable = ({
   capacities,
   periodLabel,
+  period,
+  filters,
 }: {
   capacities: DistributionDashboardData["capacities"];
   periodLabel: string;
+  period: DistributionDashboardData["period"];
+  filters: DistributionDashboardData["filters"];
 }) => {
   const [search, setSearch] = useState("");
   const filtered = useMemo(() => {
@@ -127,7 +134,21 @@ const CapacityTable = ({
               return (
                 <TableRow key={item.id}>
                   <TableCell className="py-3 font-medium">
-                    {item.product}
+                    <Link
+                      href={dashboardHref(period, filters, {
+                        product: filters.product === item.product ? null : item.product,
+                      })}
+                      aria-label={
+                        (filters.product === item.product ? "Remover filtro" : "Filtrar") +
+                        " por produto " + item.product
+                      }
+                      className={
+                        "rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
+                        (filters.product === item.product ? "text-primary" : "")
+                      }
+                    >
+                      {item.product}
+                    </Link>
                   </TableCell>
                   <TableCell className="py-3 text-muted-foreground">
                     {item.company}
