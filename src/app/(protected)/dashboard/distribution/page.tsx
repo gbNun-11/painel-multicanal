@@ -21,6 +21,7 @@ import {
   normalizeDashboardDate,
   normalizeDashboardMonth,
   normalizeDashboardPeriodMode,
+  normalizeDashboardSalespersonId,
   normalizeDashboardYear,
 } from "@/src/data/dashboard/get-distribution-dashboard";
 
@@ -44,6 +45,7 @@ interface DashboardPageProps {
     company?: string | string[];
     product?: string | string[];
     model?: string | string[];
+    salespersonId?: string | string[];
     pendingPage?: string | string[];
   }>;
 }
@@ -100,6 +102,10 @@ const DistributionDashboardPage = async ({
       ? params.model
       : undefined;
 
+  const salespersonId = normalizeDashboardSalespersonId(
+    typeof params.salespersonId === "string" ? params.salespersonId : undefined,
+  );
+
   const monthOptions = await getDashboardMonthOptions(company);
 
   const requestedMonth = normalizeDashboardMonth(
@@ -131,6 +137,7 @@ const DistributionDashboardPage = async ({
     company,
     product,
     model,
+    salespersonId,
     pendingPage,
   });
 
@@ -157,13 +164,21 @@ const DistributionDashboardPage = async ({
             title="Recebidos"
             value={formatNumber.format(data.summary.received)}
             icon={InboxIcon}
-            description="Chegadas da Porto no período"
+            description={
+              data.filters.salespersonId
+                ? "Chegadas atribuídas ao vendedor no período"
+                : "Chegadas da Porto no período"
+            }
           />
           <SummaryCard
             title="Distribuídos"
             value={formatNumber.format(data.summary.distributed)}
             icon={SendIcon}
-            description="Recebidas no período, já distribuídas"
+            description={
+              data.filters.salespersonId
+                ? "Atribuídas ao vendedor e já distribuídas"
+                : "Recebidas no período, já distribuídas"
+            }
           />
           <SummaryCard
             title="Lotes com erro"
@@ -188,7 +203,11 @@ const DistributionDashboardPage = async ({
             <ProductsChart products={data.products} period={data.period} filters={data.filters} />
           </section>
           <section className="min-w-0" aria-label="Ranking de vendedores">
-            <SalespeopleRanking salespeople={data.salespeople} />
+            <SalespeopleRanking
+              salespeople={data.salespeople}
+              period={data.period}
+              filters={data.filters}
+            />
           </section>
         </div>
 
@@ -219,6 +238,10 @@ const DistributionDashboardPage = async ({
           {data.filters.model && data.filters.model !== "LEAD" ? (
             <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
               O Capacity é exclusivo de LEAD. Remova o filtro de modelo ou selecione LEAD para comparar os limites por produto.
+            </div>
+          ) : data.filters.salespersonId ? (
+            <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
+              O Capacity é definido por empresa e produto, não por vendedor. Remova o filtro de vendedor para comparar recebimento e capacidade total.
             </div>
           ) : (
             <CapacityTable

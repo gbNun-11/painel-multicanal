@@ -72,6 +72,7 @@ const buildPeriodHref = (
   if (company !== "all") query.set("company", company);
   if (filters.product) query.set("product", filters.product);
   if (filters.model) query.set("model", filters.model);
+  if (filters.salespersonId) query.set("salespersonId", filters.salespersonId);
 
   if (mode === "day") {
     query.set("period", "day");

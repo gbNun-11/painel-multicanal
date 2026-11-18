@@ -7,6 +7,7 @@ type Changes = {
   company?: Period["company"];
   product?: string | null;
   model?: Filters["model"];
+  salespersonId?: string | null;
   pendingPage?: number;
 };
 
@@ -21,6 +22,9 @@ export const dashboardHref = (
   const company = changes.company ?? period.company;
   const product = changes.product === undefined ? filters.product : changes.product;
   const model = changes.model === undefined ? filters.model : changes.model;
+  const salespersonId = changes.salespersonId === undefined
+    ? filters.salespersonId
+    : changes.salespersonId;
 
   if (company !== "all") query.set("company", company);
 
@@ -37,6 +41,7 @@ export const dashboardHref = (
 
   if (product) query.set("product", product);
   if (model) query.set("model", model);
+  if (salespersonId) query.set("salespersonId", salespersonId);
   if (changes.pendingPage && changes.pendingPage > 1) {
     query.set("pendingPage", String(changes.pendingPage));
   }

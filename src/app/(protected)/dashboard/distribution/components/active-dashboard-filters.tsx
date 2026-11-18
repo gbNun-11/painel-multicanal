@@ -21,7 +21,9 @@ const ActiveDashboardFilters = ({
   period: Period;
   filters: Filters;
 }) => {
-  if (!filters.product && !filters.model) return null;
+  if (!filters.product && !filters.model && !filters.salespersonId) {
+    return null;
+  }
 
   return (
     <div className="flex flex-wrap items-center gap-2" aria-label="Filtros interativos ativos">
@@ -46,8 +48,18 @@ const ActiveDashboardFilters = ({
           <XIcon className="size-3.5 text-muted-foreground" aria-hidden="true" />
         </Link>
       )}
+      {filters.salespersonId && (
+        <Link
+          href={dashboardHref(period, filters, { salespersonId: null })}
+          title="Remover filtro de vendedor"
+          className="inline-flex items-center gap-2 rounded-md border border-border bg-muted/50 px-2 py-1 text-xs font-medium hover:bg-muted"
+        >
+          Vendedor: {filters.salespersonName ?? "Vendedor selecionado"}
+          <XIcon className="size-3.5 text-muted-foreground" aria-hidden="true" />
+        </Link>
+      )}
       <Link
-        href={dashboardHref(period, filters, { product: null, model: null })}
+        href={dashboardHref(period, filters, { product: null, model: null, salespersonId: null })}
         className="text-xs text-muted-foreground underline-offset-4 hover:underline"
       >
         Limpar filtros

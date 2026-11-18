@@ -68,7 +68,12 @@ const PendingDates = ({
         </CardDescription>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col gap-1">
-        {pendingDates.length === 0 ? (
+        {filters.salespersonId ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">
+            Oportunidades pendentes ainda não têm vendedor atribuído.
+            Remova o filtro de vendedor para consultar o backlog global.
+          </p>
+        ) : pendingDates.length === 0 ? (
           <p className="py-10 text-center text-sm text-muted-foreground">
             Não há pendências nesta página.
           </p>

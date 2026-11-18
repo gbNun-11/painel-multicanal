@@ -76,7 +76,9 @@ const SalesModels = ({
                 aria-valuemax={item.progressPercent === null ? undefined : 100}
                 title={
                   item.referenceTotal === null
-                    ? item.model === "LEAD"
+                    ? filters.salespersonId
+                      ? "Não há meta individual de recebimento cadastrada por vendedor."
+                      : item.model === "LEAD"
                       ? "Configure o Capacity de todos os produtos para calcular a meta de LEAD."
                       : "Não há meta de Vínculo/Contingência cadastrada por produto."
                     : "Meta de 100% para o período: " +

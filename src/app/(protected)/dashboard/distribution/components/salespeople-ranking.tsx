@@ -1,4 +1,5 @@
 import { UsersRoundIcon } from "lucide-react";
+import Link from "next/link";
 
 import {
   Avatar,
@@ -15,6 +16,8 @@ import {
 import type { DistributionDashboardData } from "@/src/data/dashboard/get-distribution-dashboard";
 import { formatPersonName } from "@/src/utils/formatters";
 
+import { dashboardHref } from "./dashboard-links";
+
 type Salespeople = DistributionDashboardData["salespeople"];
 const formatNumber = new Intl.NumberFormat("pt-BR");
 
@@ -27,7 +30,15 @@ const initialsFor = (name: string) => {
   ).toLocaleUpperCase("pt-BR");
 };
 
-const SalespeopleRanking = ({ salespeople }: { salespeople: Salespeople }) => (
+const SalespeopleRanking = ({
+  salespeople,
+  period,
+  filters,
+}: {
+  salespeople: Salespeople;
+  period: DistributionDashboardData["period"];
+  filters: DistributionDashboardData["filters"];
+}) => (
   <Card className="h-full">
     <CardHeader>
       <CardTitle className="flex items-center gap-2">
@@ -46,7 +57,23 @@ const SalespeopleRanking = ({ salespeople }: { salespeople: Salespeople }) => (
         </p>
       ) : (
         salespeople.map((user) => (
-          <div key={user.id} className="flex items-center gap-3">
+          <Link
+            key={user.id}
+            href={dashboardHref(period, filters, {
+              salespersonId: filters.salespersonId === user.id ? null : user.id,
+            })}
+            aria-label={
+              (filters.salespersonId === user.id ? "Remover filtro" : "Filtrar") +
+              " por vendedor " + formatPersonName(user.name)
+            }
+            aria-current={filters.salespersonId === user.id ? "true" : undefined}
+            className={
+              "flex items-center gap-3 rounded-md p-1 transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
+              (filters.salespersonId === user.id
+                ? "bg-primary/10 ring-1 ring-primary/50"
+                : "")
+            }
+          >
             <Avatar size="lg">
               {user.avatarUrl && (
                 <AvatarImage
@@ -71,7 +98,7 @@ const SalespeopleRanking = ({ salespeople }: { salespeople: Salespeople }) => (
             <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
               {formatNumber.format(user.distributed)} distrib.
             </span>
-          </div>
+          </Link>
         ))
       )}
     </CardContent>
