@@ -85,50 +85,50 @@ const PendingDates = ({
           <div className="max-h-[340px] space-y-1 overflow-y-auto overscroll-contain pr-2">
             {pendingDates.map((item) => (
               <div
-              key={item.date ?? "sem-data"}
-              className="space-y-3 border-b border-border/60 py-3 last:border-0"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <CalendarDaysIcon
-                    className="size-4 shrink-0 text-muted-foreground"
-                    aria-hidden="true"
-                  />
-                  <span className="text-xs">
-                    {item.date
-                      ? formatDate(new Date(item.date + "T15:00:00Z"))
-                      : "Sem data de chegada"}
-                  </span>
-                </div>
-                <Badge variant="secondary" className="shrink-0 tabular-nums">
-                  {formatNumber.format(item.pending)} pendentes
-                </Badge>
-              </div>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                {([
-                  { label: "LEAD", count: item.lead },
-                  { label: "VÍNCULO", count: item.vinculo },
-                  { label: "CONTINGÊNCIA", count: item.contingencia },
-                ] as const).map(({ label, count }) => (
-                  <div
-                    key={label}
-                    className="flex items-center justify-between gap-2 rounded-md bg-muted/40 px-3 py-2"
-                  >
-                    <span className="text-[11px] font-medium">{label}</span>
-                    <Badge
-                      variant={count === 0 ? "outline" : "secondary"}
-                      className="shrink-0 tabular-nums"
-                    >
-                      {formatNumber.format(count)} {count > 1 ? "PENDENTES" : "PENDENTE"}
-                    </Badge>
+                key={item.date ?? "sem-data"}
+                className="space-y-3 border-b border-border/60 py-3 last:border-0"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <CalendarDaysIcon
+                      className="size-4 shrink-0 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                    <span className="text-xs">
+                      {item.date
+                        ? formatDate(new Date(item.date + "T15:00:00Z"))
+                        : "Sem data de chegada"}
+                    </span>
                   </div>
-                ))}
-              </div>
-              {item.withoutModel > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Sem modelo: {formatNumber.format(item.withoutModel)} pendente(s)
-                </p>
-              )}
+                  <Badge variant="secondary" className="shrink-0 tabular-nums">
+                    {formatNumber.format(item.pending)} pendentes
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  {([
+                    { label: "LEAD", count: item.lead },
+                    { label: "VÍNCULO", count: item.vinculo },
+                    { label: "CONTINGÊNCIA", count: item.contingencia },
+                  ] as const).map(({ label, count }) => (
+                    <div
+                      key={label}
+                      className="flex items-center justify-between gap-2 rounded-md bg-muted/40 px-3 py-2"
+                    >
+                      <span className="text-[11px] font-medium">{label}</span>
+                      <Badge
+                        variant={count === 0 ? "outline" : "secondary"}
+                        className="shrink-0 tabular-nums"
+                      >
+                        {formatNumber.format(count)} {count > 1 ? "PENDENTES" : "PENDENTE"}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+                {item.withoutModel > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Sem modelo: {formatNumber.format(item.withoutModel)} pendente(s)
+                  </p>
+                )}
               </div>
             ))}
           </div>
