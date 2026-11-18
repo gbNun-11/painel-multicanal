@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type { DistributionDashboardData } from "@/src/data/dashboard/get-distribution-dashboard";
 
+import { dashboardHref } from "./dashboard-links";
 import PeriodFilter from "./period-filter";
 
 type Period = DistributionDashboardData["period"];
@@ -20,9 +21,11 @@ interface MonthOption {
 const DashboardFilters = ({
   period,
   months,
+  filters,
 }: {
   period: Period;
   months: MonthOption[];
+  filters: DistributionDashboardData["filters"];
 }) => {
   const [openFilter, setOpenFilter] = useState<OpenFilter>(null);
   const filtersRef = useRef<HTMLDivElement>(null);
@@ -51,23 +54,8 @@ const DashboardFilters = ({
     };
   }, [openFilter]);
 
-  const companyHref = (selectedCompany: Company) => {
-    const query = new URLSearchParams();
-    if (selectedCompany !== "all") query.set("company", selectedCompany);
-
-    if (period.granularity === "day") {
-      query.set("period", "day");
-      query.set("from", period.date);
-      query.set("to", period.dateEnd);
-    } else if (period.granularity === "year") {
-      query.set("period", "year");
-      query.set("year", period.year);
-    } else {
-      query.set("month", period.month);
-    }
-
-    return "/dashboard/distribution?" + query.toString();
-  };
+  const companyHref = (selectedCompany: Company) =>
+    dashboardHref(period, filters, { company: selectedCompany });
 
   return (
     <div ref={filtersRef} className="flex flex-wrap items-center gap-2">
@@ -112,6 +100,7 @@ const DashboardFilters = ({
         key={[period.granularity, period.label, period.company].join(":")}
         period={period}
         months={months}
+        filters={filters}
         open={openFilter === "period"}
         onToggle={() => toggleFilter("period")}
         onClose={() => setOpenFilter(null)}

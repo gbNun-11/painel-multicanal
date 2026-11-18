@@ -17,6 +17,8 @@ import type {
 } from "@/src/data/dashboard/get-distribution-dashboard";
 import { formatDate } from "@/src/utils/date-formatters";
 
+import { dashboardHref } from "./dashboard-links";
+
 type Pending = Pick<
   DistributionDashboardData,
   "pendingDates" | "pendingDatesHasMore" | "pendingPage"
@@ -34,6 +36,7 @@ const PendingDates = ({
   year,
   granularity,
   company,
+  filters,
 }: Pending & {
   month: string;
   date: string;
@@ -41,26 +44,14 @@ const PendingDates = ({
   year: string;
   granularity: DashboardPeriodMode;
   company: DashboardCompany;
+  filters: DistributionDashboardData["filters"];
 }) => {
-  const urlFor = (page: number) => {
-    const query = new URLSearchParams();
-
-    if (company !== "all") query.set("company", company);
-
-    if (granularity === "day") {
-      query.set("period", "day");
-      query.set("from", date);
-      query.set("to", dateEnd);
-    } else if (granularity === "year") {
-      query.set("period", "year");
-      query.set("year", year);
-    } else {
-      query.set("month", month);
-    }
-
-    query.set("pendingPage", String(page));
-    return "/dashboard/distribution?" + query.toString();
-  };
+  const urlFor = (page: number) =>
+    dashboardHref(
+      { month, date, dateEnd, year, granularity, company, label: "" },
+      filters,
+      { pendingPage: page },
+    );
 
   return (
     <Card className="h-[380px]">

@@ -26,6 +26,7 @@ import {
 
 import CapacityTable from "./components/capacity-table";
 import DashboardFilters from "./components/dashboard-filters";
+import ActiveDashboardFilters from "./components/active-dashboard-filters";
 import PendingDates from "./components/pending-dates";
 import ProductsChart from "./components/products-chart";
 import SalesModels from "./components/sales-models";
@@ -41,6 +42,8 @@ interface DashboardPageProps {
     year?: string | string[];
     period?: string | string[];
     company?: string | string[];
+    product?: string | string[];
+    model?: string | string[];
     pendingPage?: string | string[];
   }>;
 }
@@ -87,6 +90,15 @@ const DistributionDashboardPage = async ({
     typeof params.pendingPage === "string"
       ? Number(params.pendingPage)
       : undefined;
+  const product = typeof params.product === "string" &&
+    params.product.trim().length > 0 && params.product.length <= 150
+      ? params.product.trim()
+      : undefined;
+  const model = params.model === "LEAD" ||
+    params.model === "VINCULO" ||
+    params.model === "CONTINGENCIA"
+      ? params.model
+      : undefined;
 
   const monthOptions = await getDashboardMonthOptions(company);
 
@@ -117,6 +129,8 @@ const DistributionDashboardPage = async ({
     year: selectedYear,
     granularity,
     company,
+    product,
+    model,
     pendingPage,
   });
 
@@ -132,11 +146,12 @@ const DistributionDashboardPage = async ({
         </PageHeaderContent>
 
         <PageActions>
-          <DashboardFilters period={data.period} months={monthOptions} />
+          <DashboardFilters period={data.period} months={monthOptions} filters={data.filters} />
         </PageActions>
       </PageHeader>
 
       <PageContent>
+        <ActiveDashboardFilters period={data.period} filters={data.filters} />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <SummaryCard
             title="Recebidos"
@@ -170,7 +185,7 @@ const DistributionDashboardPage = async ({
             className="min-w-0 xl:col-span-2"
             aria-label="Comparativo de produtos"
           >
-            <ProductsChart products={data.products} />
+            <ProductsChart products={data.products} period={data.period} filters={data.filters} />
           </section>
           <section className="min-w-0" aria-label="Ranking de vendedores">
             <SalespeopleRanking salespeople={data.salespeople} />
@@ -190,20 +205,27 @@ const DistributionDashboardPage = async ({
               granularity={data.period.granularity}
               company={company}
               pendingDates={data.pendingDates}
+              filters={data.filters}
               pendingPage={data.pendingPage}
               pendingDatesHasMore={data.pendingDatesHasMore}
             />
           </section>
           <section className="min-w-0" aria-label="Modelos de venda recebidos">
-            <SalesModels models={data.models} />
+            <SalesModels models={data.models} period={data.period} filters={data.filters} />
           </section>
         </div>
 
         <section aria-label="Capacidade de LEAD da Porto">
-          <CapacityTable
-            capacities={data.capacities}
-            periodLabel={data.period.label}
-          />
+          {data.filters.model && data.filters.model !== "LEAD" ? (
+            <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
+              O Capacity é exclusivo de LEAD. Remova o filtro de modelo ou selecione LEAD para comparar os limites por produto.
+            </div>
+          ) : (
+            <CapacityTable
+              capacities={data.capacities}
+              periodLabel={data.period.label}
+            />
+          )}
         </section>
       </PageContent>
     </PageContainer>

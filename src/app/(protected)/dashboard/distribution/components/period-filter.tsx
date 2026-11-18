@@ -64,11 +64,14 @@ const buildPeriodHref = (
   mode: DashboardPeriodMode,
   value: string,
   company: DashboardCompany,
+  filters: DistributionDashboardData["filters"],
   endDate?: string,
 ) => {
   const query = new URLSearchParams();
 
   if (company !== "all") query.set("company", company);
+  if (filters.product) query.set("product", filters.product);
+  if (filters.model) query.set("model", filters.model);
 
   if (mode === "day") {
     query.set("period", "day");
@@ -87,12 +90,14 @@ const buildPeriodHref = (
 const PeriodFilter = ({
   period,
   months,
+  filters,
   open,
   onToggle,
   onClose,
 }: {
   period: Period;
   months: MonthOption[];
+  filters: DistributionDashboardData["filters"];
   open: boolean;
   onToggle: () => void;
   onClose: () => void;
@@ -160,6 +165,7 @@ const PeriodFilter = ({
         "day",
         formatDayKey(range.from),
         period.company,
+        filters,
         formatDayKey(range.to ?? range.from),
       ),
     );
@@ -296,7 +302,7 @@ const PeriodFilter = ({
                     aria-pressed={selected}
                     onClick={() => {
                       onClose();
-                      router.push(buildPeriodHref("month", month, period.company));
+                      router.push(buildPeriodHref("month", month, period.company, filters));
                     }}
                     className="w-full"
                   >
@@ -351,7 +357,7 @@ const PeriodFilter = ({
                     onClick={() => {
                       onClose();
                       router.push(
-                        buildPeriodHref("year", String(year), period.company),
+                        buildPeriodHref("year", String(year), period.company, filters),
                       );
                     }}
                     className="w-full"
