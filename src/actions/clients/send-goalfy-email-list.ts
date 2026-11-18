@@ -2,6 +2,7 @@
 
 import { and, asc, eq, ilike, inArray } from "drizzle-orm";
 
+import { ENTERPRISE_IDS } from "@/src/constants/enterprises";
 import { db } from "@/src/db";
 import {
   clientsTable,
@@ -30,8 +31,17 @@ const normalizedProduct = (product: string | null) =>
     .trim()
     .toUpperCase();
 
-const requiresThallesCopy = (product: string | null) =>
-  ["AUTOMOVEL", "MOTO"].includes(normalizedProduct(product));
+const requiresThallesCopy = (
+  product: string | null,
+  enterpriseId: string,
+) => {
+  const name = normalizedProduct(product);
+  return (
+    name === "AUTOMOVEL" ||
+    name === "MOTO" ||
+    (enterpriseId === ENTERPRISE_IDS.ICX && name === "AUTOMOVEL BONIFICACAO")
+  );
+};
 
 /**
  * Não fixa e-mail ou ID inventado no código.
@@ -220,10 +230,10 @@ export const sendGoalfyEmailListAction = protectedActionClient
       };
 
       const autoMotoClients = clients.filter((client) =>
-        requiresThallesCopy(client.product),
+        requiresThallesCopy(client.product, enterprise.enterpriseId),
       );
       const ordinaryClients = clients.filter(
-        (client) => !requiresThallesCopy(client.product),
+        (client) => !requiresThallesCopy(client.product, enterprise.enterpriseId),
       );
 
       // Resolve o CC obrigatório antes de disparar a primeira mensagem.
