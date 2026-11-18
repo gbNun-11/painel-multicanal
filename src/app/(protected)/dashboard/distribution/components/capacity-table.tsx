@@ -1,8 +1,8 @@
 "use client";
 
 import { SearchIcon, SlidersHorizontalIcon } from "lucide-react";
-import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useMemo, useState } from "react";
 
 import { Badge } from "@/src/components/ui/badge";
 import {
@@ -95,8 +95,8 @@ const CapacityTable = ({
               Recebimento de LEADs — Porto
             </CardTitle>
             <CardDescription>
-              LEAD recebido em {periodLabel}; capacidade diária multiplicada
-              pelos dias corridos do período, por empresa e produto lógico.
+              Recebimento do período de {periodLabel}; Seguindo todo cadastro de
+              produtos, empresas e capacity.
             </CardDescription>
           </div>
           <Badge variant="outline">LEAD</Badge>
@@ -136,11 +136,17 @@ const CapacityTable = ({
                   <TableCell className="py-3 font-medium">
                     <Link
                       href={dashboardHref(period, filters, {
-                        product: filters.product === item.product ? null : item.product,
+                        product:
+                          filters.product === item.product
+                            ? null
+                            : item.product,
                       })}
                       aria-label={
-                        (filters.product === item.product ? "Remover filtro" : "Filtrar") +
-                        " por produto " + item.product
+                        (filters.product === item.product
+                          ? "Remover filtro"
+                          : "Filtrar") +
+                        " por produto " +
+                        item.product
                       }
                       className={
                         "rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
