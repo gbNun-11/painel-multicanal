@@ -25,9 +25,9 @@ import {
   normalizeDashboardYear,
 } from "@/src/data/dashboard/get-distribution-dashboard";
 
+import ActiveDashboardFilters from "./components/active-dashboard-filters";
 import CapacityTable from "./components/capacity-table";
 import DashboardFilters from "./components/dashboard-filters";
-import ActiveDashboardFilters from "./components/active-dashboard-filters";
 import PendingDates from "./components/pending-dates";
 import ProductsChart from "./components/products-chart";
 import SalesModels from "./components/sales-models";
