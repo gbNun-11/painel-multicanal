@@ -118,7 +118,12 @@ export const buildGoalfyCardBody = (client: GoalfyCreateCardData) => {
     ),
   );
   if (client.icxAutomovelBonificacao) {
-    addField(fields, fieldIds.bonificationType, "BONIFICACAO");
+    // Lead Bonif é um campo de seleção na ICX. Envia a opção selecionada
+    // como lista, assim como os campos estruturados do formulário Goalfy.
+    fields.push({
+      fieldInfoId: fieldIds.bonificationType!,
+      value: ["BONIFICACAO"],
+    });
   }
   addField(fields, fieldIds.productSubcategory, client.productSubcategory);
   addField(fields, fieldIds.model, client.model);
