@@ -82,8 +82,9 @@ const PendingDates = ({
             Não há pendências nesta página.
           </p>
         ) : (
-          pendingDates.map((item) => (
-            <div
+          <div className="max-h-[340px] space-y-1 overflow-y-auto overscroll-contain pr-2">
+            {pendingDates.map((item) => (
+              <div
               key={item.date ?? "sem-data"}
               className="space-y-3 border-b border-border/60 py-3 last:border-0"
             >
@@ -128,8 +129,9 @@ const PendingDates = ({
                   Sem modelo: {formatNumber.format(item.withoutModel)} pendente(s)
                 </p>
               )}
-            </div>
-          ))
+              </div>
+            ))}
+          </div>
         )}
         {(pendingPage > 1 || pendingDatesHasMore) && (
           <nav
