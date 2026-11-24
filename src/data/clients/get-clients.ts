@@ -128,8 +128,7 @@ const getDateRange = (from: string | undefined, to: string | undefined) => {
   };
 };
 
-export const getClients = async ({
-  page,
+const buildAvailableClientsWhereClause = ({
   insurerId,
   search,
   arrivalDateFrom,
@@ -137,9 +136,7 @@ export const getClients = async ({
   products,
   salesModels,
   enterpriseIds,
-}: GetClientsParams) => {
-  await requirePageAccess(PAGE_ACCESS.administrative);
-
+}: Omit<GetClientsParams, "page">) => {
   const normalizedSearch =
     normalizeSearchTerm(search)?.slice(0, MAX_SEARCH_LENGTH) ?? null;
 
@@ -239,6 +236,82 @@ export const getClients = async ({
   }
 
   const whereClause = and(...conditions);
+
+  return whereClause;
+};
+
+export const MAX_CLIENTS_EXPORT_ROWS = 10_000;
+
+export const getAvailableClientsForExport = async (
+  filters: Omit<GetClientsParams, "page">,
+) => {
+  await requirePageAccess(PAGE_ACCESS.administrative);
+
+  const whereClause = buildAvailableClientsWhereClause(filters);
+  // Exporta todas as páginas do mesmo filtro, sem truncar silenciosamente.
+  // +1 permite informar que a seleção excedeu o limite de segurança.
+  const rows = await db
+    .select({
+      opportunityNumber: opportunitiesTable.opportunityNumber,
+      name: clientsTable.name,
+      document: clientsTable.document,
+      phone: clientsTable.phone,
+      email: clientsTable.email,
+      product: opportunitiesTable.product,
+      enterpriseName: enterprisesTable.name,
+      salesModel: opportunitiesTable.salesModel,
+      propensity: opportunitiesTable.propensity,
+      sourceCreatedAt: opportunitiesTable.sourceCreatedAt,
+    })
+    .from(opportunitiesTable)
+    .innerJoin(clientsTable, eq(opportunitiesTable.clientId, clientsTable.id))
+    .innerJoin(
+      enterpriseInsurersTable,
+      eq(opportunitiesTable.enterpriseInsurerId, enterpriseInsurersTable.id),
+    )
+    .innerJoin(
+      enterprisesTable,
+      eq(enterpriseInsurersTable.enterpriseId, enterprisesTable.id),
+    )
+    .where(whereClause)
+    .orderBy(
+      sql`
+        ${opportunitiesTable.sourceCreatedAt}
+        DESC NULLS LAST
+      `,
+      asc(clientsTable.name),
+      asc(opportunitiesTable.id),
+    )
+    .limit(MAX_CLIENTS_EXPORT_ROWS + 1);
+
+  if (rows.length > MAX_CLIENTS_EXPORT_ROWS) {
+    throw new Error("too_many_export_rows");
+  }
+
+  return rows;
+};
+
+export const getClients = async ({
+  page,
+  insurerId,
+  search,
+  arrivalDateFrom,
+  arrivalDateTo,
+  products,
+  salesModels,
+  enterpriseIds,
+}: GetClientsParams) => {
+  await requirePageAccess(PAGE_ACCESS.administrative);
+
+  const whereClause = buildAvailableClientsWhereClause({
+    insurerId,
+    search,
+    arrivalDateFrom,
+    arrivalDateTo,
+    products,
+    salesModels,
+    enterpriseIds,
+  });
 
   const [countResult] = await db
     .select({

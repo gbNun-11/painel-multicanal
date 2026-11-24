@@ -5,7 +5,18 @@ import ExcelJS from "exceljs";
 import { formatPhone } from "@/src/utils/formatters";
 import { calculateRecollectionDate } from "@/src/utils/recollection-date";
 
-import type { SendDistributionEmailInput } from "./types";
+import type {
+  DistributionEmailClient,
+  SendDistributionEmailInput,
+} from "./types";
+
+type AvailableClientsExcelInput = {
+  mode: "available";
+  enterpriseName: string;
+  clients: Array<DistributionEmailClient & { enterpriseName: string }>;
+};
+
+type ExcelReportInput = SendDistributionEmailInput | AvailableClientsExcelInput;
 
 const formatDate = (value: Date | null) => {
   if (!value) {
@@ -32,6 +43,14 @@ const formatRecollectionDate = (assignedAt: Date | null) => {
   return `${dayOfMonth}/${month}/${year} ${time.slice(0, 5)}`;
 };
 
+// Dados recebidos de terceiros não podem virar fórmulas ao abrir o Excel.
+const safeExcelText = (value: string | null | undefined) => {
+  const normalized = (value ?? "")
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .trim();
+  return /^[=+\-@]/.test(normalized) ? `'${normalized}` : normalized;
+};
+
 const formatSalesModel = (
   value: "LEAD" | "VINCULO" | "CONTINGENCIA" | null,
 ) => {
@@ -49,8 +68,12 @@ const formatSalesModel = (
 };
 
 export const createDistributionExcelReport = async (
-  input: SendDistributionEmailInput,
+  input: ExcelReportInput,
 ) => {
+  const available = "mode" in input && input.mode === "available";
+  const recipientName = "recipient" in input ? input.recipient.name : "";
+  const senderName = "sender" in input ? input.sender.name : "";
+
   const workbook = new ExcelJS.Workbook();
 
   workbook.creator = "Painel Multicanal";
@@ -72,7 +95,9 @@ export const createDistributionExcelReport = async (
 
   const titleCell = worksheet.getCell("A1");
 
-  titleCell.value = "RELATÓRIO DE CLIENTES DISTRIBUÍDOS";
+  titleCell.value = available
+    ? "RELATÓRIO DE CLIENTES DISPONÍVEIS"
+    : "RELATÓRIO DE CLIENTES DISTRIBUÍDOS";
 
   titleCell.font = {
     bold: true,
@@ -97,17 +122,19 @@ export const createDistributionExcelReport = async (
 
   worksheet.getRow(1).height = 32;
 
-  worksheet.getCell("A3").value = "Empresa";
+  worksheet.getCell("A3").value = available ? "Empresas" : "Empresa";
 
   worksheet.getCell("B3").value = input.enterpriseName;
 
-  worksheet.getCell("D3").value = "Usuário comercial";
+  worksheet.getCell("D3").value = available ? "Situação" : "Usuário comercial";
 
-  worksheet.getCell("E3").value = input.recipient.name;
+  worksheet.getCell("E3").value = available
+    ? "Aguardando distribuição"
+    : recipientName;
 
-  worksheet.getCell("A4").value = "Distribuído por";
+  worksheet.getCell("A4").value = available ? "Origem" : "Distribuído por";
 
-  worksheet.getCell("B4").value = input.sender.name;
+  worksheet.getCell("B4").value = available ? "Porto Seguro" : senderName;
 
   worksheet.getCell("D4").value = "Total de clientes";
 
@@ -177,23 +204,27 @@ export const createDistributionExcelReport = async (
     const row = worksheet.addRow([
       client.opportunityNumber ?? "",
 
-      client.name,
+      safeExcelText(client.name),
 
-      client.phone ? formatPhone(client.phone) : "",
+      safeExcelText(client.phone ? formatPhone(client.phone) : ""),
 
-      client.document ?? "",
+      safeExcelText(client.document),
 
-      client.email ?? "",
+      safeExcelText(client.email),
 
       formatDate(client.sourceCreatedAt),
 
       formatRecollectionDate(client.assignedAt),
 
-      input.recipient.name,
+      recipientName,
 
-      client.product ?? "",
+      safeExcelText(client.product),
 
-      input.enterpriseName,
+      safeExcelText(
+        "enterpriseName" in client
+          ? (client.enterpriseName ?? input.enterpriseName)
+          : input.enterpriseName,
+      ),
 
       formatSalesModel(client.salesModel),
 
