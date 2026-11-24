@@ -107,6 +107,8 @@ export const prepareGoalfyCardForOpportunity = async (input: {
   let icxAutomovelBonificacao = false;
   if (
     card.externalSource === "PORTO" &&
+    card.product.trim().replace(/\s+/g, " ").toLocaleUpperCase("pt-BR") ===
+      "AUTOMOVEL BONIFICACAO" &&
     importedUserId
   ) {
     // O usuário é aquele validado pelo CPF da Porto na importação.
