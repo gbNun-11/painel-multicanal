@@ -159,6 +159,7 @@ export const sendGoalfyEmailListAction = protectedActionClient
           db
             .select({
               id: opportunitiesTable.id,
+              opportunityNumber: opportunitiesTable.opportunityNumber,
               name: clientsTable.name,
               document: clientsTable.document,
               phone: clientsTable.phone,

@@ -3,6 +3,7 @@ import "server-only";
 import ExcelJS from "exceljs";
 
 import { formatPhone } from "@/src/utils/formatters";
+import { calculateRecollectionDate } from "@/src/utils/recollection-date";
 
 import type { SendDistributionEmailInput } from "./types";
 
@@ -18,6 +19,17 @@ const formatDate = (value: Date | null) => {
 
     timeZone: "America/Sao_Paulo",
   }).format(value);
+};
+
+// A mesma data de recolhimento enviada na criação do card Goalfy:
+// três dias úteis após a entrega, às 14h no fuso de São Paulo.
+const formatRecollectionDate = (assignedAt: Date | null) => {
+  if (!assignedAt) return "";
+
+  const date = calculateRecollectionDate(assignedAt);
+  const [day, time] = date.split("T");
+  const [year, month, dayOfMonth] = day.split("-");
+  return `${dayOfMonth}/${month}/${year} ${time.slice(0, 5)}`;
 };
 
 const formatSalesModel = (
@@ -56,7 +68,7 @@ export const createDistributionExcelReport = async (
     ],
   });
 
-  worksheet.mergeCells("A1:J1");
+  worksheet.mergeCells("A1:L1");
 
   const titleCell = worksheet.getCell("A1");
 
@@ -125,16 +137,18 @@ export const createDistributionExcelReport = async (
   const headerRow = worksheet.getRow(7);
 
   headerRow.values = [
-    "#",
-    "Cliente",
-    "Documento",
-    "Telefone",
-    "E-mail",
-    "Produto",
-    "Modelo de venda",
-    "Propensão",
-    "Entrada",
-    "Distribuído em",
+    "Nº de Lead",
+    "NOME",
+    "TELEFONE",
+    "CPF OU CNPJ",
+    "E-MAIL",
+    "CHEGADA DO LEAD",
+    "DATA RECOLHE",
+    "RESPONSAVEL",
+    "PRODUTO",
+    "EMPRESA",
+    "MODALIDADE",
+    "DATA ENTREGA",
   ];
 
   headerRow.font = {
@@ -161,23 +175,27 @@ export const createDistributionExcelReport = async (
 
   input.clients.forEach((client, index) => {
     const row = worksheet.addRow([
-      index + 1,
+      client.opportunityNumber ?? "",
 
       client.name,
 
-      client.document ?? "",
-
       client.phone ? formatPhone(client.phone) : "",
+
+      client.document ?? "",
 
       client.email ?? "",
 
+      formatDate(client.sourceCreatedAt),
+
+      formatRecollectionDate(client.assignedAt),
+
+      input.recipient.name,
+
       client.product ?? "",
 
+      input.enterpriseName,
+
       formatSalesModel(client.salesModel),
-
-      client.propensity ?? "",
-
-      formatDate(client.sourceCreatedAt),
 
       formatDate(client.assignedAt),
     ]);
@@ -210,28 +228,15 @@ export const createDistributionExcelReport = async (
     });
   });
 
-  worksheet.getColumn(1).width = 6;
+  const columnWidths = [16, 36, 20, 22, 34, 23, 22, 30, 30, 36, 18, 23];
 
-  worksheet.getColumn(2).width = 36;
+  columnWidths.forEach((width, index) => {
+    worksheet.getColumn(index + 1).width = width;
+  });
 
-  worksheet.getColumn(3).width = 20;
-
-  worksheet.getColumn(4).width = 20;
-
-  worksheet.getColumn(5).width = 34;
-
-  worksheet.getColumn(6).width = 30;
-
-  worksheet.getColumn(7).width = 20;
-
-  worksheet.getColumn(8).width = 22;
-
-  worksheet.getColumn(9).width = 20;
-
-  worksheet.getColumn(10).width = 20;
-
+  // Impede que Excel converta CPF/CNPJ e telefone em números
+  // (inclusive perdendo zeros à esquerda).
   worksheet.getColumn(3).numFmt = "@";
-
   worksheet.getColumn(4).numFmt = "@";
 
   worksheet.autoFilter = {
@@ -242,14 +247,14 @@ export const createDistributionExcelReport = async (
 
     to: {
       row: 7,
-      column: 10,
+      column: 12,
     },
   };
 
   const lastRow = worksheet.rowCount;
 
   for (let rowIndex = 7; rowIndex <= lastRow; rowIndex += 1) {
-    for (let columnIndex = 1; columnIndex <= 10; columnIndex += 1) {
+    for (let columnIndex = 1; columnIndex <= 12; columnIndex += 1) {
       const cell = worksheet.getCell(rowIndex, columnIndex);
 
       cell.border = {
@@ -266,7 +271,7 @@ export const createDistributionExcelReport = async (
             : cell.border?.left,
 
         right:
-          columnIndex === 10
+          columnIndex === 12
             ? {
                 style: "thin",
                 color: {

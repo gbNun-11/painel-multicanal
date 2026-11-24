@@ -3,6 +3,8 @@ export type SmtpAccountKey = "INRI" | "ICX";
 export interface DistributionEmailClient {
   id: string;
 
+  opportunityNumber: number | null;
+
   name: string;
 
   document: string | null;
