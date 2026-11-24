@@ -363,8 +363,8 @@ const ClientsSyncMenu = ({
 
     const reconciliation = finishedResult.data;
 
-    // Todas as notificações confirmadas são controladas
-    // pelo despachante compartilhado, nunca por envio direto.
+    // Avisos complementares seguem o despachante compartilhado.
+    // Nunca determinam o sucesso dos cards no Goalfy.
     let notificationsPending = false;
     let notificationMessage = "";
 
@@ -406,7 +406,7 @@ const ClientsSyncMenu = ({
             notificationMessage =
               `${counts.pending} notificação(ões) aguardando envio, ` +
               `${counts.sending} em processamento e ` +
-              `${counts.uncertain} exigindo revisão.`;
+              `${counts.uncertain} sem confirmação (sem reenvio automático).`;
           }
         }
       } catch (error) {
@@ -429,8 +429,8 @@ const ClientsSyncMenu = ({
 
     if (
       failedImports === 0 &&
-      !notificationsPending &&
-      reconciliation.remaining === 0
+      reconciliation.remaining === 0 &&
+      reconciliation.unresolved.length === 0
     ) {
       toast.add({
         type: "success",
@@ -438,7 +438,9 @@ const ClientsSyncMenu = ({
         title: "Importação concluída",
 
         description:
-          `${successfulImports} cliente(s) ` + "distribuído(s) com sucesso.",
+          `${successfulImports} cliente(s) ` +
+          "confirmado(s) no Goalfy." +
+          (notificationMessage ? ` ${notificationMessage}` : ""),
       });
 
       return;
@@ -456,7 +458,7 @@ const ClientsSyncMenu = ({
       details.push(`${failedImports} falha(s) na criação`);
     }
 
-    if (notificationsPending) {
+    if (notificationMessage) {
       details.push(notificationMessage);
     }
 
@@ -472,7 +474,7 @@ const ClientsSyncMenu = ({
       type: "error",
 
       title:
-        reconciliation.remaining > 0 || notificationsPending
+        reconciliation.remaining > 0 || reconciliation.unresolved.length > 0
           ? "Importação com pendências"
           : "Importação concluída com falhas",
 
@@ -655,7 +657,7 @@ const ClientsSyncMenu = ({
             notificationMessage =
               `${counts.pending} notificação(ões) aguardando envio, ` +
               `${counts.sending} em processamento e ` +
-              `${counts.uncertain} exigindo revisão.`;
+              `${counts.uncertain} sem confirmação (sem reenvio automático).`;
           }
         }
       } catch {
@@ -671,10 +673,10 @@ const ClientsSyncMenu = ({
     clearSelection();
     router.refresh();
 
+    // O estado dos avisos não muda a conclusão da distribuição.
     const hasPending =
       reconciliation.remaining > 0 ||
-      reconciliation.unresolved.length > 0 ||
-      notificationsPending;
+      reconciliation.unresolved.length > 0;
 
     if (failedIds.size === 0 && !hasPending) {
       toast.add({
@@ -682,7 +684,8 @@ const ClientsSyncMenu = ({
         title: "Transferência concluída",
         description:
           `${confirmedIds.size} oportunidade(s) selecionada(s) ` +
-          "confirmada(s) no Goalfy.",
+          "confirmada(s) no Goalfy." +
+          (notificationMessage ? ` ${notificationMessage}` : ""),
       });
 
       return;
@@ -709,7 +712,7 @@ const ClientsSyncMenu = ({
       details.push(`${failedIds.size} falha(s) na distribuição`);
     }
 
-    if (notificationsPending) {
+    if (notificationMessage) {
       details.push(notificationMessage);
     }
 
@@ -724,7 +727,7 @@ const ClientsSyncMenu = ({
     toast.add({
       type: "error",
       title: hasPending
-        ? "Transferência com pendências"
+        ? "Transferência com pendências no Goalfy"
         : "Transferência concluída com falhas",
       description: details.join(" • "),
     });
