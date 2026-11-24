@@ -78,7 +78,12 @@ const ClientsSyncMenu = ({
       // Só utiliza filtros já aplicados à tabela, não os rascunhos do modal.
       const query = new URLSearchParams();
       for (const key of [
-        "q", "from", "to", "product", "salesModel", "enterpriseId",
+        "q",
+        "from",
+        "to",
+        "product",
+        "salesModel",
+        "enterpriseId",
       ]) {
         for (const value of searchParams.getAll(key)) {
           query.append(key, value);
@@ -91,9 +96,9 @@ const ClientsSyncMenu = ({
       );
 
       if (!response.ok) {
-        const details = await response.json().catch(() => null) as
-          | { error?: string }
-          | null;
+        const details = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
         throw new Error(details?.error || "Não foi possível exportar o Excel.");
       }
 
@@ -214,10 +219,7 @@ const ClientsSyncMenu = ({
         sendListByEmail: payload.sendListByEmail,
       });
 
-      if (
-        !started?.data?.batchId ||
-        !started.data.completionToken
-      ) {
+      if (!started?.data?.batchId || !started.data.completionToken) {
         throw new Error("Não foi possível abrir o lote.");
       }
 
@@ -251,13 +253,13 @@ const ClientsSyncMenu = ({
             });
 
             if (
-          result?.data?.success === false &&
-          "awaitingReconciliation" in result.data &&
-          result.data.awaitingReconciliation === true
-        ) {
-          // POST aceito; a confirmação será feita
-          // exclusivamente pela conciliação do lote.
-        } else if (result?.data?.success === true && result.data.client) {
+              result?.data?.success === false &&
+              "awaitingReconciliation" in result.data &&
+              result.data.awaitingReconciliation === true
+            ) {
+              // POST aceito; a confirmação será feita
+              // exclusivamente pela conciliação do lote.
+            } else if (result?.data?.success === true && result.data.client) {
               if (
                 rememberConfirmed({
                   opportunityId: result.data.client.id,
@@ -330,7 +332,6 @@ const ClientsSyncMenu = ({
             onProgress(completedImports, totalImports);
           }
         }
-
       }
     }
 
@@ -372,8 +373,7 @@ const ClientsSyncMenu = ({
       payload.sendListByWhatsApp || payload.sendListByEmail;
 
     const notificationsReady =
-      reconciliation.remaining === 0 &&
-      reconciliation.unresolved.length === 0;
+      reconciliation.remaining === 0 && reconciliation.unresolved.length === 0;
 
     if (notificationsEnabled && !notificationsReady) {
       notificationsPending = true;
@@ -384,10 +384,9 @@ const ClientsSyncMenu = ({
 
     if (notificationsEnabled && notificationsReady) {
       try {
-        const dispatched =
-          await dispatchGoalfyBatchNotificationsAction({
-            batchId,
-          });
+        const dispatched = await dispatchGoalfyBatchNotificationsAction({
+          batchId,
+        });
 
         if (!dispatched?.data) {
           notificationsPending = true;
@@ -398,9 +397,7 @@ const ClientsSyncMenu = ({
           const counts = state.notifications;
 
           notificationsPending =
-            counts.pending > 0 ||
-            counts.sending > 0 ||
-            counts.uncertain > 0;
+            counts.pending > 0 || counts.sending > 0 || counts.uncertain > 0;
 
           if (notificationsPending) {
             notificationMessage =
@@ -412,9 +409,7 @@ const ClientsSyncMenu = ({
       } catch (error) {
         console.error(
           "[GOALFY NOTIFICATIONS] Falha ao despachar:",
-          error instanceof Error
-            ? error.message
-            : "Erro desconhecido",
+          error instanceof Error ? error.message : "Erro desconhecido",
         );
 
         notificationsPending = true;
@@ -497,10 +492,7 @@ const ClientsSyncMenu = ({
         sendListByEmail: payload.sendListByEmail,
       });
 
-      if (
-        !started?.data?.batchId ||
-        !started.data.completionToken
-      ) {
+      if (!started?.data?.batchId || !started.data.completionToken) {
         throw new Error("Não foi possível registrar o lote.");
       }
 
@@ -572,9 +564,7 @@ const ClientsSyncMenu = ({
 
         console.error(
           "[GOALFY SELECTED] Falha ao distribuir:",
-          error instanceof Error
-            ? error.message
-            : "Erro desconhecido",
+          error instanceof Error ? error.message : "Erro desconhecido",
         );
       } finally {
         completedImports += 1;
@@ -620,8 +610,7 @@ const ClientsSyncMenu = ({
       payload.sendListByWhatsApp || payload.sendListByEmail;
 
     const notificationsReady =
-      reconciliation.remaining === 0 &&
-      reconciliation.unresolved.length === 0;
+      reconciliation.remaining === 0 && reconciliation.unresolved.length === 0;
 
     if (notificationsEnabled && !notificationsReady) {
       notificationsPending = true;
@@ -632,16 +621,14 @@ const ClientsSyncMenu = ({
 
     if (notificationsEnabled && notificationsReady) {
       try {
-        const dispatched =
-          await dispatchGoalfyBatchNotificationsAction({
-            batchId,
-          });
+        const dispatched = await dispatchGoalfyBatchNotificationsAction({
+          batchId,
+        });
 
         if (!dispatched?.data) {
           notificationsPending = true;
           notificationMessage =
-            "Falha ao processar notificações. " +
-            "Consulte Lotes pendentes.";
+            "Falha ao processar notificações. " + "Consulte Lotes pendentes.";
         } else {
           const state = dispatched.data;
           const counts = state.notifications;
@@ -663,8 +650,7 @@ const ClientsSyncMenu = ({
       } catch {
         notificationsPending = true;
         notificationMessage =
-          "Envio de notificações não concluído. " +
-          "Consulte Lotes pendentes.";
+          "Envio de notificações não concluído. " + "Consulte Lotes pendentes.";
       }
     }
 
@@ -675,8 +661,7 @@ const ClientsSyncMenu = ({
 
     // O estado dos avisos não muda a conclusão da distribuição.
     const hasPending =
-      reconciliation.remaining > 0 ||
-      reconciliation.unresolved.length > 0;
+      reconciliation.remaining > 0 || reconciliation.unresolved.length > 0;
 
     if (failedIds.size === 0 && !hasPending) {
       toast.add({
@@ -691,14 +676,10 @@ const ClientsSyncMenu = ({
       return;
     }
 
-    const details = [
-      `${confirmedIds.size} oportunidade(s) confirmada(s)`,
-    ];
+    const details = [`${confirmedIds.size} oportunidade(s) confirmada(s)`];
 
     if (reconciliation.remaining > 0) {
-      details.push(
-        `${reconciliation.remaining} aguardando conciliação`,
-      );
+      details.push(`${reconciliation.remaining} aguardando conciliação`);
     }
 
     if (
@@ -756,16 +737,22 @@ const ClientsSyncMenu = ({
             <DropdownMenuSeparator />
 
             <DropdownMenuItem
-              onClick={() => setPendingBatchesOpen(true)}
-            >
-              Lotes pendentes
-            </DropdownMenuItem>
-
-            <DropdownMenuItem
               disabled={hasSelection}
               onClick={() => setBulkImportOpen(true)}
             >
               Transferir dados da Goalfy
+            </DropdownMenuItem>
+
+            {hasSelection && (
+              <>
+                <DropdownMenuItem onClick={() => setSelectedImportOpen(true)}>
+                  Transferir {selectedClientIds.length} selecionado(s)
+                </DropdownMenuItem>
+              </>
+            )}
+
+            <DropdownMenuItem onClick={() => setPendingBatchesOpen(true)}>
+              Lotes pendentes
             </DropdownMenuItem>
 
             {pathname === "/clients/porto" && (
@@ -777,16 +764,6 @@ const ClientsSyncMenu = ({
                 >
                   <FileSpreadsheetIcon className="size-4" />
                   {exportingExcel ? "Exportando Excel..." : "Exportar Excel"}
-                </DropdownMenuItem>
-              </>
-            )}
-
-            {hasSelection && (
-              <>
-                <DropdownMenuSeparator />
-
-                <DropdownMenuItem onClick={() => setSelectedImportOpen(true)}>
-                  Transferir {selectedClientIds.length} selecionado(s)
                 </DropdownMenuItem>
               </>
             )}
