@@ -17,8 +17,6 @@ import {
 } from "@/src/components/ui/dialog";
 import { toast } from "@/src/components/ui/toast";
 
-import GoalfyNotificationReview from "./goalfy-notification-review";
-
 interface PendingBatch {
   batchId: string;
   mode: string;
@@ -72,7 +70,6 @@ const loadBatches = async (page: number) => {
 const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
   const [reconcilingId, setReconcilingId] = useState<string | null>(null);
   const [dispatchingId, setDispatchingId] = useState<string | null>(null);
-  const [reviewBatchId, setReviewBatchId] = useState<string | null>(null);
   const [clientsBatchId, setClientsBatchId] = useState<string | null>(null);
   const [clientsPage, setClientsPage] = useState(0);
   const [clientsLoading, setClientsLoading] = useState(false);
@@ -229,30 +226,26 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
       const result = response.data;
       const counts = result.notifications;
 
+      const aviso = counts.uncertain > 0
+        ? ` ${counts.uncertain} aviso(s) sem confirmação externa; ` +
+          "nenhum será reenviado automaticamente."
+        : "";
       const message = result.completed
-        ? result.acceptedGroups > 0
-          ? `Lote encerrado. ${result.acceptedGroups} grupo(s) ` +
-            "aceito(s) nesta execução."
-          : "Lote finalizado sem novos envios."
-        : `${result.acceptedGroups} grupo(s) aceito(s). ` +
-          `${counts.pending} notificação(ões) aguardando envio, ` +
-          `${counts.sending} em processamento e ` +
-          `${counts.uncertain} exigindo revisão.`;
-
-      const requiresAttention =
-        result.attentionGroups > 0 ||
-        counts.sending > 0 ||
-        counts.uncertain > 0;
+        ? `Lote concluído: cards Goalfy confirmados. ` +
+          `${result.acceptedGroups} grupo(s) de avisos aceito(s).` +
+          aviso
+        : `${result.acceptedGroups} grupo(s) de avisos aceito(s). ` +
+          `${counts.pending} aguardando envio; ` +
+          `${counts.sending} em processamento.` +
+          aviso;
 
       setReconcileMessage(message);
 
       toast.add({
-        type: requiresAttention ? "error" : "success",
-        title: requiresAttention
-          ? "Notificações exigem atenção"
-          : result.completed
-            ? "Lote concluído"
-            : "Notificações processadas",
+        type: result.completed ? "success" : "error",
+        title: result.completed
+          ? "Distribuição concluída no Goalfy"
+          : "Avisos complementares pendentes",
         description: message,
       });
     } catch (error) {
@@ -396,7 +389,8 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
               ? "Visualização de todos os lotes pendentes."
               : "Visualização dos seus lotes pendentes."}{" "}
             Conferir novamente consulta o AdvancedFilter e tenta criar somente
-            os cards ausentes. As notificações permanecem separadas.
+            os cards ausentes. WhatsApp e e-mail são avisos complementares;
+            a falta de confirmação deles não exige revisão administrativa.
           </DialogDescription>
         </DialogHeader>
 
@@ -465,7 +459,7 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
                   <p className="text-muted-foreground">
                     Entregues: {batch.notificationDelivered}
                     {" · "}Em processamento: {batch.notificationSending}
-                    {" · "}Revisão necessária: {batch.notificationUncertain}
+                    {" · "}Sem confirmação: {batch.notificationUncertain}
                   </p>
                 </div>
 
@@ -476,24 +470,6 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
                 )}
 
                 <div className="flex flex-wrap justify-end gap-2">
-                  {view.canViewAll &&
-                    (batch.notificationUncertain > 0 ||
-                      batch.notificationSending > 0) && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          setReviewBatchId((current) =>
-                            current === batch.batchId ? null : batch.batchId,
-                          );
-                        }}
-                      >
-                        {reviewBatchId === batch.batchId
-                          ? "Ocultar análise"
-                          : "Analisar notificações"}
-                      </Button>
-                    )}
-
                   {batch.remaining > 0 && (
                     <Button
                       type="button"
@@ -625,14 +601,6 @@ const GoalfyPendingBatchesDialog = ({ open, onOpenChange }: Props) => {
                   </div>
                 )}
 
-                {view.canViewAll && reviewBatchId === batch.batchId && (
-                  <GoalfyNotificationReview
-                    batchId={batch.batchId}
-                    onResolved={() => {
-                      void refresh();
-                    }}
-                  />
-                )}
               </div>
             ))}
           </div>
