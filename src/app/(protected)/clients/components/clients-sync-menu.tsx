@@ -1,7 +1,7 @@
 "use client";
 
-import { RefreshCcwIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { FileSpreadsheetIcon, RefreshCcwIcon } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { dispatchGoalfyBatchNotificationsAction } from "@/src/actions/clients/dispatch-goalfy-batch-notifications";
@@ -57,7 +57,10 @@ const ClientsSyncMenu = ({
   goalfyOptions,
 }: ClientsSyncMenuProps) => {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
+  const [exportingExcel, setExportingExcel] = useState(false);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
 
   const [selectedImportOpen, setSelectedImportOpen] = useState(false);
@@ -66,6 +69,59 @@ const ClientsSyncMenu = ({
 
   const { selectedClientIds, hasSelection, clearSelection } =
     useClientsSelection();
+
+  const handleExportExcel = async () => {
+    if (exportingExcel) return;
+
+    setExportingExcel(true);
+    try {
+      // Só utiliza filtros já aplicados à tabela, não os rascunhos do modal.
+      const query = new URLSearchParams();
+      for (const key of [
+        "q", "from", "to", "product", "salesModel", "enterpriseId",
+      ]) {
+        for (const value of searchParams.getAll(key)) {
+          query.append(key, value);
+        }
+      }
+
+      const response = await fetch(
+        "/api/clients/porto/export?" + query.toString(),
+        { method: "GET", credentials: "same-origin", cache: "no-store" },
+      );
+
+      if (!response.ok) {
+        const details = await response.json().catch(() => null) as
+          | { error?: string }
+          | null;
+        throw new Error(details?.error || "Não foi possível exportar o Excel.");
+      }
+
+      const file = await response.blob();
+      const url = URL.createObjectURL(file);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "clientes-porto-filtrados.xlsx";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+
+      toast.add({
+        type: "success",
+        title: "Excel exportado",
+        description: "Arquivo gerado com os filtros aplicados à lista.",
+      });
+    } catch (error) {
+      toast.add({
+        type: "error",
+        title: "Falha na exportação",
+        description: getErrorMessage(error, "Não foi possível gerar o Excel."),
+      });
+    } finally {
+      setExportingExcel(false);
+    }
+  };
 
   const sendErrorReport = async (failures: GoalfyImportFailure[]) => {
     if (failures.length === 0) {
@@ -708,6 +764,19 @@ const ClientsSyncMenu = ({
             >
               Transferir dados da Goalfy
             </DropdownMenuItem>
+
+            {pathname === "/clients/porto" && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  disabled={exportingExcel}
+                  onClick={() => void handleExportExcel()}
+                >
+                  <FileSpreadsheetIcon className="size-4" />
+                  {exportingExcel ? "Exportando Excel..." : "Exportar Excel"}
+                </DropdownMenuItem>
+              </>
+            )}
 
             {hasSelection && (
               <>
