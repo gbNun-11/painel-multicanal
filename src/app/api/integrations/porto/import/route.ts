@@ -16,6 +16,7 @@ import { portoOpportunitySchema } from "@/src/integrations/porto/schema";
 import { ingestOpportunity } from "@/src/services/opportunities/ingest-opportunity";
 import { authorizePortoOperator } from "@/src/services/porto/authorize-porto-operator";
 import { isAuthorizedPortoJsonPost } from "@/src/services/porto/check-porto-json-origin";
+import { isIcxAutomovelBonificacao } from "@/src/services/porto/is-icx-automovel-bonificacao";
 import {
   batchDigest,
   importBatchSchema,
@@ -199,6 +200,17 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const icxAutomovelBonificacao = isIcxAutomovelBonificacao({
+    enterpriseId: context.enterpriseId,
+    product: context.productName,
+    originUserName: context.userName,
+  });
+  // A bonificação é sempre CONTINGENCIA, mesmo quando a Porto informa
+  // um código de programa que normalmente seria classificado como LEAD.
+  const effectiveSalesModelOverride = icxAutomovelBonificacao
+    ? ("CONTINGENCIA" as const)
+    : salesModelOverride;
+
   const selected = new Set(input.selectedExternalIds);
   if (selected.size !== input.selectedExternalIds.length) {
     return json({ error: "Existem IDs duplicados na confirmação." }, 400);
@@ -329,14 +341,18 @@ export async function POST(request: NextRequest) {
         externalId,
         productCodeId,
         product: context.productName,
-        ...(salesModelOverride ? { salesModelOverride } : {}),
+        ...(effectiveSalesModelOverride
+          ? { salesModelOverride: effectiveSalesModelOverride }
+          : {}),
       });
       converted.opportunity.sourcePayload = {
         ...(sanitizePortoSourcePayload(opportunity) as Record<string, unknown>),
         _integration: {
           source: "PORTO_MULTICANAL",
           filter: input.opportunityStatus,
-          ...(salesModelOverride ? { salesModelOverride } : {}),
+          ...(effectiveSalesModelOverride
+            ? { salesModelOverride: effectiveSalesModelOverride }
+            : {}),
           multichannelUserId: context.userId,
           importedByUserId: operator.operatorId,
           importedAt: new Date().toISOString(),
@@ -386,7 +402,9 @@ export async function POST(request: NextRequest) {
     operatorId: operator.operatorId,
     multichannelUserId: context.userId,
     opportunityStatus: input.opportunityStatus,
-    ...(salesModelOverride ? { salesModel: salesModelOverride } : {}),
+    ...(effectiveSalesModelOverride
+      ? { salesModel: effectiveSalesModelOverride }
+      : {}),
     clientsCreated: createdClients,
     opportunitiesCreated: count("criado"),
     opportunitiesExisting: count("existente"),

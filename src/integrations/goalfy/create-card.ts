@@ -84,7 +84,10 @@ export const buildGoalfyCardBody = (client: GoalfyCreateCardData) => {
   addField(
     fields,
     fieldIds.salesModel,
-    required("modelo de venda", client.salesModel),
+    required(
+      "modelo de venda",
+      client.icxAutomovelBonificacao ? "CONTINGENCIA" : client.salesModel,
+    ),
   );
   addField(fields, fieldIds.name, required("nome do cliente", client.name));
 

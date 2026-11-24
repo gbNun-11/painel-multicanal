@@ -20,6 +20,7 @@ export interface ResolvePortoMultichannelContextInput {
 export interface ResolvedPortoMultichannelContext {
   userId: string;
   userName: string;
+  enterpriseId: string;
   enterpriseInsurerId: string;
   insurerId: string;
   susepId: string;
@@ -49,6 +50,7 @@ export const resolvePortoMultichannelContext = async ({
       userId: usersTable.id,
       userName: usersTable.name,
       userCpf: usersTable.cpf,
+      enterpriseId: enterpriseInsurersTable.enterpriseId,
       enterpriseInsurerId: enterpriseInsurersTable.id,
       insurerId: enterpriseInsurersTable.insurerId,
       susepId: susepsTable.id,
@@ -106,6 +108,7 @@ export const resolvePortoMultichannelContext = async ({
   return {
     userId: assignment.userId,
     userName: assignment.userName,
+    enterpriseId: assignment.enterpriseId,
     enterpriseInsurerId: assignment.enterpriseInsurerId,
     insurerId: assignment.insurerId,
     susepId: assignment.susepId,

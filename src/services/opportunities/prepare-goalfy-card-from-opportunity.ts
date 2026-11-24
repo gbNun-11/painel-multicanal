@@ -2,7 +2,6 @@ import "server-only";
 
 import { and, eq } from "drizzle-orm";
 
-import { ENTERPRISE_IDS } from "@/src/constants/enterprises";
 import { db } from "@/src/db";
 import {
   clientsTable,
@@ -14,6 +13,7 @@ import {
   usersTable,
 } from "@/src/db/schema";
 import type { GoalfyCreateCardData } from "@/src/integrations/goalfy/create-card";
+import { isIcxAutomovelBonificacao } from "@/src/services/porto/is-icx-automovel-bonificacao";
 
 export const prepareGoalfyCardForOpportunity = async (input: {
   opportunityId: string;
@@ -106,9 +106,7 @@ export const prepareGoalfyCardForOpportunity = async (input: {
 
   let icxAutomovelBonificacao = false;
   if (
-    card.enterpriseId === ENTERPRISE_IDS.ICX &&
     card.externalSource === "PORTO" &&
-    card.product.trim().replace(/\s+/g, " ").toUpperCase() === "AUTOMOVEL BONIFICACAO" &&
     importedUserId
   ) {
     // O usuário é aquele validado pelo CPF da Porto na importação.
@@ -120,14 +118,20 @@ export const prepareGoalfyCardForOpportunity = async (input: {
       .where(eq(usersTable.id, importedUserId))
       .limit(1);
 
-    const ownerName = owner?.name.trim().replace(/\s+/g, " ").toUpperCase();
-    icxAutomovelBonificacao =
-      ownerName === "MARCELLO REIS" || ownerName === "MARCELO REIS";
+    icxAutomovelBonificacao = owner
+      ? isIcxAutomovelBonificacao({
+          enterpriseId: card.enterpriseId,
+          product: card.product,
+          originUserName: owner.name,
+        })
+      : false;
   }
 
   return {
     ...card,
-    salesModel: card.salesModel ?? "LEAD",
+    salesModel: icxAutomovelBonificacao
+      ? "CONTINGENCIA"
+      : (card.salesModel ?? "LEAD"),
     productSubcategory: card.productSubcategory,
     icxAutomovelBonificacao,
     goalfyResponsibleValue: card.goalfyResponsibleValue.trim(),

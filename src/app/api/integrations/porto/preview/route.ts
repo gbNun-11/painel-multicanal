@@ -13,6 +13,7 @@ import {
 } from "@/src/integrations/porto/schema";
 import { authorizePortoOperator } from "@/src/services/porto/authorize-porto-operator";
 import { isAuthorizedPortoJsonPost } from "@/src/services/porto/check-porto-json-origin";
+import { isIcxAutomovelBonificacao } from "@/src/services/porto/is-icx-automovel-bonificacao";
 import { batchDigest } from "@/src/services/porto/porto-batch";
 import { resolvePortoMultichannelContext } from "@/src/services/porto/resolve-porto-multichannel-context";
 import { resolveDocument } from "@/src/utils/documents";
@@ -186,6 +187,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const icxAutomovelBonificacao = isIcxAutomovelBonificacao({
+    enterpriseId: context.enterpriseId,
+    product: context.productName,
+    originUserName: context.userName,
+  });
+  const effectiveSalesModel = icxAutomovelBonificacao
+    ? ("CONTINGENCIA" as const)
+    : salesModelOverride;
+
   const items: PreviewItem[] = [];
   const candidates: Candidate[] = [];
   const seenIds = new Set<string>();
@@ -337,7 +347,9 @@ export async function POST(request: NextRequest) {
       susepCode: context.susepCode,
       productId: context.productId,
       productName: context.productName,
-      ...(salesModelOverride ? { salesModel: salesModelOverride } : {}),
+      ...(effectiveSalesModel
+        ? { salesModel: effectiveSalesModel }
+        : {}),
     },
     opportunityStatus: parsedInput.data.opportunityStatus,
     totalReceived: portoResponse.itens.length,
