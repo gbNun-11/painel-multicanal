@@ -221,8 +221,9 @@ export const createDistributionExcelReport = async (
       safeExcelText(client.product),
 
       safeExcelText(
-        "enterpriseName" in client
-          ? (client.enterpriseName ?? input.enterpriseName)
+        "enterpriseName" in client &&
+          typeof client.enterpriseName === "string"
+          ? client.enterpriseName
           : input.enterpriseName,
       ),
 
