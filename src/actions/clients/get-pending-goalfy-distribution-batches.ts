@@ -68,7 +68,9 @@ export const getPendingGoalfyDistributionBatchesAction =
               db
                 .select({ id: batchItems.id })
                 .from(batchItems)
-                .where(eq(batchItems.batchId, goalfyDistributionBatchesTable.id)),
+                .where(
+                  eq(batchItems.batchId, goalfyDistributionBatchesTable.id),
+                ),
             ),
             notExists(
               db
@@ -76,7 +78,10 @@ export const getPendingGoalfyDistributionBatchesAction =
                 .from(notificationItems)
                 .where(
                   and(
-                    eq(notificationItems.batchId, goalfyDistributionBatchesTable.id),
+                    eq(
+                      notificationItems.batchId,
+                      goalfyDistributionBatchesTable.id,
+                    ),
                     inArray(notificationItems.status, ["pending", "sending"]),
                   ),
                 ),
@@ -145,10 +150,10 @@ export const getPendingGoalfyDistributionBatchesAction =
           });
         } catch (error) {
           // Falha em um lote não deve impedir a consulta dos demais.
-          console.error("[GOALFY BATCH CLEANUP] Não foi possível encerrar lote:", {
-            batchId: candidate.id,
-            error,
-          });
+          console.error(
+            "[GOALFY BATCH CLEANUP] Não foi possível encerrar lote:",
+            { batchId: candidate.id, error },
+          );
         }
       }
 
