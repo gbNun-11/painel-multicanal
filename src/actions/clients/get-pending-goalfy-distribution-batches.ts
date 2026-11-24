@@ -13,6 +13,7 @@ import {
 import { protectedActionClient } from "@/src/lib/safe-action";
 
 const PAGE_SIZE = 30;
+const STALE_NOTIFICATION_MS = 30 * 60 * 1000;
 
 const PENDING_STATUSES = [
   "running",
@@ -111,6 +112,7 @@ export const getPendingGoalfyDistributionBatchesAction =
           channel: goalfyDistributionNotificationItemsTable.channel,
           status: goalfyDistributionNotificationItemsTable.status,
           total: sql<number>`count(*)::integer`,
+          latestUpdatedAt: sql<Date | null>`max(${goalfyDistributionNotificationItemsTable.updatedAt})`,
         })
         .from(goalfyDistributionNotificationItemsTable)
         .where(
@@ -190,11 +192,20 @@ export const getPendingGoalfyDistributionBatchesAction =
             "uncertain",
           );
 
+          // Notificações inconclusivas não exigem conferência do
+          // administrador. Uma mensagem ainda em envio só impede
+          // o encerramento enquanto sua tentativa estiver ativa.
+          const recentSending = notificationEntries.some(
+            (entry) =>
+              entry.status === "sending" &&
+              (!entry.latestUpdatedAt ||
+                Date.now() - new Date(entry.latestUpdatedAt).getTime() <
+                  STALE_NOTIFICATION_MS),
+          );
           const canFinalize =
             remaining === 0 &&
             whatsappPending + emailPending === 0 &&
-            notificationSending === 0 &&
-            notificationUncertain === 0;
+            !recentSending;
 
           return {
             batchId: batch.id,

@@ -26,6 +26,7 @@ const schema = z.object({
 const MAX_ROWS_PER_DISPATCH = 200;
 const MAX_GROUPS_PER_DISPATCH = 2;
 const MAX_ITEMS_PER_GROUP = 100;
+const STALE_NOTIFICATION_MS = 30 * 60 * 1000;
 
 interface NotificationGroup {
   channel: GoalfyNotificationChannel;
@@ -123,22 +124,35 @@ const finishIfFullyDelivered = async (
 
     const remainingDistributions = distributionCount?.total ?? 0;
 
+    // Mensagens sem retorno há 30 minutos não ficam eternamente como
+    // 'sending'. Nunca reenviar: a chamada externa pode ter sido aceita.
+    // A criação do card é o único requisito para considerar a distribuição
+    // concluída; notificações são avisos complementares.
+    if (remainingDistributions === 0) {
+      await tx
+        .update(goalfyDistributionNotificationItemsTable)
+        .set({
+          status: "uncertain",
+          lastErrorCode: "notification_ack_timeout",
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(goalfyDistributionNotificationItemsTable.batchId, batchId),
+            eq(goalfyDistributionNotificationItemsTable.status, "sending"),
+            sql`${goalfyDistributionNotificationItemsTable.updatedAt} < ${new Date(Date.now() - STALE_NOTIFICATION_MS)}`,
+          ),
+        );
+    }
+
     const notifications = await notificationCounts(tx, batchId);
 
-    // Preserva lotes com criações pendentes, mensagens em envio
-    // ou resultados inconclusivos.
-    // Um lote sem notificações não possui mensagens
-    // aguardando processamento, mesmo que os canais
-    // tenham sido solicitados inicialmente.
-    const notificationsResolved =
-      notifications.pending === 0 &&
-      notifications.sending === 0 &&
-      notifications.uncertain === 0 &&
-      notifications.delivered === notifications.total;
-
+    // Aguardam-se apenas envios ainda NÃO tentados ou chamadas em curso.
+    // 'uncertain' é um resultado terminal, jamais prova de entrega.
     const completed =
       remainingDistributions === 0 &&
-      notificationsResolved;
+      notifications.pending === 0 &&
+      notifications.sending === 0;
 
     if (!completed) {
       return {
@@ -148,21 +162,13 @@ const finishIfFullyDelivered = async (
       };
     }
 
-    // Primeiro remove controles de notificações já entregues.
-    // O WHERE impede excluir registros não concluídos.
+    // Outbox é temporária: as notificações já tentadas (inclusive
+    // as sem confirmação externa) não devem bloquear nem poluir lotes
+    // concluídos. Nenhuma mensagem é marcada como entregue sem prova.
     const deletedNotifications = await tx
       .delete(goalfyDistributionNotificationItemsTable)
       .where(
-        and(
-          eq(
-            goalfyDistributionNotificationItemsTable.batchId,
-            batchId,
-          ),
-          eq(
-            goalfyDistributionNotificationItemsTable.status,
-            "delivered",
-          ),
-        ),
+        eq(goalfyDistributionNotificationItemsTable.batchId, batchId),
       )
       .returning({
         id: goalfyDistributionNotificationItemsTable.id,
