@@ -252,6 +252,7 @@ export const getAvailableClientsForExport = async (
   // +1 permite informar que a seleção excedeu o limite de segurança.
   const rows = await db
     .select({
+      id: opportunitiesTable.id,
       opportunityNumber: opportunitiesTable.opportunityNumber,
       name: clientsTable.name,
       document: clientsTable.document,
