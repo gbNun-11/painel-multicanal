@@ -1,6 +1,6 @@
 "use server";
 
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, notExists, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/src/db";
@@ -13,6 +13,7 @@ import {
 import { protectedActionClient } from "@/src/lib/safe-action";
 
 const PAGE_SIZE = 30;
+const CLEANUP_BATCHES_PER_REQUEST = 30;
 const STALE_NOTIFICATION_MS = 30 * 60 * 1000;
 
 const PENDING_STATUSES = [
@@ -46,6 +47,110 @@ export const getPendingGoalfyDistributionBatchesAction =
               PENDING_STATUSES,
             ),
           );
+
+      // Conciliações antigas podem ter todos os cards confirmados, mas
+      // continuar visíveis apenas porque um aviso (e-mail/WhatsApp) ficou
+      // "uncertain". Como a outbox é temporária, encerrar esses lotes não
+      // exige aceite administrativo nem novo envio de mensagens.
+      //
+      // A busca abaixo é um pré-filtro. A transação revalida TODOS os
+      // requisitos sob FOR UPDATE para não encerrar lotes em andamento.
+      const batchItems = goalfyDistributionBatchItemsTable;
+      const notificationItems = goalfyDistributionNotificationItemsTable;
+      const candidates = await db
+        .select({ id: goalfyDistributionBatchesTable.id })
+        .from(goalfyDistributionBatchesTable)
+        .where(
+          and(
+            scope,
+            eq(goalfyDistributionBatchesTable.status, "reconciling"),
+            notExists(
+              db
+                .select({ id: batchItems.id })
+                .from(batchItems)
+                .where(eq(batchItems.batchId, goalfyDistributionBatchesTable.id)),
+            ),
+            notExists(
+              db
+                .select({ id: notificationItems.id })
+                .from(notificationItems)
+                .where(
+                  and(
+                    eq(notificationItems.batchId, goalfyDistributionBatchesTable.id),
+                    inArray(notificationItems.status, ["pending", "sending"]),
+                  ),
+                ),
+            ),
+          ),
+        )
+        .orderBy(asc(goalfyDistributionBatchesTable.startedAt))
+        .limit(CLEANUP_BATCHES_PER_REQUEST);
+
+      for (const candidate of candidates) {
+        try {
+          await db.transaction(async (tx) => {
+            const [batch] = await tx
+              .select({
+                id: goalfyDistributionBatchesTable.id,
+                initiatedByUserId:
+                  goalfyDistributionBatchesTable.initiatedByUserId,
+                status: goalfyDistributionBatchesTable.status,
+              })
+              .from(goalfyDistributionBatchesTable)
+              .where(eq(goalfyDistributionBatchesTable.id, candidate.id))
+              .limit(1)
+              .for("update");
+
+            if (
+              !batch ||
+              batch.status !== "reconciling" ||
+              (!canViewAll && batch.initiatedByUserId !== ctx.user.id)
+            ) {
+              return;
+            }
+
+            const [pendingCards] = await tx
+              .select({ total: sql<number>`count(*)::integer` })
+              .from(batchItems)
+              .where(eq(batchItems.batchId, batch.id));
+
+            if ((pendingCards?.total ?? 0) !== 0) return;
+
+            const [unsentNotifications] = await tx
+              .select({ total: sql<number>`count(*)::integer` })
+              .from(notificationItems)
+              .where(
+                and(
+                  eq(notificationItems.batchId, batch.id),
+                  inArray(notificationItems.status, ["pending", "sending"]),
+                ),
+              );
+
+            // Nunca descarta uma notificação não tentada ou com requisição
+            // em curso. "uncertain" não é "delivered" e não será reenviada.
+            if ((unsentNotifications?.total ?? 0) !== 0) return;
+
+            await tx
+              .delete(notificationItems)
+              .where(eq(notificationItems.batchId, batch.id));
+
+            await tx
+              .delete(goalfyDistributionBatchesTable)
+              .where(
+                and(
+                  eq(goalfyDistributionBatchesTable.id, batch.id),
+                  eq(goalfyDistributionBatchesTable.status, "reconciling"),
+                ),
+              );
+          });
+        } catch (error) {
+          // Falha em um lote não deve impedir a consulta dos demais.
+          console.error("[GOALFY BATCH CLEANUP] Não foi possível encerrar lote:", {
+            batchId: candidate.id,
+            error,
+          });
+        }
+      }
 
       const rows = await db
         .select({
