@@ -28,6 +28,8 @@ export const clientsTable = pgTable(
 
     birthDate: date("birth_date"),
 
+    birthCountry: text("birth_country"),
+
     sex: text("sex"),
 
     profession: text("profession"),

@@ -59,7 +59,10 @@ export const assetVehiclesTable = pgTable(
     model: text("model"),
     manufactureYear: integer("manufacture_year"),
     modelYear: integer("model_year"),
-    doors: integer("doors"),
+    // Campo histórico preservado: portas não equivalem a passageiros.
+    // Não preencher em novas integrações.
+    legacyDoors: integer("legacy_doors"),
+    passengerCapacity: integer("passenger_capacity"),
     fuel: text("fuel"),
     category: text("category"),
     transmission: text("transmission"),
@@ -70,8 +73,12 @@ export const assetVehiclesTable = pgTable(
     index("asset_vehicles_plate_idx").on(t.plate),
     index("asset_vehicles_chassis_idx").on(t.chassis),
     check(
-      "asset_vehicles_doors_check",
-      sql`${t.doors} IS NULL OR ${t.doors} >= 0`,
+      "asset_vehicles_legacy_doors_check",
+      sql`${t.legacyDoors} IS NULL OR ${t.legacyDoors} >= 0`,
+    ),
+    check(
+      "asset_vehicles_passenger_capacity_check",
+      sql`${t.passengerCapacity} IS NULL OR ${t.passengerCapacity} > 0`,
     ),
   ],
 );
